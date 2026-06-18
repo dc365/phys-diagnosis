@@ -1,0 +1,67 @@
+# 阈值初值仅用于 MVP 跑通。真实业务区域必须用历史个例调参。
+pressure_system:
+  min_prominence_hpa: 0.5
+  min_distance_grid: 6
+  max_centers: 20
+
+subtropical_high:
+  level_hpa: 500
+  contour_gpm: 5880
+  min_area_grid_points: 20
+
+convergence:
+  low_level_hpa: 850
+  divergence_max: -1.0e-5
+  convergence_min: 1.0e-5
+  min_area_grid_points: 12
+
+upper_divergence:
+  preferred_levels_hpa: [200, 300]
+  divergence_min: 1.0e-5
+  min_area_grid_points: 12
+
+low_level_jet:
+  level_hpa: 850
+  wind_speed_min_ms: 12.0
+  moisture_flux_percentile: 70
+  min_area_grid_points: 10
+
+moisture_transport:
+  level_hpa: 850
+  flux_percentile: 75
+  min_area_grid_points: 12
+
+front_candidate:
+  level_hpa: 850
+  temp_gradient_percentile: 80
+  score_percentile: 82
+  min_area_grid_points: 10
+
+trough_ridge:
+  level_hpa: 500
+  anomaly_percentile: 20
+  min_points_per_line: 4
+  max_lines: 8
+
+heavy_rain_risk:
+  score_threshold: 0.62
+  min_area_grid_points: 12
+  weights:
+    moisture_flux: 0.20
+    moisture_convergence: 0.25
+    low_level_convergence: 0.15
+    upward_motion: 0.20
+    k_index: 0.10
+    cape: 0.05
+    precipitation: 0.05
+
+convection_risk:
+  score_threshold: 0.60
+  min_area_grid_points: 10
+  weights:
+    cape: 0.28
+    cin: 0.10
+    k_index: 0.12
+    shear_0_6km: 0.22
+    low_level_convergence: 0.15
+    moisture: 0.13

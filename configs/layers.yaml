@@ -1,0 +1,66 @@
+layers:
+  z500:
+    title: 500hPa 位势高度
+    variable: z500
+    kind: raster
+    unit: gpm
+  mslp:
+    title: 海平面气压
+    variable: mslp
+    kind: raster
+    unit: hPa
+  wind850_speed:
+    title: 850hPa 风速
+    variable: wind850_speed
+    kind: raster
+    unit: m/s
+  div850:
+    title: 850hPa 散度
+    variable: div850
+    kind: raster
+    unit: s^-1
+  vort500:
+    title: 500hPa 相对涡度
+    variable: vort500
+    kind: raster
+    unit: s^-1
+  moisture_flux850:
+    title: 850hPa 水汽通量
+    variable: moisture_flux850
+    kind: raster
+    unit: kg kg^-1 m s^-1
+  moisture_conv850:
+    title: 850hPa 水汽辐合
+    variable: moisture_conv850
+    kind: raster
+    unit: s^-1
+  omega700:
+    title: 700hPa 垂直速度 omega
+    variable: omega700
+    kind: raster
+    unit: Pa/s
+  temp_adv850:
+    title: 850hPa 温度平流
+    variable: temp_adv850
+    kind: raster
+    unit: K/s
+  k_index:
+    title: K 指数
+    variable: k_index
+    kind: raster
+    unit: degC
+  shear_0_6km:
+    title: 0-6km 风切变近似
+    variable: shear_0_6km
+    kind: raster
+    unit: m/s
+  heavy_rain_score:
+    title: 强降水潜势评分
+    variable: heavy_rain_score
+    kind: raster
+    unit: score
+  convection_score:
+    title: 强对流潜势评分
+    variable: convection_score
+    kind: raster
+    unit: score

@@ -1,0 +1,7 @@
+colormaps:
+  default: viridis
+  precipitation: turbo
+  divergence: RdBu_r
+  vorticity: PuOr
+  moisture: YlGnBu
+  risk: YlOrRd

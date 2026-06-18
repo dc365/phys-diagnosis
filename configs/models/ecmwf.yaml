@@ -1,0 +1,44 @@
+model: ecmwf
+name: ECMWF / EC 模式
+
+# 变量名映射。真实 EC NetCDF 到手后，优先调整这里。
+variables:
+  mslp: ["msl", "mslp", "prmsl"]
+  geopotential: ["z", "geopotential"]
+  geopotential_height: ["gh", "z_gpm", "hgt"]
+  temperature: ["t", "temperature"]
+  u_wind: ["u", "u_component_of_wind"]
+  v_wind: ["v", "v_component_of_wind"]
+  specific_humidity: ["q", "specific_humidity"]
+  relative_humidity: ["r", "rh", "relative_humidity"]
+  vertical_velocity: ["w", "omega", "vertical_velocity"]
+  precipitation: ["tp", "precip", "total_precipitation"]
+  cape: ["cape", "CAPE"]
+  cin: ["cin", "CIN"]
+  t2m: ["t2m", "2t", "temperature_2m"]
+  d2m: ["d2m", "2d", "dewpoint_2m"]
+  u10: ["u10", "10u", "u10m"]
+  v10: ["v10", "10v", "v10m"]
+
+dimensions:
+  latitude: ["latitude", "lat", "y"]
+  longitude: ["longitude", "lon", "x"]
+  level: ["level", "pressure_level", "isobaricInhPa", "isobaric"]
+  time: ["time", "valid_time", "forecast_time"]
+  step: ["step", "forecast_hour", "leadtime"]
+
+unit_conversions:
+  mslp:
+    Pa_to_hPa: true
+  temperature:
+    K_to_C: true
+  t2m:
+    K_to_C: true
+  d2m:
+    K_to_C: true
+  geopotential:
+    geopotential_to_gpm: true
+  precipitation:
+    m_to_mm: true
+  specific_humidity:
+    kgkg_to_gkg: false

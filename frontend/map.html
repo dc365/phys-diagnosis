@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>天气形势智能诊断 MVP</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/static/map.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>天气形势智能诊断</h1>
+        <span>EC NetCDF → 物理量诊断 → 天气系统识别</span>
+      </div>
+      <div class="mode-strip" aria-label="模式与运行控制">
+        <label class="control-field">
+          <span>模式</span>
+          <select id="modelSelect" disabled>
+            <option>ECMWF</option>
+          </select>
+        </label>
+        <label class="control-field run-field">
+          <span>运行</span>
+          <select id="runSelect"></select>
+        </label>
+        <button id="btnDemo" class="secondary-action">示例数据</button>
+        <button id="btnDiagnose">运行诊断</button>
+      </div>
+    </header>
+
+    <main class="map-stage">
+      <div id="map" class="map" aria-label="天气诊断 GIS 地图">
+        <div class="map-status">
+          <span id="status">准备就绪</span>
+        </div>
+
+        <aside class="layer-panel" aria-label="要素与天气系统">
+          <section class="panel-section">
+            <div class="section-head">
+              <h2>要素</h2>
+              <button id="btnLoadLayer" class="ghost-button">刷新</button>
+            </div>
+            <select id="layerSelect" class="visually-hidden" aria-label="诊断要素"></select>
+            <div id="layerChips" class="layer-chips"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-head">
+              <h2>天气系统</h2>
+              <button id="btnLoadFeatures" class="ghost-button">应用</button>
+            </div>
+            <div class="checkboxes feature-grid" id="featureToggles"></div>
+          </section>
+        </aside>
+
+        <aside class="analysis-panel" aria-label="诊断信息">
+          <h2>自动形势分析</h2>
+          <pre id="analysisText">暂无分析。点击“示例数据”并“运行诊断”。</pre>
+          <h2>对象详情</h2>
+          <pre id="featureDetail">点击地图对象查看证据。</pre>
+        </aside>
+
+        <div id="mapLegend" class="map-legend" hidden>
+          <strong id="legendTitle">诊断图层</strong>
+          <div id="legendRamp" class="legend-ramp"></div>
+          <div class="legend-labels">
+            <span id="legendMin">低值</span>
+            <span id="legendMax">高值</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="timeline-bar" aria-label="预报时效时间轴">
+      <button id="btnStepPrev" class="timeline-step">上一时效</button>
+      <div class="time-readout">
+        <span>预报时效</span>
+        <strong id="currentTimeLabel">+24小时</strong>
+      </div>
+      <div id="timelineHours" class="timeline-hours"></div>
+      <button id="btnStepNext" class="timeline-step">下一时效</button>
+      <select id="fhSelect" class="visually-hidden" aria-label="预报时效"></select>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script src="/static/maplibre-utils.js"></script>
+  <script src="/static/map.js"></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>天气形势智能诊断可视化管理后台</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳转到主内容</a>
+  <div class="admin-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true">WD</span>
+        <div>
+          <h1>可视化管理后台</h1>
+          <p>天气形势智能诊断</p>
+        </div>
+      </div>
+      <nav class="nav-list">
+        <a class="nav-item active" href="#workspace">工作台</a>
+        <a class="nav-item" href="#jobs">诊断任务</a>
+        <a class="nav-item" href="#data-source">数据源管理</a>
+        <a class="nav-item" href="#results">诊断结果库</a>
+        <a class="nav-item" href="#evidence">证据链分析</a>
+        <a class="nav-item" href="#monitor">服务监控</a>
+      </nav>
+      <a class="map-link" href="/map">打开 GIS 地图</a>
+    </aside>
+
+    <main id="main-content" class="main-stage">
+      <header class="workbar" id="workspace">
+        <div class="title-stack">
+          <span class="eyebrow">NAFP EC 业务后台</span>
+          <h2>天气形势诊断工作台</h2>
+        </div>
+        <form id="diagnosisForm" class="run-controls" aria-label="诊断参数">
+          <label class="field wide-field">
+            <span>数据目录</span>
+            <input id="rootInput" name="root" type="text" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>起报时间</span>
+            <input id="runTimeInput" name="run_time" type="datetime-local" />
+          </label>
+          <label class="field compact-field">
+            <span>时效</span>
+            <select id="forecastHourSelect" name="forecast_hour"></select>
+          </label>
+          <button id="runButton" class="primary-action" type="submit">
+            <span aria-hidden="true">▶</span>
+            运行诊断
+          </button>
+        </form>
+      </header>
+
+      <section class="status-strip" aria-label="诊断状态摘要">
+        <div class="metric-cell">
+          <span>有效时间</span>
+          <strong id="validTimeMetric">-</strong>
+        </div>
+        <div class="metric-cell">
+          <span>数据完整率</span>
+          <strong id="completenessMetric">-</strong>
+        </div>
+        <div class="metric-cell">
+          <span>天气系统</span>
+          <strong id="systemMetric">-</strong>
+        </div>
+        <div class="metric-cell risk-cell">
+          <span>风险链</span>
+          <strong id="riskMetric">-</strong>
+        </div>
+        <div class="status-message" id="statusMessage" role="status">等待诊断</div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="section-panel systems-panel" id="results" aria-labelledby="systemsTitle">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">天气系统</span>
+              <h3 id="systemsTitle">形势对象</h3>
+            </div>
+            <span id="systemCountBadge" class="count-badge">0</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>类型</th>
+                  <th>层次</th>
+                  <th class="number-col">可信度</th>
+                  <th>范围</th>
+                </tr>
+              </thead>
+              <tbody id="systemsTableBody">
+                <tr><td colspan="4" class="empty-cell">暂无诊断结果</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-panel evidence-panel" id="evidence" aria-labelledby="chainsTitle">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">诊断结论</span>
+              <h3 id="chainsTitle">风险证据链</h3>
+            </div>
+            <span id="chainCountBadge" class="count-badge">0</span>
+          </div>
+          <div id="chainList" class="chain-list">
+            <div class="empty-state">暂无证据链</div>
+          </div>
+        </section>
+
+        <aside class="inspector-panel" aria-label="证据链详情">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">详情</span>
+              <h3 id="inspectorTitle">证据检查器</h3>
+            </div>
+          </div>
+          <div id="inspectorBody" class="inspector-body">
+            <div class="empty-state">选择天气系统或风险链</div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="lower-grid">
+        <section class="section-panel" id="data-source" aria-labelledby="fieldMatrixTitle">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">数据源</span>
+              <h3 id="fieldMatrixTitle">字段完整性</h3>
+            </div>
+            <span id="missingBadge" class="count-badge">0 缺测</span>
+          </div>
+          <div id="fieldMatrix" class="field-matrix"></div>
+        </section>
+
+        <section class="section-panel" aria-labelledby="diagnosticsTitle">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">物理量</span>
+              <h3 id="diagnosticsTitle">诊断统计</h3>
+            </div>
+          </div>
+          <div class="table-wrap diagnostics-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th class="number-col">最小</th>
+                  <th class="number-col">平均</th>
+                  <th class="number-col">最大</th>
+                  <th class="number-col">P90</th>
+                </tr>
+              </thead>
+              <tbody id="diagnosticsTableBody">
+                <tr><td colspan="5" class="empty-cell">暂无统计</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-panel" id="jobs" aria-labelledby="taskLogTitle">
+          <div class="section-head">
+            <div>
+              <span class="panel-kicker">任务</span>
+              <h3 id="taskLogTitle">运行记录</h3>
+            </div>
+          </div>
+          <ol id="taskLog" class="task-log"></ol>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/admin-utils.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

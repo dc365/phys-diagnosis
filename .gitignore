@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.playwright-cli/
+output/
+
+# Runtime uploads, job records, and generated products.
+data/jobs/
+data/raw/*
+!data/raw/ecmwf_demo.nc
+data/products/*
+!data/products/ecmwf_demo/
+!data/products/ecmwf_demo/**
+data/products/ecmwf_demo/.DS_Store
+data/products/ecmwf_demo/**/.DS_Store
