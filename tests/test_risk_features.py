@@ -251,3 +251,26 @@ def test_multi_hazard_score_details_outputs_independent_score_grids():
     assert details["scores"]["risk_short_duration_heavy_rain_score"].shape == lon2d.shape
     assert float(np.nanmax(details["scores"]["risk_precipitation_composite_score"])) > 0.5
     assert float(np.nanmax(details["scores"]["risk_severe_convection_composite_score"])) > 0.5
+
+
+def test_multi_hazard_score_details_normalizes_partial_weight_hazard_scores():
+    lat, lon, lon2d, lat2d = _risk_grid()
+    core = np.exp(-(((lon2d - 115.0) / 3.0) ** 2 + ((lat2d - 29.0) / 2.0) ** 2))
+    details = multi_hazard_score_details(
+        {
+            "cape": 2000.0 * core,
+            "shear_0_6km": 25.0 * core,
+            "li": -6.0 * core,
+        },
+        {
+            "persistent_heavy_rain_risk": {"weights": {}},
+            "short_duration_heavy_rain_risk": {"weights": {}},
+            "thunderstorm_gale_risk": {"weights": {}},
+            "hail_risk": {"weights": {"cape": 0.30, "shear_0_6km": 0.30, "li": 0.10}},
+            "rotating_storm_risk": {"weights": {}},
+        },
+    )
+
+    hail = details["scores"]["risk_hail_score"]
+    assert float(np.nanmax(hail)) > 0.72
+    assert float(np.nanmax(hail)) <= 1.0

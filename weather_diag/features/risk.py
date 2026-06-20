@@ -159,8 +159,18 @@ def multi_hazard_score_details(fields: dict, thresholds: dict) -> dict:
     factors = {}
     available_weights = {}
     for grid_name, (cfg_name, cfg_specs) in specs.items():
-        details = _score_details(fields, thresholds.get(cfg_name, {}).get("weights", {}), cfg_specs)
-        scores[grid_name] = details["score"]
+        weights = thresholds.get(cfg_name, {}).get("weights", {})
+        details = _score_details(fields, weights, cfg_specs)
+        configured_weight = sum(_w(weights, spec["factor"]) for spec in cfg_specs)
+        if configured_weight > 0:
+            contributions = [detail["contribution"] for detail in details["factors"].values()]
+            if contributions:
+                raw_score = np.sum(np.stack(contributions), axis=0)
+            else:
+                raw_score = details["score"]
+            scores[grid_name] = np.clip(raw_score / configured_weight, 0, 1)
+        else:
+            scores[grid_name] = details["score"]
         factors[grid_name] = details["factors"]
         available_weights[grid_name] = details["available_weight"]
 
