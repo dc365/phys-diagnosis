@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
+from weather_diag.config import THRESHOLD_MATRIX_PATH
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
 from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
 
@@ -10,6 +13,26 @@ from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
 def envelope(body: dict) -> dict:
     assert set(body.keys()) == {"code", "msg", "data", "trace_id"}
     return body
+
+
+def chain_by_type(result: dict, target_type: str) -> dict:
+    return next(chain for chain in result["evidence_chains"] if chain["target_type"] == target_type)
+
+
+def evidence_by_entry(chain: dict, entry_id: str) -> dict:
+    return next(item for item in chain["evidence"] if item["entry_id"] == entry_id)
+
+
+def system_evidence_by_entry(system: dict, entry_id: str) -> dict:
+    return next(item for item in system["evidence"] if item["entry_id"] == entry_id)
+
+
+def max_exterior_size(geometry: dict) -> int:
+    coordinates = geometry["coordinates"]
+    geojson_type = geometry.get("geojson_type", "Polygon")
+    if geojson_type == "MultiPolygon":
+        return max(len(polygon[0]) for polygon in coordinates)
+    return len(coordinates[0])
 
 
 def test_diagnose_nafp_situation_returns_evidence_payload():
@@ -33,6 +56,429 @@ def test_diagnose_nafp_situation_returns_evidence_payload():
         "convection_potential",
     }
     assert "summary" in result and result["summary"]
+
+
+def test_nafp_situation_weather_systems_include_feature_type():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    assert result["systems"]
+    for system in result["systems"]:
+        assert system["feature_type"] == system["type"]
+
+
+def test_nafp_situation_summary_uses_chinese_operational_labels():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    summary = result["summary"]
+    assert "subtropical_high" not in summary
+    assert "heavy_rain_potential" not in summary
+    assert "副高588区" in summary
+    assert "低压辐合区" in summary
+    assert "高压辐散区" in summary
+    assert "强降水潜势" in summary
+
+
+def test_nafp_situation_system_geometries_are_shapes_not_bboxes():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    assert all(system["geometry"]["type"] != "bbox" for system in result["systems"])
+
+    polygon_systems = [
+        system
+        for system in result["systems"]
+        if system["geometry"]["type"] == "polygon"
+    ]
+    assert polygon_systems
+    assert all(system["geometry"]["coordinates"] for system in polygon_systems)
+    assert any(max_exterior_size(system["geometry"]) > 5 for system in polygon_systems)
+
+    for system_type in ["low_level_jet", "moisture_transport"]:
+        system = next(system for system in result["systems"] if system["type"] == system_type)
+        assert system["geometry"]["type"] == "line"
+        assert len(system["geometry"]["coordinates"]) > 2
+
+    for target_type in ["heavy_rain_potential", "convection_potential"]:
+        region = chain_by_type(result, target_type)["region"]
+        assert region["type"] == "polygon"
+        assert region["coordinates"]
+        assert region["bbox"]
+
+
+def test_nafp_situation_detects_front_candidates_with_threshold_audit():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    fronts = [system for system in result["systems"] if system["type"] == "front_candidate"]
+    assert fronts
+    front = fronts[0]
+    assert front["feature_type"] == "front_candidate"
+    assert front["level"] == "850"
+    assert front["geometry"]["type"] == "polygon"
+    assert front["geometry"]["bbox"]
+    assert front["confidence"] >= 0.55
+    assert "温度梯度" in front["diagnosis"]
+    assert "低层辐合" in front["diagnosis"]
+    assert "温度平流" in front["diagnosis"]
+
+    assert result["diagnostics"]["tt850"]["source_path"].endswith("/tt/850/2026/06/17/20/26061720.024")
+    assert result["diagnostics"]["tt850_gradient"]["p90"] > 0
+    assert result["diagnostics"]["front_candidate_score"]["p90"] > 0
+
+    gradient = system_evidence_by_entry(front, "system.front_candidate.tt850_gradient_percentile")
+    assert gradient["field"] == "tt850"
+    assert gradient["statistic"] == "gradient_p80"
+    assert gradient["operator"] == ">="
+    assert gradient["threshold"] == 80.0
+    assert gradient["raw_value"] > 0
+    assert gradient["source_path"].endswith("/tt/850/2026/06/17/20/26061720.024")
+
+    score = system_evidence_by_entry(front, "system.front_candidate.score_percentile")
+    assert score["field"] == "front_candidate_score"
+    assert score["statistic"] == "p82"
+    assert score["threshold"] == 82.0
+    assert score["raw_value"] > 0
+    assert any(path.endswith("/ttadv/850/2026/06/17/20/26061720.024") for path in score["source_paths"])
+
+
+def test_nafp_situation_detects_trough_ridge_axis_lines_with_threshold_audit():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    trough_lines = [
+        system
+        for system in result["systems"]
+        if system["type"] == "trough_candidate" and system["geometry"]["type"] == "line"
+    ]
+    ridge_lines = [
+        system
+        for system in result["systems"]
+        if system["type"] == "ridge_candidate" and system["geometry"]["type"] == "line"
+    ]
+
+    assert trough_lines
+    assert ridge_lines
+    trough = trough_lines[0]
+    ridge = ridge_lines[0]
+    assert len(trough["geometry"]["coordinates"]) >= 4
+    assert len(ridge["geometry"]["coordinates"]) >= 4
+    assert trough["geometry"]["bbox"]
+    assert ridge["geometry"]["bbox"]
+    assert "轴线" in trough["diagnosis"]
+    assert "轴线" in ridge["diagnosis"]
+
+    trough_percentile = system_evidence_by_entry(trough, "system.trough_ridge.axis_anomaly_percentile")
+    assert trough_percentile["field"] == "gh500_anomaly"
+    assert trough_percentile["statistic"] == "axis_percentile"
+    assert trough_percentile["operator"] == "tail_percentile"
+    assert trough_percentile["threshold"] == 20.0
+    assert trough_percentile["raw_value"] < 0
+    assert trough_percentile["source_path"].endswith("/gh/500/2026/06/17/20/26061720.024")
+
+    min_points = system_evidence_by_entry(trough, "system.trough_ridge.min_points_per_line")
+    assert min_points["field"] == "gh500_anomaly"
+    assert min_points["statistic"] == "line_point_count"
+    assert min_points["threshold"] == 4.0
+    assert min_points["raw_value"] >= 4
+
+
+def test_nafp_situation_detects_pressure_centers_with_divergence_audit():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    lows = [system for system in result["systems"] if system["type"] == "low_pressure_convergence"]
+    highs = [system for system in result["systems"] if system["type"] == "high_pressure_divergence"]
+
+    assert lows
+    assert highs
+    low = lows[0]
+    high = highs[0]
+    assert low["feature_type"] == "low_pressure_convergence"
+    assert high["feature_type"] == "high_pressure_divergence"
+    assert low["geometry"]["type"] == "polygon"
+    assert high["geometry"]["type"] == "polygon"
+    assert "低压" in low["diagnosis"]
+    assert "低层辐合" in low["diagnosis"]
+    assert "高压" in high["diagnosis"]
+    assert "低层辐散" in high["diagnosis"]
+
+    low_height = system_evidence_by_entry(low, "system.low_pressure.gh500_anomaly_percentile")
+    low_div = system_evidence_by_entry(low, "system.low_pressure.div850_convergence_percentile")
+    assert low_height["field"] == "gh500_anomaly"
+    assert low_height["operator"] == "<="
+    assert low_height["raw_value"] < 0
+    assert low_div["field"] == "div850"
+    assert low_div["operator"] == "<="
+    assert low_div["raw_value"] < 0
+    assert low_div["source_path"].endswith("/div/850/2026/06/17/20/26061720.024")
+
+    high_height = system_evidence_by_entry(high, "system.high_pressure.gh500_anomaly_percentile")
+    high_div = system_evidence_by_entry(high, "system.high_pressure.div850_divergence_percentile")
+    assert high_height["field"] == "gh500_anomaly"
+    assert high_height["operator"] == ">="
+    assert high_height["raw_value"] > 0
+    assert high_div["field"] == "div850"
+    assert high_div["operator"] == ">="
+    assert high_div["raw_value"] > 0
+
+
+def test_nafp_situation_detects_moisture_wind_and_divergence_system_extensions():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    types = {system["type"] for system in result["systems"]}
+    assert {
+        "low_level_jet",
+        "moisture_transport",
+        "moisture_convergence",
+        "low_level_convergence",
+        "upper_divergence",
+    } <= types
+
+    assert result["diagnostics"]["uv850_speed"]["p90"] > 0
+    assert result["diagnostics"]["moisture_flux850"]["p90"] > 0
+    assert result["diagnostics"]["moisture_flux_divergence850"]["min"] < 0
+
+    low_level_jet = next(system for system in result["systems"] if system["type"] == "low_level_jet")
+    assert low_level_jet["feature_type"] == "low_level_jet"
+    assert low_level_jet["level"] == "850"
+    assert low_level_jet["geometry"]["type"] == "line"
+    assert "低空急流" in low_level_jet["diagnosis"]
+    assert {
+        "system.low_level_jet.wind_speed_min",
+        "system.low_level_jet.moisture_flux_percentile",
+    } <= {item["entry_id"] for item in low_level_jet["evidence"]}
+
+    moisture_convergence = next(system for system in result["systems"] if system["type"] == "moisture_convergence")
+    assert moisture_convergence["geometry"]["type"] == "polygon"
+    assert "水汽辐合" in moisture_convergence["diagnosis"]
+    assert "system.moisture_convergence.flux_divergence_percentile" in {
+        item["entry_id"] for item in moisture_convergence["evidence"]
+    }
+
+    system_counts = {system_type: 0 for system_type in types}
+    for system in result["systems"]:
+        system_counts[system["type"]] = system_counts.get(system["type"], 0) + 1
+    assert system_counts["low_level_jet"] <= 12
+    assert system_counts["moisture_transport"] <= 12
+    assert system_counts["moisture_convergence"] <= 12
+    assert system_counts["low_level_convergence"] <= 12
+    assert system_counts["upper_divergence"] <= 12
+
+
+def test_nafp_situation_reports_dynamic_lift_and_phase_evidence_chains():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    chains = {chain["target_type"]: chain for chain in result["evidence_chains"]}
+    assert {"dynamic_lift_potential", "precipitation_phase"} <= set(chains)
+    assert result["diagnostics"]["vorticity500"]["source_path"].endswith("/uv/500/2026/06/17/20/26061720.024")
+    assert result["diagnostics"]["tt850"]["source_path"].endswith("/tt/850/2026/06/17/20/26061720.024")
+
+    dynamic = chains["dynamic_lift_potential"]
+    assert dynamic["level"] in {"low", "moderate", "high"}
+    assert {
+        "dynamic_lift.w700",
+        "dynamic_lift.vorticity500",
+        "dynamic_lift.div850",
+    } <= {item["entry_id"] for item in dynamic["evidence"]}
+
+    phase = chains["precipitation_phase"]
+    assert phase["phase_type"] in {"rain", "mixed", "snow", "freezing_rain", "unknown"}
+    assert "phase.tt850" in {item["entry_id"] for item in phase["evidence"]}
+    assert phase["diagnosis"]
+
+
+def test_nafp_situation_reports_threshold_matrix_and_rule_audit_fields():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    assert result["threshold_matrix"]["matrix_id"] == "nafp-default"
+    assert result["threshold_matrix"]["status"] == "default"
+
+    heavy_rain = chain_by_type(result, "heavy_rain_potential")
+    q850 = evidence_by_entry(heavy_rain, "heavy_rain.q850")
+    assert q850["field"] == "q850"
+    assert q850["statistic"] == "p75"
+    assert q850["operator"] == "ramp"
+    assert q850["threshold"] == 8.0
+    assert q850["scale"] == 8.0
+    assert q850["weight"] == 0.18
+    assert q850["raw_value"] > q850["threshold"]
+    assert 0 < q850["normalized_score"] <= 1
+    assert q850["contribution"] == round(q850["normalized_score"] * q850["weight"], 6)
+
+
+def test_nafp_evidence_chains_include_dominant_evidence_summary():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    for target_type in ["heavy_rain_potential", "convection_potential"]:
+        chain = chain_by_type(result, target_type)
+        dominant = chain["dominant_evidence"]
+        assert 1 <= len(dominant) <= 3
+        assert dominant == sorted(dominant, key=lambda item: item["contribution"], reverse=True)
+        assert all(item["entry_id"] and item["signal"] for item in dominant)
+        assert dominant[0]["contribution"] > 0
+
+
+def test_nafp_evidence_chains_link_to_supporting_weather_systems():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    for target_type in ["heavy_rain_potential", "convection_potential"]:
+        chain = chain_by_type(result, target_type)
+        linked = chain["linked_systems"]
+        assert linked
+        assert linked[0]["system_id"]
+        assert linked[0]["type"] in {
+            "low_level_jet",
+            "moisture_transport",
+            "moisture_convergence",
+            "low_level_convergence",
+            "upper_divergence",
+            "front_candidate",
+            "trough_candidate",
+            "ridge_candidate",
+        }
+        assert linked[0]["relation"] in {"overlap", "nearby"}
+        assert linked[0]["reason"]
+
+
+def test_nafp_situation_returns_multi_hazard_risk_diagnoses():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    diagnoses = {item["hazard_type"]: item for item in result["risk_diagnoses"]}
+    assert {"persistent_heavy_rain", "short_duration_heavy_rain"} <= set(diagnoses)
+
+    heavy_chain = chain_by_type(result, "heavy_rain_potential")
+    persistent = diagnoses["persistent_heavy_rain"]
+    assert persistent["risk_id"] == "risk-persistent_heavy_rain"
+    assert persistent["risk_domain"] == ["precipitation"]
+    assert persistent["label"] == "持续性强降水"
+    assert persistent["risk_level"] == heavy_chain["level"]
+    assert persistent["score"] == heavy_chain["score"]
+    assert persistent["source_chain_ids"] == ["heavy_rain_potential"]
+    assert persistent["region"] == heavy_chain["region"]
+    assert persistent["supporting_systems"] == heavy_chain["linked_systems"]
+
+    short_duration = diagnoses["short_duration_heavy_rain"]
+    assert short_duration["risk_id"] == "risk-short_duration_heavy_rain"
+    assert short_duration["risk_domain"] == ["precipitation", "severe_convection"]
+    assert short_duration["label"] == "短时强降水"
+    assert short_duration["risk_level"] == heavy_chain["level"]
+    assert short_duration["score"] == heavy_chain["score"]
+    assert short_duration["source_chain_ids"] == ["heavy_rain_potential"]
+
+
+def test_nafp_situation_returns_diagnosis_conclusions():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    conclusions = result["diagnosis_conclusions"]
+    by_type = {item["target_type"]: item for item in conclusions}
+    assert {"heavy_rain_potential", "convection_potential"} <= set(by_type)
+    heavy = by_type["heavy_rain_potential"]
+    assert "强降水" in heavy["headline"]
+    assert heavy["reasoning"]
+    assert any("主导证据" in item for item in heavy["reasoning"])
+    assert any("关联天气系统" in item for item in heavy["reasoning"])
+    assert heavy["action_hint"]
+
+
+def test_threshold_matrix_changes_nafp_evidence_chain_score():
+    client = TestClient(app)
+    original_bytes = THRESHOLD_MATRIX_PATH.read_bytes() if THRESHOLD_MATRIX_PATH.exists() else None
+    base = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+    base_chain = chain_by_type(base, "heavy_rain_potential")
+    base_q850 = evidence_by_entry(base_chain, "heavy_rain.q850")
+    matrix = client.get("/api/v1/admin/algorithms/threshold-matrix").json()["data"]
+    edited = deepcopy(matrix)
+    for entry in edited["entries"]:
+        if entry["entry_id"] == "heavy_rain.q850":
+            entry["weight"] = 0.0
+            break
+
+    try:
+        response = client.put(
+            "/api/v1/admin/algorithms/threshold-matrix",
+            json={
+                "algorithm_id": edited["algorithm_id"],
+                "updated_by": "test",
+                "remark": "test q850 weight sensitivity",
+                "entries": edited["entries"],
+                "level_thresholds": edited["level_thresholds"],
+            },
+        )
+        assert response.status_code == 200
+
+        changed = diagnose_nafp_situation(
+            root=NAFP_SAMPLE_ROOT,
+            run_time="2026-06-17T20:00:00",
+            forecast_hour=24,
+        )
+        changed_chain = chain_by_type(changed, "heavy_rain_potential")
+        changed_q850 = evidence_by_entry(changed_chain, "heavy_rain.q850")
+
+        assert base_q850["contribution"] > 0
+        assert changed_q850["weight"] == 0.0
+        assert changed_q850["contribution"] == 0.0
+        expected_score = round(
+            sum(item["contribution"] for item in base_chain["evidence"] if item["entry_id"] != "heavy_rain.q850"),
+            3,
+        )
+        assert changed_chain["score"] == expected_score
+    finally:
+        if original_bytes is None:
+            THRESHOLD_MATRIX_PATH.unlink(missing_ok=True)
+        else:
+            THRESHOLD_MATRIX_PATH.write_bytes(original_bytes)
 
 
 def test_diagnose_nafp_situation_reports_missing_optional_fields(tmp_path):
@@ -70,6 +516,25 @@ def test_nafp_situation_api_returns_public_envelope():
     body = envelope(response.json())
     assert body["code"] == 0
     assert body["msg"] == "ok"
+    assert body["data"]["diagnostics"]["gh500"]["max"] > 580
+    assert body["data"]["evidence_chains"]
+
+
+def test_nafp_situation_api_accepts_configured_data_code():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/diagnosis/nafp/situation",
+        json={
+            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hour": 24,
+        },
+    )
+
+    assert response.status_code == 200
+    body = envelope(response.json())
+    assert body["code"] == 0
     assert body["data"]["diagnostics"]["gh500"]["max"] > 580
     assert body["data"]["evidence_chains"]
 
