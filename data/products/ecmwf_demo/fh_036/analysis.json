@@ -1,18 +1,194 @@
 {
   "forecast_hour": 36,
-  "summary": "当前为预报时效 +36h 的自动天气形势诊断结果。大尺度环流方面，识别到 3 条 500hPa 槽线候选，识别到 1 条 500hPa 脊线候选，存在 500hPa 副热带高压 5880gpm 区域。槽线和副高边缘附近可重点关注天气发展条件。地面气压场方面，自动识别到高压中心 1 个、低压中心 2 个。低压附近若配合低层辐合和水汽条件，较有利于云雨发展。",
-  "detail": "当前为预报时效 +36h 的自动天气形势诊断结果。\n大尺度环流方面，识别到 3 条 500hPa 槽线候选，识别到 1 条 500hPa 脊线候选，存在 500hPa 副热带高压 5880gpm 区域。槽线和副高边缘附近可重点关注天气发展条件。\n地面气压场方面，自动识别到高压中心 1 个、低压中心 2 个。低压附近若配合低层辐合和水汽条件，较有利于云雨发展。\n低层水汽输送方面，识别到低空急流候选 1 条、水汽输送带候选 1 条。低空急流出口区和水汽辐合区是强降水潜势的重点关注区域。\n强降水潜势方面，综合水汽输送、水汽辐合、低层辐合、上升运动和热力条件，识别到强降水潜势区 1 个。\n强对流潜势方面，综合 CAPE/CIN、风切变、低层水汽和触发条件，识别到强对流潜势区 1 个。\n强降水评分最大值约 0.85；该值为 0–1 归一化评分，只表示潜势强弱，不等同于实况雨量。\n强对流评分最大值约 0.93；需结合触发机制和实况回波判断是否真正发生。",
+  "summary": "当前为预报时效 +36h 的自动天气形势诊断结果。大尺度环流方面，识别到 3 条 500hPa 槽线候选，识别到 2 条 500hPa 脊线候选，存在 500hPa 副热带高压 5880gpm 区域。槽线和副高边缘附近可重点关注天气发展条件。地面气压场方面，自动识别到高压中心 1 个、低压中心 1 个。低压附近若配合低层辐合和水汽条件，较有利于云雨发展。",
+  "detail": "当前为预报时效 +36h 的自动天气形势诊断结果。\n大尺度环流方面，识别到 3 条 500hPa 槽线候选，识别到 2 条 500hPa 脊线候选，存在 500hPa 副热带高压 5880gpm 区域。槽线和副高边缘附近可重点关注天气发展条件。\n地面气压场方面，自动识别到高压中心 1 个、低压中心 1 个。低压附近若配合低层辐合和水汽条件，较有利于云雨发展。\n动力条件方面，识别到低层辐合区 2 个、高空辐散区 2 个。若低层辐合与高空辐散叠加，有利于上升运动增强。\n低层水汽输送方面，识别到低空急流候选 1 条、水汽输送带候选 1 条。低空急流出口区和水汽辐合区是强降水潜势的重点关注区域。\n强降水潜势方面，综合水汽输送、水汽辐合、低层辐合、上升运动和热力条件，识别到强降水潜势区 1 个。\n强对流潜势方面，综合 CAPE/CIN、风切变、低层水汽和触发条件，识别到强对流潜势区 1 个。\n强降水评分最大值约 0.85；该值为 0–1 归一化评分，只表示潜势强弱，不等同于实况雨量。\n强对流评分最大值约 0.93；需结合触发机制和实况回波判断是否真正发生。",
+  "conclusions": [
+    {
+      "id": "conclusion-heavy_rain_risk_001",
+      "target_type": "heavy_rain_risk",
+      "level": "high",
+      "score": 0.8493642474889023,
+      "headline": "强降水风险区达到高潜势，最高评分0.85。",
+      "reasoning": [
+        "主导因子为700hPa 上升运动贡献0.17、水汽辐合贡献0.16、水汽通量贡献0.15。",
+        "关联天气系统包括低层辐合区、低空急流、水汽输送带、高空辐散区，说明潜势区具备空间配合。",
+        "高潜势核心区包含113个格点，需要优先关注。"
+      ],
+      "action_hint": "建议重点监测雨带落区、短时雨强和中小河流及城市内涝风险，并结合雷达、卫星和自动站实况订正。"
+    },
+    {
+      "id": "conclusion-convection_risk_001",
+      "target_type": "convection_risk",
+      "level": "high",
+      "score": 0.9322543071191898,
+      "headline": "强对流风险区达到高潜势，最高评分0.93。",
+      "reasoning": [
+        "主导因子为CAPE贡献0.25、0-6km 风切变贡献0.13、低层水汽贡献0.12。",
+        "关联天气系统包括低层辐合区、高空辐散区、锋面候选区、槽线，说明潜势区具备空间配合。",
+        "高潜势核心区包含193个格点，需要优先关注。"
+      ],
+      "action_hint": "建议重点关注触发线附近雷暴发展、阵风大风和短时强降水，并结合雷达回波形态滚动订正。"
+    },
+    {
+      "id": "conclusion-persistent_heavy_rain_risk_001",
+      "target_type": "persistent_heavy_rain_risk",
+      "level": "high",
+      "score": 0.8399999999999999,
+      "headline": "持续性强降水达到高潜势，最高评分0.84。",
+      "reasoning": [
+        "主导因子为700hPa 上升运动贡献0.18、水汽通量贡献0.17、模式降水贡献0.15。",
+        "关联天气系统包括低层辐合区、低空急流、水汽输送带、高空辐散区，说明潜势区具备空间配合。",
+        "高潜势核心区包含101个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "persistent_heavy_rain",
+      "risk_domain": [
+        "precipitation"
+      ],
+      "source_grid": "risk_persistent_heavy_rain_score"
+    },
+    {
+      "id": "conclusion-short_duration_heavy_rain_risk_001",
+      "target_type": "short_duration_heavy_rain_risk",
+      "level": "high",
+      "score": 0.8324515649277127,
+      "headline": "短时强降水达到高潜势，最高评分0.83。",
+      "reasoning": [
+        "主导因子为K 指数贡献0.17、CAPE贡献0.16、水汽通量贡献0.13。",
+        "关联天气系统包括低层辐合区、低空急流、水汽输送带、高空辐散区，说明潜势区具备空间配合。",
+        "高潜势核心区包含117个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "short_duration_heavy_rain",
+      "risk_domain": [
+        "precipitation",
+        "severe_convection"
+      ],
+      "source_grid": "risk_short_duration_heavy_rain_score"
+    },
+    {
+      "id": "conclusion-hail_risk_001",
+      "target_type": "hail_risk",
+      "level": "high",
+      "score": 0.8571428571428572,
+      "headline": "冰雹达到高潜势，最高评分0.86。",
+      "reasoning": [
+        "主导因子为CAPE贡献0.28、0-6km 风切变贡献0.21。",
+        "关联天气系统包括低层辐合区、高空辐散区、锋面候选区、槽线，说明潜势区具备空间配合。",
+        "高潜势核心区包含104个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "hail",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_hail_score"
+    },
+    {
+      "id": "conclusion-hail_risk_002",
+      "target_type": "hail_risk",
+      "level": "high",
+      "score": 0.8571428571428572,
+      "headline": "冰雹达到高潜势，最高评分0.86。",
+      "reasoning": [
+        "主导因子为CAPE贡献0.26、0-6km 风切变贡献0.22。",
+        "关联天气系统包括低层辐合区、高空辐散区、锋面候选区、槽线，说明潜势区具备空间配合。",
+        "高潜势核心区包含8个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "hail",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_hail_score"
+    },
+    {
+      "id": "conclusion-hail_risk_003",
+      "target_type": "hail_risk",
+      "level": "high",
+      "score": 0.7222986668648712,
+      "headline": "冰雹达到高潜势，最高评分0.72。",
+      "reasoning": [
+        "主导因子为0-6km 风切变贡献0.28、CAPE贡献0.20。",
+        "关联天气系统包括高空辐散区、锋面候选区、低层辐合区、水汽输送带，说明潜势区具备空间配合。",
+        "高潜势核心区包含2个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "hail",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_hail_score"
+    },
+    {
+      "id": "conclusion-hail_risk_004",
+      "target_type": "hail_risk",
+      "level": "moderate",
+      "score": 0.6912568080214835,
+      "headline": "冰雹达到中等潜势，最高评分0.69。",
+      "reasoning": [
+        "主导因子为0-6km 风切变贡献0.28、CAPE贡献0.17。",
+        "关联天气系统包括低层辐合区、锋面候选区、高空辐散区、水汽输送带，说明潜势区具备空间配合。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "hail",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_hail_score"
+    },
+    {
+      "id": "conclusion-severe_convection_composite_risk_001",
+      "target_type": "severe_convection_composite_risk",
+      "level": "high",
+      "score": 0.8571428571428572,
+      "headline": "强对流综合风险达到高潜势，最高评分0.86。",
+      "reasoning": [
+        "关联天气系统包括低层辐合区、高空辐散区、锋面候选区、槽线，说明潜势区具备空间配合。",
+        "高潜势核心区包含259个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "severe_convection_composite",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_severe_convection_composite_score"
+    },
+    {
+      "id": "conclusion-severe_convection_composite_risk_002",
+      "target_type": "severe_convection_composite_risk",
+      "level": "high",
+      "score": 0.7222986668648712,
+      "headline": "强对流综合风险达到高潜势，最高评分0.72。",
+      "reasoning": [
+        "关联天气系统包括高空辐散区、锋面候选区、低层辐合区、水汽输送带，说明潜势区具备空间配合。",
+        "高潜势核心区包含2个格点，需要优先关注。"
+      ],
+      "action_hint": "建议结合实况资料和预报员经验订正自动诊断结论。",
+      "hazard_type": "severe_convection_composite",
+      "risk_domain": [
+        "severe_convection"
+      ],
+      "source_grid": "risk_severe_convection_composite_score"
+    }
+  ],
   "feature_counts": {
     "high": 1,
-    "low": 2,
+    "low": 1,
     "subtropical_high": 1,
     "trough": 3,
-    "ridge": 1,
+    "ridge": 2,
+    "low_level_convergence": 2,
+    "upper_divergence": 2,
     "low_level_jet": 1,
     "moisture_transport": 1,
     "front_candidate": 1,
     "heavy_rain_risk": 1,
-    "convection_risk": 1
+    "convection_risk": 1,
+    "persistent_heavy_rain_risk": 1,
+    "short_duration_heavy_rain_risk": 1,
+    "hail_risk": 4,
+    "severe_convection_composite_risk": 2
   },
   "diagnostic_stats": {
     "mslp": {
@@ -26,6 +202,12 @@
       "max": 5907.9853515625,
       "mean": 5825.0126953125,
       "unit": "gpm"
+    },
+    "t850": {
+      "min": 13.4996337890625,
+      "max": 20.70147705078125,
+      "mean": 17.28429412841797,
+      "unit": "degC"
     },
     "wind850_speed": {
       "min": 7.633442401885986,
@@ -128,6 +310,48 @@
       "max": 0.9322543144226074,
       "mean": 0.2923046350479126,
       "unit": "score"
+    },
+    "risk_persistent_heavy_rain_score": {
+      "min": 0.00044664033339358866,
+      "max": 0.8399999737739563,
+      "mean": 0.10808874666690826,
+      "unit": "0-1"
+    },
+    "risk_short_duration_heavy_rain_score": {
+      "min": 0.00013798050349578261,
+      "max": 0.832451581954956,
+      "mean": 0.1529175043106079,
+      "unit": "0-1"
+    },
+    "risk_thunderstorm_gale_score": {
+      "min": 0.0,
+      "max": 0.692307710647583,
+      "mean": 0.19092538952827454,
+      "unit": "0-1"
+    },
+    "risk_hail_score": {
+      "min": 0.0,
+      "max": 0.8571428656578064,
+      "mean": 0.2799111604690552,
+      "unit": "0-1"
+    },
+    "risk_rotating_storm_score": {
+      "min": 0.0,
+      "max": 0.5348837375640869,
+      "mean": 0.17806461453437805,
+      "unit": "0-1"
+    },
+    "risk_precipitation_composite_score": {
+      "min": 0.00044664033339358866,
+      "max": 0.8399999737739563,
+      "mean": 0.15382713079452515,
+      "unit": "0-1"
+    },
+    "risk_severe_convection_composite_score": {
+      "min": 0.00021341154933907092,
+      "max": 0.8571428656578064,
+      "mean": 0.30126887559890747,
+      "unit": "0-1"
     },
     "div200": {
       "min": -6.513532753160689e-07,
