@@ -336,3 +336,35 @@ def detect_convection_risk(
         factor_details=factor_details,
         base_evidence="CAPE、CIN、风切变、低层水汽、低层触发条件综合评分较高",
     )
+
+
+def detect_hazard_risk_features(
+    hazard_type: str,
+    score: np.ndarray,
+    lat,
+    lon,
+    thresholds: dict,
+    *,
+    factor_details: dict | None = None,
+) -> list[dict]:
+    from weather_diag.diagnosis.risk_taxonomy import hazard_metadata
+
+    meta = hazard_metadata(hazard_type)
+    cfg = thresholds.get(meta["feature_type"], {})
+    features = _ranked_risk_features(
+        score,
+        lat,
+        lon,
+        feature_type=meta["feature_type"],
+        title=meta["label"] + "风险区",
+        cfg=cfg,
+        factor_details=factor_details,
+        base_evidence=meta["label"] + "综合评分较高",
+    )
+    for feature in features:
+        props = feature.setdefault("properties", {})
+        props["hazard_type"] = hazard_type
+        props["risk_domain"] = list(meta["risk_domain"])
+        props["mechanism_tags"] = list(meta["mechanism_tags"])
+        props["source_grid"] = meta["score_grid"]
+    return features

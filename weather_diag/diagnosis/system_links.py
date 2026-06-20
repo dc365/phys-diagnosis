@@ -9,6 +9,12 @@ from shapely.geometry import LineString, Point, box, shape
 RISK_FEATURE_TO_CHAIN = {
     "heavy_rain_risk": "heavy_rain_potential",
     "convection_risk": "convection_potential",
+    "persistent_heavy_rain_risk": "heavy_rain_potential",
+    "short_duration_heavy_rain_risk": "heavy_rain_potential",
+    "thunderstorm_gale_risk": "convection_potential",
+    "hail_risk": "convection_potential",
+    "rotating_storm_risk": "convection_potential",
+    "severe_convection_composite_risk": "convection_potential",
 }
 
 

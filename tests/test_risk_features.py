@@ -196,6 +196,28 @@ def test_pipeline_writes_multi_hazard_risk_score_grids(tmp_path):
         assert float(ds[name].max()) <= 1.0
 
 
+def test_pipeline_outputs_multi_hazard_risk_features(tmp_path):
+    source = create_demo_ecmwf_netcdf(tmp_path / "multi_hazard_features.nc")
+    diagnose_file(source, run_id="multi_hazard_features_demo")
+    features = load_features("multi_hazard_features_demo", 24)["features"]
+    feature_types = {feature["properties"]["feature_type"] for feature in features}
+
+    assert "short_duration_heavy_rain_risk" in feature_types
+    assert "severe_convection_composite_risk" in feature_types
+
+    short_rain = next(
+        feature
+        for feature in features
+        if feature["properties"]["feature_type"] == "short_duration_heavy_rain_risk"
+    )
+    props = short_rain["properties"]
+    assert props["hazard_type"] == "short_duration_heavy_rain"
+    assert props["risk_domain"] == ["precipitation", "severe_convection"]
+    assert props["source_grid"] == "risk_short_duration_heavy_rain_score"
+    assert props["dominant_factors"]
+    assert "supporting_systems" in props
+
+
 def test_multi_hazard_score_details_outputs_independent_score_grids():
     lat, lon, lon2d, lat2d = _risk_grid()
     core = np.exp(-(((lon2d - 115.0) / 3.0) ** 2 + ((lat2d - 29.0) / 2.0) ** 2))

@@ -25,6 +25,7 @@ from weather_diag.features.front import detect_front_candidates
 from weather_diag.features.risk import (
     convection_score_details,
     detect_convection_risk,
+    detect_hazard_risk_features,
     detect_heavy_rain_risk,
     heavy_rain_score_details,
     multi_hazard_score_details,
@@ -282,6 +283,25 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
                     factor_details=convection_details["factors"] if convection_details else None,
                 )
             )
+        if multi_hazard_details is not None:
+            for hazard_type, score_grid in [
+                ("persistent_heavy_rain", "risk_persistent_heavy_rain_score"),
+                ("short_duration_heavy_rain", "risk_short_duration_heavy_rain_score"),
+                ("thunderstorm_gale", "risk_thunderstorm_gale_score"),
+                ("hail", "risk_hail_score"),
+                ("rotating_storm_or_supercell", "risk_rotating_storm_score"),
+                ("severe_convection_composite", "risk_severe_convection_composite_score"),
+            ]:
+                features.extend(
+                    detect_hazard_risk_features(
+                        hazard_type,
+                        multi_hazard_details["scores"][score_grid],
+                        lat,
+                        lon,
+                        thresholds,
+                        factor_details=multi_hazard_details["factors"].get(score_grid),
+                    )
+                )
 
         features = attach_feature_supporting_systems(features)
         features_json = feature_collection(features)
