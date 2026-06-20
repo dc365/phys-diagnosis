@@ -13,12 +13,15 @@ DATA_DIR = Path(os.getenv("WEATHER_DIAG_DATA_DIR", PROJECT_ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"
 PRODUCTS_DIR = DATA_DIR / "products"
 JOBS_DIR = DATA_DIR / "jobs"
+ADMIN_DIR = DATA_DIR / "admin"
+THRESHOLD_MATRIX_PATH = ADMIN_DIR / "threshold_matrix.json"
 
 
 def ensure_dirs() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     PRODUCTS_DIR.mkdir(parents=True, exist_ok=True)
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    ADMIN_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_yaml(path: str | Path) -> Dict[str, Any]:
