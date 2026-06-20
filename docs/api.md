@@ -70,21 +70,138 @@
 ## Public v1 NAFP Situation Diagnosis
 
 - `POST /api/v1/diagnosis/nafp/situation`
+- `POST /api/v1/diagnosis/nafp/situations`
 
 Request:
 
 ```json
 {
-  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+  "data_code": "NAFP_ECTHIN_NEW_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24
 }
 ```
 
+`data_code` comes from backend data-source configuration. The current default
+is `NAFP_ECTHIN_NEW_NC`; future datasets such as `NAFP_GFS_NC` can be added in
+the backend config without changing the admin UI. `root` is still accepted as a
+compatibility/debug field, but clients should prefer `data_code`.
+
 The response `data` contains `run_time`, `forecast_hour`, `valid_time`,
-`domain`, `systems`, `diagnostics`, `evidence_chains`, `missing_fields`, and
-`summary`. This endpoint is backend-focused and does not return visualization
-tiles or frontend-specific payloads.
+`domain`, `systems`, `diagnostics`, `evidence_chains`,
+`risk_diagnoses`, `diagnosis_conclusions`, `missing_fields`, and `summary`.
+This endpoint is backend-focused and does not return visualization tiles or
+frontend-specific payloads.
+
+`risk_diagnoses` is the canonical multi-hazard risk conclusion list. A risk item
+contains at least `hazard_type`, `label`, `risk_domain`, `risk_level`, `score`,
+`source_grid`, and `source_chain_ids`; area results may also include `region`,
+`dominant_evidence`, `mechanism_tags`, and `supporting_systems`. The legacy
+`evidence_chains` and `diagnosis_conclusions` arrays are retained for existing
+clients and forecaster-facing narrative summaries.
+
+`diagnosis_conclusions` is a forecaster-oriented conclusion layer. Each item has
+`headline`, `reasoning`, and `action_hint`, generated from dominant physical
+evidence and linked weather systems.
+
+Each evidence chain may include `linked_systems`, a ranked list of spatially
+overlapping or nearby weather systems that support the diagnosis. Each link
+contains `system_id`, `type`, `name`, `relation`, `distance_degrees`,
+`relevance`, and a concise `reason`.
+
+`systems` may include `subtropical_high`, `low_pressure_convergence`,
+`high_pressure_divergence`, `trough_candidate`, `ridge_candidate`, and
+`front_candidate`. Evidence items include threshold matrix audit fields such as
+`entry_id`, `statistic`, `operator`, `threshold`, `raw_value`, and
+`source_path`/`source_paths`.
+
+Weather-system geometry may be `bbox`, `polygon`, or `line`. The `line` type is
+used for 500hPa trough/ridge axis candidates and includes `coordinates` plus a
+derived `bbox`.
+
+Batch Request:
+
+```json
+{
+  "data_code": "NAFP_ECTHIN_NEW_NC",
+  "run_time": "2026-06-17T20:00:00",
+  "forecast_hours": [0, 3, 6, 9, 12, 24]
+}
+```
+
+`situations` runs the same NAFP situation diagnosis for multiple forecast hours
+in one request. The response contains `result_count`, `failed_count`, `results`,
+and `failed`; one missing forecast-hour file does not fail the whole batch.
+
+## Public v1 NAFP Point Diagnosis
+
+- `POST /api/v1/diagnosis/nafp/point`
+
+Request:
+
+```json
+{
+  "data_code": "NAFP_ECTHIN_NEW_NC",
+  "run_time": "2026-06-17T20:00:00",
+  "forecast_hour": 24,
+  "lat": 30.21,
+  "lon": 120.63
+}
+```
+
+The point endpoint uses the same threshold matrix and evidence entry IDs as the
+situation diagnosis. It samples the nearest model grid point for the requested
+latitude and longitude, then returns point-level `scores`,
+`risk_diagnoses`, `evidence_chains`, and `diagnosis_conclusions`.
+
+Point-level `risk_diagnoses` uses the same canonical multi-hazard item contract:
+each item contains at least `hazard_type`, `label`, `risk_domain`,
+`risk_level`, `score`, `source_grid`, and `source_chain_ids`. Legacy
+`evidence_chains` and `diagnosis_conclusions` remain available alongside the
+canonical risk list.
+
+The response `data.point` contains the requested coordinate, sampling method,
+nearest grid latitude/longitude, grid indices, distance in degrees, and whether
+the requested point is outside the model domain. Each evidence item uses
+`statistic=point` and keeps the original threshold rule statistic in
+`rule_statistic`, so clients can distinguish point sampling from whole-domain
+percentile scoring while preserving threshold audit fields.
+
+## Public v1 Admin Algorithms
+
+- `GET /api/v1/admin/data-sources`
+- `GET /api/v1/admin/algorithms/catalog`
+- `GET /api/v1/admin/algorithms/threshold-matrix`
+- `PUT /api/v1/admin/algorithms/threshold-matrix`
+- `GET /api/v1/admin/algorithms/rule-explanations`
+
+`admin/data-sources` returns the configured NAFP data-code list and default
+code:
+
+```json
+{
+  "default_code": "NAFP_ECTHIN_NEW_NC",
+  "items": [
+    {
+      "code": "NAFP_ECTHIN_NEW_NC",
+      "name": "NAFP_ECTHIN_NEW_NC",
+      "model": "EC",
+      "format": "nc",
+      "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+      "forecast_hour_range": {"start": 0, "end": 240, "step": 3},
+      "forecast_hours": [0, 3, 6, 9],
+      "enabled": true,
+      "default": true
+    }
+  ]
+}
+```
+
+`rule-explanations` returns the structured diagnostic basis used by the admin
+backend. Each section includes `rule_id`, `title`, `category`, `basis`,
+`inputs`, `method`, `threshold_entries`, `threshold_details`, `outputs`, and
+`evidence_contract`, so the UI can explain each weather-system or evidence-chain
+diagnosis with the same threshold IDs used by the running algorithm.
 
 ## Public v1 Error Codes
 
@@ -118,7 +235,12 @@ tiles or frontend-specific payloads.
 - `GET /api/layers`
 - `GET /api/layers/{layer_id}/metadata?run_id=...&forecast_hour=24`
 - `GET /api/layers/{layer_id}/grid?run_id=...&forecast_hour=24`
+- `GET /api/layers/{layer_id}/contours?run_id=...&forecast_hour=24`
 - `GET /api/layers/{layer_id}/image?run_id=...&forecast_hour=24`（兼容旧图片渲染，不作为前端主路径）
+
+`contours` 返回从诊断格点生成的 GeoJSON 线要素，可用于等压线、等高线和等温线。
+默认间隔配置在 `configs/layers.yaml`，调用方也可以传
+`levels=1000,1004` 或 `interval=2` 覆盖。
 
 ## 天气系统
 

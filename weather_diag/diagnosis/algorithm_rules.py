@@ -107,6 +107,42 @@ ALGORITHM_CATALOG = [
                 "method": "不稳定能量、抬升触发、深层切变和高空支持加权评分",
             },
             {
+                "chain_id": "persistent_heavy_rain",
+                "name": "持续性强降水",
+                "target": "persistent_heavy_rain",
+                "method": "水汽输送、水汽辐合、上升运动和累计降水综合评分",
+            },
+            {
+                "chain_id": "short_duration_heavy_rain",
+                "name": "短时强降水",
+                "target": "short_duration_heavy_rain",
+                "method": "低层水汽、CAPE/K指数、低层触发和水汽辐合综合评分",
+            },
+            {
+                "chain_id": "thunderstorm_gale",
+                "name": "雷暴大风",
+                "target": "thunderstorm_gale",
+                "method": "DCAPE、深层风切变、CAPE和低层触发综合评分",
+            },
+            {
+                "chain_id": "hail",
+                "name": "冰雹",
+                "target": "hail",
+                "method": "CAPE、深层风切变和冷性层结代理指标综合评分",
+            },
+            {
+                "chain_id": "rotating_storm_or_supercell",
+                "name": "旋转风暴/超级单体潜势",
+                "target": "rotating_storm_or_supercell",
+                "method": "CAPE、深层风切变、低层切变或SRH综合评分",
+            },
+            {
+                "chain_id": "severe_convection_composite",
+                "name": "强对流综合风险",
+                "target": "severe_convection_composite",
+                "method": "短时强降水、雷暴大风、冰雹和旋转风暴风险综合取大值",
+            },
+            {
                 "chain_id": "dynamic_lift_potential",
                 "name": "动力抬升潜势",
                 "target": "dynamic_lift_potential",
