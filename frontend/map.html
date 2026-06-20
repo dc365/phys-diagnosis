@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/static/map.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main-content">跳到地图</a>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
@@ -21,16 +22,25 @@
             <option>ECMWF</option>
           </select>
         </label>
-        <label class="control-field run-field">
-          <span>运行</span>
+        <label class="control-field run-field" hidden>
+          <span>诊断产品</span>
           <select id="runSelect"></select>
         </label>
+        <label class="control-field point-data-field" hidden>
+          <span>点查数据</span>
+          <select id="pointDataCodeSelect" aria-label="点位诊断数据编码"></select>
+        </label>
+        <label class="control-field point-run-field">
+          <span>起报</span>
+          <select id="pointRunTimeSelect" aria-label="点位诊断起报时次"></select>
+        </label>
+        <button id="btnPointProbe" class="point-probe-toggle" type="button" aria-pressed="false">点位诊断</button>
         <button id="btnDemo" class="secondary-action">示例数据</button>
         <button id="btnDiagnose">运行诊断</button>
       </div>
     </header>
 
-    <main class="map-stage">
+    <main id="main-content" class="map-stage">
       <div id="map" class="map" aria-label="天气诊断 GIS 地图">
         <div class="map-status">
           <span id="status">准备就绪</span>
@@ -40,26 +50,71 @@
           <section class="panel-section">
             <div class="section-head">
               <h2>要素</h2>
-              <button id="btnLoadLayer" class="ghost-button">刷新</button>
+              <div class="section-actions">
+                <button id="btnClearOverlays" class="ghost-button quiet-button" type="button">清空</button>
+                <button id="btnLoadLayer" class="ghost-button" type="button">刷新</button>
+              </div>
             </div>
+            <label class="layer-source-control" hidden>
+              <span>图层数据</span>
+              <select id="layerSourceSelect" aria-label="图层数据源">
+                <option value="nafp" selected>NAFP 原始格点</option>
+                <option value="product">诊断产品</option>
+              </select>
+            </label>
             <select id="layerSelect" class="visually-hidden" aria-label="诊断要素"></select>
             <div id="layerChips" class="layer-chips"></div>
+            <label class="contour-toggle">
+              <input id="contourToggle" type="checkbox" checked />
+              <span>等值线</span>
+            </label>
           </section>
 
           <section class="panel-section">
             <div class="section-head">
               <h2>天气系统</h2>
-              <button id="btnLoadFeatures" class="ghost-button">应用</button>
+              <div class="section-actions">
+                <button id="btnClearFeatures" class="ghost-button quiet-button" type="button">清空</button>
+                <button id="btnLoadFeatures" class="ghost-button" type="button">刷新</button>
+              </div>
             </div>
             <div class="checkboxes feature-grid" id="featureToggles"></div>
+          </section>
+
+          <section class="panel-section feature-index-panel">
+            <div class="section-head compact-head">
+              <h2>对象索引</h2>
+              <span id="featureIndexSummary" class="feature-index-summary">尚未加载对象</span>
+            </div>
+            <div class="feature-index-controls">
+              <label>
+                <span>类型</span>
+                <select id="featureIndexTypeFilter" aria-label="对象类型筛选"></select>
+              </label>
+              <label>
+                <span>可信度</span>
+                <select id="featureIndexQualityFilter" aria-label="可信度筛选">
+                  <option value="all">全部</option>
+                  <option value="pending">待核验</option>
+                  <option value="low">低可信</option>
+                  <option value="moderate">中可信</option>
+                  <option value="high">高可信</option>
+                </select>
+              </label>
+            </div>
+            <div id="featureIndexList" class="feature-index-list"></div>
           </section>
         </aside>
 
         <aside class="analysis-panel" aria-label="诊断信息">
-          <h2>自动形势分析</h2>
+          <h2 id="analysisTitle">自动形势分析</h2>
           <pre id="analysisText">暂无分析。点击“示例数据”并“运行诊断”。</pre>
-          <h2>对象详情</h2>
-          <pre id="featureDetail">点击地图对象查看证据。</pre>
+          <div class="detail-heading">
+            <h2 id="detailTitle">对象详情</h2>
+            <span id="pointProbeBadge" class="probe-badge" hidden>点位诊断</span>
+          </div>
+          <div id="featureDetail" class="object-detail-panel plain">点击地图对象查看证据。</div>
+          <div id="pointDiagnosisPanel" class="point-diagnosis-panel" hidden></div>
         </aside>
 
         <div id="mapLegend" class="map-legend" hidden>
