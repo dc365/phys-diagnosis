@@ -14,6 +14,7 @@ from weather_diag.diagnosis.algorithm_rules import (
     threshold_entries_by_id,
 )
 from weather_diag.diagnosis.conclusions import conclusions_from_chains
+from weather_diag.diagnosis.nafp_layers import load_nafp_layer
 from weather_diag.diagnosis.risk_taxonomy import hazard_metadata, risk_grid_for_hazard
 from weather_diag.diagnosis.system_links import attach_chain_supporting_systems
 from weather_diag.diagnostics.grid import component_axis_line, derivatives_lonlat, mask_to_bbox_features
@@ -1884,8 +1885,93 @@ def _summary_label(labels: dict[str, str], value: str | None) -> str:
     return labels.get(value, value)
 
 
-def risk_diagnoses_from_chains(evidence_chains: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _prepared_score_grid(layer: dict[str, Any]) -> np.ndarray | None:
+    lat = np.asarray(layer["lat"], dtype=float)
+    lon = np.asarray(layer["lon"], dtype=float)
+    arr = np.asarray(layer["values"], dtype=float).squeeze()
+    if arr.ndim != 2:
+        return None
+    if arr.shape == (lat.size, lon.size):
+        return arr
+    if arr.shape == (lon.size, lat.size):
+        return arr.T
+    return None
+
+
+def _grid_subset_for_bbox(layer: dict[str, Any], bbox: list[float] | tuple[float, ...] | None) -> np.ndarray | None:
+    if not bbox or len(bbox) != 4:
+        return None
+    arr = _prepared_score_grid(layer)
+    if arr is None:
+        return None
+    lon_min, lat_min, lon_max, lat_max = [float(value) for value in bbox]
+    lat = np.asarray(layer["lat"], dtype=float)
+    lon = np.asarray(layer["lon"], dtype=float)
+    lat_mask = (lat >= min(lat_min, lat_max)) & (lat <= max(lat_min, lat_max))
+    lon_mask = (lon >= min(lon_min, lon_max)) & (lon <= max(lon_min, lon_max))
+    if not lat_mask.any() or not lon_mask.any():
+        return None
+    subset = arr[np.ix_(lat_mask, lon_mask)]
+    if subset.size == 0 or not np.isfinite(subset).any():
+        return None
+    return subset
+
+
+def _score_grid_statistic(
+    source_grid: str,
+    *,
+    root: str | Path | None,
+    run_time: str | datetime | None,
+    forecast_hour: int | None,
+    region: dict[str, Any] | None,
+    layer_cache: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    if root is None or run_time is None or forecast_hour is None:
+        return None
+    try:
+        layer = layer_cache.get(source_grid)
+        if layer is None:
+            layer = load_nafp_layer(
+                source_grid,
+                root=root,
+                run_time=parse_run_time(run_time).isoformat(),
+                forecast_hour=int(forecast_hour),
+            )
+            layer_cache[source_grid] = layer
+    except Exception as exc:
+        return {
+            "score_source": "evidence_chain_fallback",
+            "score_error": str(exc),
+        }
+
+    subset = _grid_subset_for_bbox(layer, (region or {}).get("bbox"))
+    statistic = "bbox_max"
+    if subset is None:
+        subset = _prepared_score_grid(layer)
+        statistic = "global_max"
+    if subset is None or subset.size == 0 or not np.isfinite(subset).any():
+        return None
+
+    valid = subset[np.isfinite(subset)]
+    return {
+        "score": round(float(np.nanmax(valid)), 3),
+        "score_statistic": statistic,
+        "score_mean": round(float(np.nanmean(valid)), 3),
+        "score_sample_count": int(valid.size),
+        "score_source": "source_grid",
+    }
+
+
+def risk_diagnoses_from_chains(
+    evidence_chains: list[dict[str, Any]],
+    *,
+    root: str | Path | None = None,
+    run_time: str | datetime | None = None,
+    forecast_hour: int | None = None,
+    threshold_matrix: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     chains = {chain.get("target_type"): chain for chain in evidence_chains}
+    layer_cache: dict[str, dict[str, Any]] = {}
     diagnoses = []
     for source_target, hazard_types in NAFP_RISK_CHAIN_HAZARDS.items():
         chain = chains.get(source_target)
@@ -1893,18 +1979,35 @@ def risk_diagnoses_from_chains(evidence_chains: list[dict[str, Any]]) -> list[di
             continue
         for hazard_type in hazard_types:
             metadata = hazard_metadata(hazard_type)
+            source_grid = risk_grid_for_hazard(hazard_type)
+            score_info = _score_grid_statistic(
+                source_grid,
+                root=root,
+                run_time=run_time,
+                forecast_hour=forecast_hour,
+                region=chain.get("region"),
+                layer_cache=layer_cache,
+            )
+            score = chain.get("score")
+            level = chain.get("level")
+            if score_info and "score" in score_info:
+                score = score_info["score"]
+                level = score_level(float(score), threshold_matrix or load_threshold_matrix())
             item = {
                 "risk_id": f"risk-{hazard_type}",
                 "hazard_type": hazard_type,
                 "risk_domain": metadata["risk_domain"],
                 "label": metadata["label"],
                 "mechanism_tags": metadata["mechanism_tags"],
-                "source_grid": risk_grid_for_hazard(hazard_type),
-                "risk_level": chain.get("level"),
-                "score": chain.get("score"),
+                "source_grid": source_grid,
+                "risk_level": level,
+                "level": level,
+                "score": score,
                 "source_chain_ids": [source_target],
                 "dominant_evidence": chain.get("dominant_evidence") or [],
             }
+            if score_info:
+                item.update(score_info)
             if chain.get("region") is not None:
                 item["region"] = chain["region"]
             supporting_systems = chain.get("supporting_systems") or chain.get("linked_systems")
@@ -1955,7 +2058,13 @@ def diagnose_nafp_situation(
     evidence_chains = diagnose_evidence_chains(fields, diagnostics, threshold_matrix, rules)
     evidence_chains = attach_chain_supporting_systems(evidence_chains, systems)
     diagnosis_conclusions = conclusions_from_chains(evidence_chains)
-    risk_diagnoses = risk_diagnoses_from_chains(evidence_chains)
+    risk_diagnoses = risk_diagnoses_from_chains(
+        evidence_chains,
+        root=root,
+        run_time=rt,
+        forecast_hour=forecast_hour,
+        threshold_matrix=threshold_matrix,
+    )
     valid_time = rt + timedelta(hours=int(forecast_hour))
     return {
         "run_time": rt.isoformat(),

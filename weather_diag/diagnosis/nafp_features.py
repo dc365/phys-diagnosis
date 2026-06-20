@@ -4,6 +4,8 @@ from typing import Any, Iterable
 
 import numpy as np
 
+from weather_diag.diagnosis.risk_taxonomy import feature_type_for_hazard
+
 
 FEATURE_TYPE_ALIASES = {
     "trough": {"trough_candidate"},
@@ -129,6 +131,48 @@ def _chain_feature(chain: dict[str, Any]) -> dict[str, Any] | None:
     return {"type": "Feature", "geometry": geometry, "properties": _json_safe(properties)}
 
 
+def _risk_feature(risk: dict[str, Any]) -> dict[str, Any] | None:
+    hazard_type = str(risk.get("hazard_type") or "")
+    if not hazard_type:
+        return None
+    try:
+        feature_type = str(risk.get("feature_type") or feature_type_for_hazard(hazard_type))
+    except KeyError:
+        return None
+    region = risk.get("region")
+    geometry = _system_geometry_to_geojson(region)
+    if geometry is None:
+        return None
+    supporting_systems = risk.get("supporting_systems") or risk.get("linked_systems") or []
+    properties = {
+        "id": risk.get("risk_id") or f"risk-{hazard_type}",
+        "type": feature_type,
+        "feature_type": feature_type,
+        "source_feature_type": hazard_type,
+        "hazard_type": hazard_type,
+        "risk_domain": risk.get("risk_domain") or [],
+        "risk_level": risk.get("risk_level") or risk.get("level"),
+        "level": risk.get("level") or risk.get("risk_level"),
+        "score": risk.get("score"),
+        "source_grid": risk.get("source_grid"),
+        "source_chain_ids": risk.get("source_chain_ids") or [],
+        "dominant_evidence": risk.get("dominant_evidence") or [],
+        "supporting_systems": supporting_systems,
+        "linked_systems": supporting_systems,
+        "mechanism_tags": risk.get("mechanism_tags") or [],
+        "name": risk.get("label") or hazard_type,
+        "score_statistic": risk.get("score_statistic"),
+        "score_source": risk.get("score_source"),
+    }
+    if region.get("bbox"):
+        properties["bbox"] = region["bbox"]
+    if "score_mean" in risk:
+        properties["score_mean"] = risk["score_mean"]
+    if "score_sample_count" in risk:
+        properties["score_sample_count"] = risk["score_sample_count"]
+    return {"type": "Feature", "geometry": geometry, "properties": _json_safe(properties)}
+
+
 def nafp_situation_to_feature_collection(
     result: dict[str, Any],
     *,
@@ -152,6 +196,18 @@ def nafp_situation_to_feature_collection(
         if source_filter is not None and source_type not in source_filter:
             continue
         feature = _chain_feature(chain)
+        if feature is not None:
+            features.append(feature)
+
+    for risk in result.get("risk_diagnoses") or []:
+        hazard_type = str(risk.get("hazard_type") or "")
+        try:
+            feature_type = str(risk.get("feature_type") or feature_type_for_hazard(hazard_type))
+        except KeyError:
+            continue
+        if source_filter is not None and feature_type not in source_filter and hazard_type not in source_filter:
+            continue
+        feature = _risk_feature(risk)
         if feature is not None:
             features.append(feature)
 

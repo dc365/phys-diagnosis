@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import numpy as np
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from weather_diag.config import THRESHOLD_MATRIX_PATH
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
+from weather_diag.diagnosis.nafp_layers import load_nafp_layer
 from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
 
 
@@ -33,6 +35,19 @@ def max_exterior_size(geometry: dict) -> int:
     if geojson_type == "MultiPolygon":
         return max(len(polygon[0]) for polygon in coordinates)
     return len(coordinates[0])
+
+
+def bbox_layer_max(layer: dict, bbox: list[float]) -> float:
+    lon_min, lat_min, lon_max, lat_max = bbox
+    lat = layer["lat"]
+    lon = layer["lon"]
+    lat_mask = (lat >= min(lat_min, lat_max)) & (lat <= max(lat_min, lat_max))
+    lon_mask = (lon >= min(lon_min, lon_max)) & (lon <= max(lon_min, lon_max))
+    values = layer["values"]
+    subset = values[np.ix_(lat_mask, lon_mask)]
+    if subset.size == 0 or not np.isfinite(subset).any():
+        subset = values
+    return round(float(np.nanmax(subset)), 3)
 
 
 def test_diagnose_nafp_situation_returns_evidence_payload():
@@ -395,8 +410,8 @@ def test_nafp_situation_returns_multi_hazard_risk_diagnoses():
     assert persistent["risk_id"] == "risk-persistent_heavy_rain"
     assert persistent["risk_domain"] == ["precipitation"]
     assert persistent["label"] == "持续性强降水"
-    assert persistent["risk_level"] == heavy_chain["level"]
-    assert persistent["score"] == heavy_chain["score"]
+    assert persistent["risk_level"]
+    assert "score_statistic" in persistent
     assert persistent["source_chain_ids"] == ["heavy_rain_potential"]
     assert persistent["region"] == heavy_chain["region"]
     assert persistent["supporting_systems"] == heavy_chain["linked_systems"]
@@ -405,9 +420,35 @@ def test_nafp_situation_returns_multi_hazard_risk_diagnoses():
     assert short_duration["risk_id"] == "risk-short_duration_heavy_rain"
     assert short_duration["risk_domain"] == ["precipitation", "severe_convection"]
     assert short_duration["label"] == "短时强降水"
-    assert short_duration["risk_level"] == heavy_chain["level"]
-    assert short_duration["score"] == heavy_chain["score"]
+    assert short_duration["risk_level"]
+    assert "score_statistic" in short_duration
     assert short_duration["source_chain_ids"] == ["heavy_rain_potential"]
+
+
+def test_nafp_situation_risk_score_uses_hazard_source_grid_region_statistic():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    diagnoses = {item["hazard_type"]: item for item in result["risk_diagnoses"]}
+    short_duration = diagnoses["short_duration_heavy_rain"]
+    layer = load_nafp_layer(
+        short_duration["source_grid"],
+        root=NAFP_SAMPLE_ROOT,
+        run_time=result["run_time"],
+        forecast_hour=result["forecast_hour"],
+    )
+    expected = bbox_layer_max(layer, short_duration["region"]["bbox"])
+    heavy_chain = chain_by_type(result, "heavy_rain_potential")
+
+    assert short_duration["source_grid"] == "risk_short_duration_heavy_rain_score"
+    assert short_duration["score"] == expected
+    assert short_duration["score_statistic"] == "bbox_max"
+    assert short_duration["risk_level"] == short_duration["level"]
+    assert short_duration["risk_level"]
+    assert short_duration["score"] != heavy_chain["score"]
 
 
 def test_nafp_situation_returns_diagnosis_conclusions():

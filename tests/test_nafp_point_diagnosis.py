@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
-from weather_diag.diagnosis.point import diagnose_nafp_point
+from weather_diag.diagnosis.nafp_layers import load_nafp_layer
+from weather_diag.diagnosis.point import _sample_value, diagnose_nafp_point
 
 
 def envelope(body: dict) -> dict:
@@ -81,8 +82,9 @@ def test_nafp_point_returns_multi_hazard_scores():
     assert persistent["risk_id"] == "point-risk-persistent_heavy_rain"
     assert persistent["risk_domain"] == ["precipitation"]
     assert persistent["label"] == "持续性强降水"
-    assert persistent["risk_level"] == heavy_chain["level"]
-    assert persistent["score"] == heavy_chain["score"]
+    assert persistent["risk_level"]
+    assert "level" in persistent
+    assert "sample_point" in persistent
     assert persistent["source_chain_ids"] == ["heavy_rain_potential"]
     assert persistent["dominant_evidence"] == heavy_chain["dominant_evidence"]
     assert "region" not in persistent
@@ -93,10 +95,41 @@ def test_nafp_point_returns_multi_hazard_scores():
     assert hail["risk_id"] == "point-risk-hail"
     assert hail["risk_domain"] == ["severe_convection"]
     assert hail["label"] == "冰雹"
-    assert hail["risk_level"] == convection_chain["level"]
-    assert hail["score"] == convection_chain["score"]
+    assert hail["risk_level"]
+    assert "level" in hail
+    assert "sample_point" in hail
     assert hail["source_chain_ids"] == ["convection_potential"]
     assert hail["dominant_evidence"] == convection_chain["dominant_evidence"]
+
+
+def test_nafp_point_risk_score_uses_hazard_source_grid_sample():
+    lat = 30.21
+    lon = 120.63
+    result = diagnose_nafp_point(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+        lat=lat,
+        lon=lon,
+    )
+
+    diagnoses = {item["hazard_type"]: item for item in result["risk_diagnoses"]}
+    hail = diagnoses["hail"]
+    layer = load_nafp_layer(
+        hail["source_grid"],
+        root=NAFP_SAMPLE_ROOT,
+        run_time=result["run_time"],
+        forecast_hour=result["forecast_hour"],
+    )
+    expected, sample_point = _sample_value(layer["values"], layer["lat"], layer["lon"], lat, lon)
+    assert expected is not None
+
+    convection_chain = chain_by_type(result, "convection_potential")
+    assert hail["score"] == round(float(expected), 3)
+    assert hail["risk_level"] == hail["level"]
+    assert hail["sample_method"] == "nearest_grid_point"
+    assert hail["sample_point"] == sample_point
+    assert hail["score"] != convection_chain["score"]
 
 
 def test_nafp_point_api_accepts_lat_lon_and_data_code():
