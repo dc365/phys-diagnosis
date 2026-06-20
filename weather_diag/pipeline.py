@@ -22,9 +22,27 @@ from weather_diag.features.low_level_jet import detect_low_level_jet
 from weather_diag.features.moisture_transport import detect_moisture_transport
 from weather_diag.features.trough_ridge import detect_trough_ridge
 from weather_diag.features.front import detect_front_candidates
-from weather_diag.features.risk import heavy_rain_score, convection_score, detect_heavy_rain_risk, detect_convection_risk
+from weather_diag.features.risk import (
+    convection_score_details,
+    detect_convection_risk,
+    detect_heavy_rain_risk,
+    heavy_rain_score_details,
+    multi_hazard_score_details,
+)
+from weather_diag.diagnosis.system_links import attach_feature_supporting_systems
 from weather_diag.io.geojson import feature_collection
 from weather_diag.analysis.report import generate_situation_report
+
+
+MULTI_HAZARD_SCORE_LABELS = {
+    "risk_persistent_heavy_rain_score": "持续性强降水风险评分",
+    "risk_short_duration_heavy_rain_score": "短时强降水风险评分",
+    "risk_thunderstorm_gale_score": "雷暴大风风险评分",
+    "risk_hail_score": "冰雹风险评分",
+    "risk_rotating_storm_score": "旋转风暴/超级单体潜势评分",
+    "risk_severe_convection_composite_score": "强对流综合风险评分",
+    "risk_precipitation_composite_score": "强降水综合风险评分",
+}
 
 
 def _available_level(sds, standard_name: str, level: int) -> bool:
@@ -134,7 +152,7 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             div_upper = divergence(u300, v300, lat, lon); upper_level = 300
 
         # Risk scores
-        hscore = heavy_rain_score({
+        heavy_rain_details = heavy_rain_score_details({
             "moisture_flux": moisture_flux850,
             "moisture_convergence": moisture_conv850,
             "div850": div850,
@@ -143,7 +161,8 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             "cape": cape,
             "precipitation": precip,
         }, thresholds) if any(x is not None for x in [moisture_flux850, moisture_conv850, div850, omega700, kidx, cape, precip]) else None
-        cscore = convection_score({
+        hscore = heavy_rain_details["score"] if heavy_rain_details is not None else None
+        convection_details = convection_score_details({
             "cape": cape,
             "cin": cin,
             "k_index": kidx,
@@ -151,10 +170,32 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             "div850": div850,
             "moisture": q850,
         }, thresholds) if any(x is not None for x in [cape, cin, kidx, shear06, div850, q850]) else None
+        cscore = convection_details["score"] if convection_details is not None else None
+        multi_hazard_fields = {
+            "moisture_flux": moisture_flux850,
+            "moisture_convergence": moisture_conv850,
+            "div850": div850,
+            "omega700": omega700,
+            "k_index": kidx,
+            "cape": cape,
+            "precipitation": precip,
+            "cin": cin,
+            "shear_0_6km": shear06,
+            "dcape": None,
+            "srh": None,
+            "shear_0_1km": None,
+            "li": None,
+        }
+        multi_hazard_details = (
+            multi_hazard_score_details(multi_hazard_fields, thresholds)
+            if any(x is not None for x in multi_hazard_fields.values())
+            else None
+        )
 
         # Save diagnostic variables
         _add_var(data_vars, "mslp", mslp, lat, lon, {"units": "hPa"})
         _add_var(data_vars, "z500", z500, lat, lon, {"units": "gpm"})
+        _add_var(data_vars, "t850", t850, lat, lon, {"units": "degC"})
         _add_var(data_vars, "wind850_speed", wind850_speed, lat, lon, {"units": "m/s"})
         _add_var(data_vars, "wind850_direction", wind_direction850, lat, lon, {"units": "degree_from"})
         _add_var(data_vars, "div850", div850, lat, lon, {"units": "s^-1"})
@@ -172,6 +213,16 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
         _add_var(data_vars, "precipitation", precip, lat, lon, {"units": "mm"})
         _add_var(data_vars, "heavy_rain_score", hscore, lat, lon, {"units": "score"})
         _add_var(data_vars, "convection_score", cscore, lat, lon, {"units": "score"})
+        if multi_hazard_details is not None:
+            for name, score in multi_hazard_details["scores"].items():
+                _add_var(
+                    data_vars,
+                    name,
+                    score,
+                    lat,
+                    lon,
+                    {"units": "0-1", "long_name": MULTI_HAZARD_SCORE_LABELS.get(name, name)},
+                )
         if div_upper is not None:
             _add_var(data_vars, f"div{upper_level}", div_upper, lat, lon, {"units": "s^-1"})
 
@@ -184,23 +235,55 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             features.extend(detect_high_low(mslp, lat, lon, thresholds))
         if z500 is not None:
             features.extend(detect_subtropical_high(z500, lat, lon, thresholds))
-            troughs, ridges = detect_trough_ridge(z500, lat, lon, thresholds)
+            troughs, ridges = detect_trough_ridge(z500, lat, lon, thresholds, vorticity500=vort500)
             features.extend(troughs); features.extend(ridges)
         if div850 is not None:
-            features.extend(detect_low_level_convergence(div850, lat, lon, thresholds))
+            features.extend(detect_low_level_convergence(div850, lat, lon, thresholds, u850=u850, v850=v850))
         if div_upper is not None:
-            features.extend(detect_upper_divergence(div_upper, lat, lon, thresholds, upper_level))
+            if upper_level == 200:
+                features.extend(detect_upper_divergence(div_upper, lat, lon, thresholds, upper_level, u_upper=u200, v_upper=v200))
+            else:
+                features.extend(detect_upper_divergence(div_upper, lat, lon, thresholds, upper_level, u_upper=u300, v_upper=v300))
         if wind850_speed is not None:
-            features.extend(detect_low_level_jet(wind850_speed, moisture_flux850, lat, lon, thresholds))
+            features.extend(detect_low_level_jet(wind850_speed, moisture_flux850, lat, lon, thresholds, u850=u850, v850=v850))
         if moisture_flux850 is not None:
-            features.extend(detect_moisture_transport(moisture_flux850, lat, lon, thresholds))
+            features.extend(detect_moisture_transport(moisture_flux850, lat, lon, thresholds, u850=u850, v850=v850))
         if t850 is not None:
-            features.extend(detect_front_candidates(t850, div850, temp_adv850, lat, lon, thresholds))
+            features.extend(
+                detect_front_candidates(
+                    t850,
+                    div850,
+                    temp_adv850,
+                    lat,
+                    lon,
+                    thresholds,
+                    u850=u850,
+                    v850=v850,
+                    rh850=rh850,
+                )
+            )
         if hscore is not None:
-            features.extend(detect_heavy_rain_risk(hscore, lat, lon, thresholds))
+            features.extend(
+                detect_heavy_rain_risk(
+                    hscore,
+                    lat,
+                    lon,
+                    thresholds,
+                    factor_details=heavy_rain_details["factors"] if heavy_rain_details else None,
+                )
+            )
         if cscore is not None:
-            features.extend(detect_convection_risk(cscore, lat, lon, thresholds))
+            features.extend(
+                detect_convection_risk(
+                    cscore,
+                    lat,
+                    lon,
+                    thresholds,
+                    factor_details=convection_details["factors"] if convection_details else None,
+                )
+            )
 
+        features = attach_feature_supporting_systems(features)
         features_json = feature_collection(features)
         features_path = fh_dir / "features.geojson"
         features_path.write_text(json.dumps(features_json, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -9,7 +9,7 @@ from weather_diag.features.risk import (
     heavy_rain_score_details,
     multi_hazard_score_details,
 )
-from weather_diag.pipeline import diagnose_file, load_analysis, load_features
+from weather_diag.pipeline import diagnose_file, load_analysis, load_diagnostics, load_features
 
 
 def _risk_grid():
@@ -175,6 +175,25 @@ def test_pipeline_risk_features_include_dominant_factor_evidence(tmp_path):
         "convection_risk",
     }
     assert any("强降水" in item["headline"] for item in analysis["conclusions"])
+
+
+def test_pipeline_writes_multi_hazard_risk_score_grids(tmp_path):
+    source = create_demo_ecmwf_netcdf(tmp_path / "multi_hazard_demo.nc")
+    diagnose_file(source, run_id="multi_hazard_risk_demo")
+    ds = load_diagnostics("multi_hazard_risk_demo", 24)
+
+    for name in [
+        "risk_persistent_heavy_rain_score",
+        "risk_short_duration_heavy_rain_score",
+        "risk_thunderstorm_gale_score",
+        "risk_hail_score",
+        "risk_rotating_storm_score",
+        "risk_severe_convection_composite_score",
+        "risk_precipitation_composite_score",
+    ]:
+        assert name in ds
+        assert ds[name].attrs["units"] == "0-1"
+        assert float(ds[name].max()) <= 1.0
 
 
 def test_multi_hazard_score_details_outputs_independent_score_grids():
