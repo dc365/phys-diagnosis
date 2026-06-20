@@ -1,38 +1,67 @@
 from __future__ import annotations
 
 import numpy as np
-from weather_diag.diagnostics.grid import mask_to_bbox_features
-from weather_diag.io.geojson import line_feature, polygon_feature
+
+from weather_diag.features.transport_objects import ranked_transport_components
+from weather_diag.io.geojson import line_feature
 
 
-def detect_low_level_jet(wind850_speed: np.ndarray, moisture_flux850: np.ndarray | None, lat, lon, thresholds: dict) -> list[dict]:
+def detect_low_level_jet(
+    wind850_speed: np.ndarray,
+    moisture_flux850: np.ndarray | None,
+    lat,
+    lon,
+    thresholds: dict,
+    *,
+    u850: np.ndarray | None = None,
+    v850: np.ndarray | None = None,
+) -> list[dict]:
     cfg = thresholds.get("low_level_jet", {})
     ws_min = float(cfg.get("wind_speed_min_ms", 12.0))
     min_pts = int(cfg.get("min_area_grid_points", 10))
+    max_objects = int(cfg.get("max_objects", 12))
+    min_coherence = float(cfg.get("min_direction_coherence", 0.65))
     mask = np.asarray(wind850_speed) >= ws_min
+    flux_threshold = None
     if moisture_flux850 is not None:
         p = float(cfg.get("moisture_flux_percentile", 70))
-        mf_thr = np.nanpercentile(moisture_flux850, p)
-        mask = mask & (moisture_flux850 >= mf_thr)
+        flux_threshold = float(np.nanpercentile(moisture_flux850, p))
+        mask &= moisture_flux850 >= flux_threshold
+    components = ranked_transport_components(
+        mask,
+        lat,
+        lon,
+        wind850_speed,
+        min_points=min_pts,
+        max_objects=max_objects,
+        u=u850,
+        v=v850,
+        min_direction_coherence=min_coherence if u850 is not None and v850 is not None else 0.0,
+    )
+
     features = []
-    for i, item in enumerate(mask_to_bbox_features(mask, lat, lon, min_points=min_pts), start=1):
-        ys, xs = item["indices"]
-        max_ws = float(np.nanmax(wind850_speed[ys, xs]))
-        lat_c = float(np.nanmean(lat[ys]))
-        lon_min, lon_max = float(np.nanmin(lon[xs])), float(np.nanmax(lon[xs]))
-        coords = [[lon_min, lat_c], [lon_max, lat_c]]
+    for component in components:
+        max_ws = component["max_value"]
         props = {
-            "id": f"low_level_jet_{i:03d}",
+            "id": f"low_level_jet_{component['rank']:03d}",
             "feature_type": "low_level_jet",
-            "title": "850hPa 低空急流轴候选",
+            "title": "850hPa 低空急流轴",
             "level": "850hPa",
+            "rank": component["rank"],
+            "point_count": component["point_count"],
+            "axis_length": component["axis_length"],
             "max_wind_ms": round(max_ws, 2),
-            "confidence": round(min(0.92, 0.55 + (max_ws - ws_min) / max(ws_min, 1) * 0.25), 2),
+            "mean_wind_ms": round(component["mean_value"], 2),
+            "direction_coherence": None if component["direction_coherence"] is None else round(component["direction_coherence"], 3),
+            "confidence": round(min(0.92, 0.58 + (max_ws - ws_min) / max(ws_min, 1) * 0.22), 2),
             "evidence": [
                 f"850hPa 风速达到 {max_ws:.1f} m/s",
-                "风速高值呈连通带状分布",
-                "若与水汽通量高值重叠，可作为暴雨水汽输送通道候选",
+                "风速高值呈连续轴带分布",
+                "风向一致性满足低空急流轴判断" if component["direction_coherence"] is not None else "未提供风矢量一致性检验",
             ],
         }
-        features.append(line_feature(coords, props))
+        if flux_threshold is not None:
+            props["moisture_flux_threshold"] = flux_threshold
+            props["evidence"].append("低空急流轴与水汽通量高值重叠")
+        features.append(line_feature(component["line"]["coordinates"], props))
     return features

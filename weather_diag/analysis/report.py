@@ -5,6 +5,8 @@ from typing import Any, Dict
 
 import numpy as np
 
+from weather_diag.diagnosis.conclusions import conclusions_from_features
+
 
 def _count(features, ftype):
     return sum(1 for f in features if f.get("properties", {}).get("feature_type") == ftype)
@@ -35,6 +37,7 @@ def generate_situation_report(features_geojson: Dict[str, Any], diag_ds, *, fore
     features = features_geojson.get("features", [])
     counts = Counter(f.get("properties", {}).get("feature_type", "unknown") for f in features)
     stats = _diag_stats(diag_ds)
+    conclusions = conclusions_from_features(features)
 
     paragraphs = []
     paragraphs.append(f"当前为预报时效 +{forecast_hour}h 的自动天气形势诊断结果。")
@@ -92,6 +95,7 @@ def generate_situation_report(features_geojson: Dict[str, Any], diag_ds, *, fore
         "forecast_hour": forecast_hour,
         "summary": summary,
         "detail": "\n".join(paragraphs),
+        "conclusions": conclusions,
         "feature_counts": dict(counts),
         "diagnostic_stats": stats,
         "disclaimer": "自动诊断为规则算法结果，锋面、槽脊等为候选识别，应结合预报员经验和实况资料订正。",
