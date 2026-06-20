@@ -874,9 +874,21 @@ pre {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
+.point-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
 .point-score-card {
   min-width: 0;
   padding: 8px;
+}
+.point-risk-card {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(50, 213, 231, .28);
+  border-radius: 8px;
+  background: rgba(50, 213, 231, .08);
 }
 .point-score-card em {
   margin-top: 5px;
@@ -884,13 +896,50 @@ pre {
   font-size: 11px;
   font-style: normal;
 }
+.point-risk-card span,
+.point-risk-card strong,
+.point-risk-card em,
+.point-risk-card small {
+  display: block;
+}
+.point-risk-card span {
+  color: var(--radar-dim);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.point-risk-card strong {
+  margin-top: 4px;
+  color: var(--radar-text);
+  font-size: 14px;
+  line-height: 1.2;
+}
+.point-risk-card em {
+  margin-top: 5px;
+  color: #ffe69a;
+  font-size: 11px;
+  font-style: normal;
+}
+.point-risk-card small {
+  margin-top: 4px;
+  color: var(--radar-muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
 .point-score-card.high {
   border-color: rgba(241, 90, 75, .42);
   background: rgba(241, 90, 75, .12);
 }
+.point-risk-card.high {
+  border-color: rgba(241, 90, 75, .46);
+  background: rgba(241, 90, 75, .13);
+}
 .point-score-card.moderate {
   border-color: rgba(246, 181, 31, .38);
   background: rgba(246, 181, 31, .1);
+}
+.point-risk-card.moderate {
+  border-color: rgba(246, 181, 31, .42);
+  background: rgba(246, 181, 31, .11);
 }
 .point-loading {
   display: grid;
