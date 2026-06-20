@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from weather_diag.diagnosis.risk_taxonomy import hazard_metadata
 from weather_diag.diagnosis.system_links import TYPE_LABELS
 
 
@@ -140,9 +141,16 @@ def conclusions_from_features(features: list[dict[str, Any]]) -> list[dict[str, 
     for feature in features:
         props = feature.get("properties") or {}
         target_type = str(props.get("feature_type") or "")
-        if target_type not in {"heavy_rain_risk", "convection_risk"}:
+        hazard_type = props.get("hazard_type")
+        hazard_meta = None
+        if hazard_type:
+            try:
+                hazard_meta = hazard_metadata(str(hazard_type))
+            except KeyError:
+                hazard_meta = {}
+        if not hazard_type and target_type not in {"heavy_rain_risk", "convection_risk"}:
             continue
-        label = _target_label(target_type)
+        label = str(hazard_meta.get("label") or _target_label(target_type)) if hazard_meta is not None else _target_label(target_type)
         level = str(props.get("risk_level") or "moderate")
         level_text = _level_label(level)
         score_text = _format_score(props.get("max_value"))
@@ -157,15 +165,22 @@ def conclusions_from_features(features: list[dict[str, Any]]) -> list[dict[str, 
         if core_points > 0:
             reasoning.append(f"高潜势核心区包含{core_points}个格点，需要优先关注。")
 
-        conclusions.append(
-            {
-                "id": f"conclusion-{props.get('id') or target_type}",
-                "target_type": target_type,
-                "level": level,
-                "score": props.get("max_value"),
-                "headline": f"{label}达到{level_text}潜势，最高评分{score_text}。",
-                "reasoning": reasoning,
-                "action_hint": _action_hint(target_type, level),
-            }
-        )
+        conclusion = {
+            "id": f"conclusion-{props.get('id') or target_type}",
+            "target_type": target_type,
+            "level": level,
+            "score": props.get("max_value"),
+            "headline": f"{label}达到{level_text}潜势，最高评分{score_text}。",
+            "reasoning": reasoning,
+            "action_hint": _action_hint(target_type, level),
+        }
+        if hazard_type:
+            conclusion.update(
+                {
+                    "hazard_type": str(hazard_type),
+                    "risk_domain": props.get("risk_domain") or hazard_meta.get("risk_domain") or [],
+                    "source_grid": props.get("source_grid") or hazard_meta.get("score_grid"),
+                }
+            )
+        conclusions.append(conclusion)
     return conclusions
