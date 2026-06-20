@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from backend.app.api.v1.admin import router as public_admin_router
+from backend.app.api.v1.data_sources import router as public_data_sources_router
 from backend.app.api.v1.diagnosis import router as public_diagnosis_router
 from backend.app.api.v1.files import router as public_files_router
 from backend.app.api.v1.jobs import router as public_jobs_router
@@ -18,13 +20,16 @@ from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, lo
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 from weather_diag.data.reader import inspect_netcdf
 from weather_diag.pipeline import diagnose_file, load_run_index, load_diagnostics, load_features, load_analysis
+from weather_diag.io.contours import contours_to_geojson
 from weather_diag.io.grid_geojson import grid_to_geojson
 from weather_diag.io.render import render_png
 
 ensure_dirs()
-app = FastAPI(title="天气形势智能诊断与物理量分析系统 MVP", version="0.1.0")
+app = FastAPI(title="天气形势分析与物理量诊断工作台", version="0.1.0")
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.include_router(public_admin_router, prefix="/api/v1")
+app.include_router(public_data_sources_router, prefix="/api/v1")
 app.include_router(public_diagnosis_router, prefix="/api/v1")
 app.include_router(public_files_router, prefix="/api/v1")
 app.include_router(public_jobs_router, prefix="/api/v1")
@@ -197,6 +202,46 @@ def layer_grid(layer_id: str, run_id: str, forecast_hour: int):
         ds[var].values,
         lat=ds.lat.values,
         lon=ds.lon.values,
+    )
+
+
+def parse_contour_levels(value: Optional[str]) -> list[float] | None:
+    if not value:
+        return None
+    levels: list[float] = []
+    for item in value.split(","):
+        item = item.strip()
+        if item:
+            levels.append(float(item))
+    return levels or None
+
+
+@app.get("/api/layers/{layer_id}/contours")
+def layer_contours(
+    layer_id: str,
+    run_id: str,
+    forecast_hour: int,
+    levels: Optional[str] = Query(default=None),
+    interval: Optional[float] = Query(default=None),
+):
+    ds = load_diagnostics(run_id, forecast_hour)
+    layers_cfg = load_layers()
+    cfg = layers_cfg.get(layer_id, {})
+    var = cfg.get("variable", layer_id)
+    if var not in ds.data_vars:
+        raise HTTPException(404, f"Layer variable not found: {var}")
+    contour_cfg = cfg.get("contour") or {}
+    unit = ds[var].attrs.get("units", cfg.get("unit", ""))
+    return contours_to_geojson(
+        layer_id,
+        cfg.get("title", var),
+        unit,
+        ds[var].values,
+        lat=ds.lat.values,
+        lon=ds.lon.values,
+        levels=parse_contour_levels(levels) or contour_cfg.get("levels"),
+        interval=interval or contour_cfg.get("interval"),
+        max_segments=int(contour_cfg.get("max_segments", 12000)),
     )
 
 
