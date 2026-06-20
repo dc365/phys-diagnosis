@@ -10,7 +10,7 @@ from weather_diag.data.nafp import NafpField, load_nafp_field, parse_run_time
 from weather_diag.diagnostics.moisture import moisture_convergence, moisture_flux
 from weather_diag.diagnostics.vorticity import relative_vorticity
 from weather_diag.diagnostics.wind import wind_speed
-from weather_diag.features.risk import convection_score_details, heavy_rain_score_details
+from weather_diag.features.risk import convection_score_details, heavy_rain_score_details, multi_hazard_score_details
 
 
 ValueTransform = Callable[[np.ndarray], np.ndarray]
@@ -69,6 +69,17 @@ DIRECT_LAYERS: dict[str, tuple[str, str, str, ValueTransform | None]] = {
     "temp_adv850": ("ttadv", "850", "ttadv", None),
     "k_index": ("kindex", "999", "kindex", None),
     "shear_0_6km": ("shr6km", "999", "shr6km", None),
+}
+
+
+MULTI_HAZARD_RISK_SCORE_LAYERS = {
+    "risk_persistent_heavy_rain_score",
+    "risk_short_duration_heavy_rain_score",
+    "risk_thunderstorm_gale_score",
+    "risk_hail_score",
+    "risk_rotating_storm_score",
+    "risk_severe_convection_composite_score",
+    "risk_precipitation_composite_score",
 }
 
 
@@ -136,6 +147,22 @@ def _optional_array(
     return _array(field, variable), field.source_path
 
 
+def _first_optional_array(
+    root: Path,
+    candidates: list[tuple[str, str, str]],
+    run_time: str,
+    forecast_hour: int,
+) -> tuple[np.ndarray | None, str]:
+    fallback_path = ""
+    for element, level, variable in candidates:
+        values, path = _optional_array(root, element, level, variable, run_time, forecast_hour)
+        if not fallback_path:
+            fallback_path = path
+        if values is not None:
+            return values, path
+    return None, fallback_path
+
+
 def _risk_scores(root: Path, layer_id: str, run_time: str, forecast_hour: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
     thresholds = load_thresholds()
     uv850, q850, u850, v850, q = _moisture_fields(root, run_time, forecast_hour)
@@ -148,6 +175,15 @@ def _risk_scores(root: Path, layer_id: str, run_time: str, forecast_hour: int) -
     rain6, rain6_path = _optional_array(root, "rain6", "999", "rain6", run_time, forecast_hour)
     cin, cin_path = _optional_array(root, "cin", "999", "cin", run_time, forecast_hour)
     shear, shear_path = _optional_array(root, "shr6km", "999", "shr6km", run_time, forecast_hour)
+    dcape, dcape_path = _optional_array(root, "dcape", "999", "dcape", run_time, forecast_hour)
+    li, li_path = _optional_array(root, "li", "999", "li", run_time, forecast_hour)
+    srh, srh_path = _optional_array(root, "srh", "999", "srh", run_time, forecast_hour)
+    shear01, shear01_path = _first_optional_array(
+        root,
+        [("shr0-1", "999", "shr0-1"), ("shr1km", "999", "shr1km")],
+        run_time,
+        forecast_hour,
+    )
     if layer_id == "heavy_rain_score":
         details = heavy_rain_score_details(
             {
@@ -161,7 +197,8 @@ def _risk_scores(root: Path, layer_id: str, run_time: str, forecast_hour: int) -
             },
             thresholds,
         )
-    else:
+        values = details["score"]
+    elif layer_id == "convection_score":
         details = convection_score_details(
             {
                 "cape": cape,
@@ -173,7 +210,29 @@ def _risk_scores(root: Path, layer_id: str, run_time: str, forecast_hour: int) -
             },
             thresholds,
         )
-    return details["score"], q850.lat, q850.lon, [
+        values = details["score"]
+    else:
+        details = multi_hazard_score_details(
+            {
+                "moisture_flux": mflux,
+                "moisture_convergence": mconv,
+                "div850": div850,
+                "omega700": omega700,
+                "k_index": kindex,
+                "cape": cape,
+                "cin": cin,
+                "precipitation": rain6,
+                "shear_0_6km": shear,
+                "moisture": q,
+                "dcape": dcape,
+                "li": li,
+                "srh": srh,
+                "shear_0_1km": shear01,
+            },
+            thresholds,
+        )
+        values = details["scores"][layer_id]
+    return values, q850.lat, q850.lon, [
         path
         for path in [
             uv850.source_path,
@@ -185,6 +244,10 @@ def _risk_scores(root: Path, layer_id: str, run_time: str, forecast_hour: int) -
             rain6_path,
             cin_path,
             shear_path,
+            dcape_path,
+            li_path,
+            srh_path,
+            shear01_path,
         ]
         if path
     ]
@@ -197,6 +260,7 @@ DERIVED_LAYERS = {
     "moisture_conv850": _moisture_conv850,
     "heavy_rain_score": _risk_scores,
     "convection_score": _risk_scores,
+    **{layer_id: _risk_scores for layer_id in MULTI_HAZARD_RISK_SCORE_LAYERS},
 }
 
 
