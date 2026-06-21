@@ -46,7 +46,7 @@
           <span id="status">准备就绪</span>
         </div>
 
-        <aside class="layer-panel" aria-label="要素与天气系统">
+        <aside class="layer-panel" aria-label="要素、风险与天气系统">
           <section class="panel-section">
             <div class="section-head">
               <h2>要素</h2>
@@ -72,11 +72,25 @@
 
           <section class="panel-section">
             <div class="section-head">
-              <h2>天气系统</h2>
+              <h2>风险</h2>
               <div class="section-actions">
                 <button id="btnClearFeatures" class="ghost-button quiet-button" type="button">清空</button>
                 <button id="btnLoadFeatures" class="ghost-button" type="button">刷新</button>
               </div>
+            </div>
+            <div class="panel-subsection">
+              <strong class="panel-subtitle">风险图层</strong>
+              <div id="riskLayerChips" class="layer-chips"></div>
+            </div>
+            <div class="panel-subsection">
+              <strong class="panel-subtitle">风险对象</strong>
+              <div class="checkboxes feature-grid" id="riskFeatureToggles"></div>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-head">
+              <h2>天气系统</h2>
             </div>
             <div class="checkboxes feature-grid" id="featureToggles"></div>
           </section>

@@ -347,6 +347,19 @@ h2 {
 .layer-chip { isolation: isolate; }
 .layer-chip > span { position: relative; z-index: 1; }
 .layer-chip { text-shadow: 0 1px 4px rgba(0, 0, 0, .55); }
+.panel-subsection {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.panel-subsection + .panel-subsection {
+  margin-top: 10px;
+}
+.panel-subtitle {
+  color: var(--radar-dim);
+  font-size: 11px;
+  line-height: 1.2;
+}
 .contour-toggle {
   min-height: 34px;
   display: flex;

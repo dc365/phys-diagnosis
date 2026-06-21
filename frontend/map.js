@@ -34,12 +34,15 @@ const state = {
   pointRunTimes: [],
 };
 
-const featureTypes = [
+const weatherSystemFeatureTypes = [
   ['high', '高压中心'], ['low', '低压中心'], ['subtropical_high', '副高588区'],
   ['low_pressure_convergence', '低压辐合区'], ['high_pressure_divergence', '高压辐散区'],
   ['trough', '槽线候选'], ['ridge', '脊线候选'], ['low_level_convergence', '低层辐合区'],
   ['upper_divergence', '高空辐散区'], ['low_level_jet', '低空急流'],
   ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面候选'],
+];
+
+const riskFeatureTypes = [
   ['heavy_rain_risk', '强降水潜势'], ['convection_risk', '强对流潜势'],
   ['persistent_heavy_rain_risk', '持续性强降水'],
   ['short_duration_heavy_rain_risk', '短时强降水'],
@@ -48,6 +51,8 @@ const featureTypes = [
   ['rotating_storm_risk', '旋转风暴/超级单体潜势'],
   ['severe_convection_composite_risk', '强对流综合风险'],
 ];
+
+const featureTypes = [...weatherSystemFeatureTypes, ...riskFeatureTypes];
 
 const featureColors = {
   high: '#e03131',
@@ -119,6 +124,8 @@ const pointRiskChannels = [
     hazards: ['short_duration_heavy_rain', 'thunderstorm_gale', 'hail', 'rotating_storm_or_supercell'],
   },
 ];
+
+const legacyRiskLayerIds = new Set(['heavy_rain_score', 'convection_score']);
 
 const layerPalettes = {
   score: ['#fff7bc', '#fec44f', '#fb6a4a', '#bd0026'],
@@ -212,6 +219,14 @@ function featureLegendKind(type) {
   return featureLegendKinds[type] || 'area';
 }
 
+function isRiskLayer(layerId) {
+  return legacyRiskLayerIds.has(layerId) || String(layerId || '').startsWith('risk_');
+}
+
+function isElementLayer(layerId) {
+  return !isRiskLayer(layerId);
+}
+
 function createBaseStyle() {
   return {
     version: 8,
@@ -246,10 +261,11 @@ function createBaseStyle() {
   };
 }
 
-function setupFeatureToggles() {
-  const box = $('featureToggles');
+function renderFeatureToggleGroup(boxId, items) {
+  const box = $(boxId);
+  if (!box) return;
   box.innerHTML = '';
-  featureTypes.forEach(([type, label]) => {
+  items.forEach(([type, label]) => {
     const color = featureColors[type] || '#333333';
     const el = document.createElement('label');
     el.dataset.featureType = type;
@@ -274,6 +290,23 @@ function setupFeatureToggles() {
   });
 }
 
+function setupFeatureToggles() {
+  renderFeatureToggleGroup('riskFeatureToggles', riskFeatureTypes);
+  renderFeatureToggleGroup('featureToggles', weatherSystemFeatureTypes);
+}
+
+function appendFeatureIndexOptionGroup(select, label, items) {
+  const group = document.createElement('optgroup');
+  group.label = label;
+  items.forEach(([type, text]) => {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = text;
+    group.appendChild(option);
+  });
+  select.appendChild(group);
+}
+
 function setupFeatureIndexControls() {
   const typeFilter = $('featureIndexTypeFilter');
   if (!typeFilter) return;
@@ -282,12 +315,8 @@ function setupFeatureIndexControls() {
   allOption.value = 'all';
   allOption.textContent = '全部类型';
   typeFilter.appendChild(allOption);
-  featureTypes.forEach(([type, label]) => {
-    const option = document.createElement('option');
-    option.value = type;
-    option.textContent = label;
-    typeFilter.appendChild(option);
-  });
+  appendFeatureIndexOptionGroup(typeFilter, '风险', riskFeatureTypes);
+  appendFeatureIndexOptionGroup(typeFilter, '天气系统', weatherSystemFeatureTypes);
   renderFeatureIndex();
 }
 
@@ -407,11 +436,11 @@ function locateFeatureById(featureId) {
   selectFeature(feature, center);
 }
 
-function renderLayerChips() {
-  const box = $('layerChips');
+function renderLayerChipGroup(boxId, predicate) {
+  const box = $(boxId);
   if (!box) return;
   box.innerHTML = '';
-  Object.entries(state.layers).forEach(([id, cfg]) => {
+  Object.entries(state.layers).filter(([id]) => predicate(id)).forEach(([id, cfg]) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `layer-chip${id === $('layerSelect').value ? ' active' : ''}`;
@@ -425,6 +454,11 @@ function renderLayerChips() {
     });
     box.appendChild(button);
   });
+}
+
+function renderLayerChips() {
+  renderLayerChipGroup('layerChips', isElementLayer);
+  renderLayerChipGroup('riskLayerChips', isRiskLayer);
 }
 
 function renderTimeline() {
@@ -1460,20 +1494,29 @@ function clearPointProbeMarker() {
   pointProbeMarker = null;
 }
 
-function clearWeatherFeatures(message = '未选择天气系统，仅显示地图') {
+function featureToggleInputs(selector = 'input') {
+  return [...document.querySelectorAll(`#featureToggles ${selector}, #riskFeatureToggles ${selector}`)];
+}
+
+function selectedFeatureTypes() {
+  return [...document.querySelectorAll('#featureToggles input:checked, #riskFeatureToggles input:checked')]
+    .map((input) => input.value);
+}
+
+function clearWeatherFeatures(message = '未选择风险或天气系统，仅显示地图') {
   state.features = [];
   state.selectedFeatureId = '';
   const featureSource = map?.getSource(FEATURE_SOURCE_ID);
   if (featureSource) featureSource.setData({ type: 'FeatureCollection', features: [] });
   clearPointMarkers();
   if (popup) popup.remove();
-  showObjectDetail('对象详情', '未选择天气系统。');
+  showObjectDetail('对象详情', '未选择风险或天气系统。');
   renderFeatureIndex();
   status(message);
 }
 
 function clearFeatureSelection() {
-  document.querySelectorAll('#featureToggles input').forEach((input) => {
+  featureToggleInputs().forEach((input) => {
     input.checked = false;
   });
   clearWeatherFeatures();
@@ -1487,7 +1530,7 @@ function clearMapOverlays() {
   clearContours();
   clearPointProbeMarker();
   $('mapLegend').hidden = true;
-  document.querySelectorAll('#featureToggles input').forEach((input) => {
+  featureToggleInputs().forEach((input) => {
     input.checked = false;
   });
   clearWeatherFeatures('未选择要素，仅显示地图');
@@ -1526,10 +1569,10 @@ function renderPointMarkers(features) {
 
 async function loadNafpFeatures(selected, fh) {
   if (!selectedPointRunTime()) {
-    clearWeatherFeatures(`NAFP 天气系统未就绪：${selectedPointDataCode()} 未发现起报时次`);
+    clearWeatherFeatures(`NAFP 对象未就绪：${selectedPointDataCode()} 未发现起报时次`);
     return;
   }
-  status(`正在加载 ${selected.length} 类 NAFP 天气系统...`);
+  status(`正在加载 ${selected.length} 类 NAFP 风险/天气系统对象...`);
   try {
     const fc = await getEnvelope(buildNafpFeaturesUrl(selected, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
     state.features = fc.features || [];
@@ -1538,7 +1581,7 @@ async function loadNafpFeatures(selected, fh) {
     renderPointMarkers(state.features);
     renderFeatureIndex();
     if (fc.properties?.summary) $('analysisText').textContent = fc.properties.summary;
-    status(`已加载 ${state.features.length} 个 NAFP 天气系统对象`);
+    status(`已加载 ${state.features.length} 个 NAFP 风险/天气系统对象`);
   } catch (error) {
     console.warn('NAFP feature load failed', error);
     state.features = [];
@@ -1546,7 +1589,7 @@ async function loadNafpFeatures(selected, fh) {
     map.getSource(FEATURE_SOURCE_ID).setData({ type: 'FeatureCollection', features: [] });
     clearPointMarkers();
     renderFeatureIndex();
-    status(`NAFP 天气系统加载失败：${error.message}`);
+    status(`NAFP 风险/天气系统加载失败：${error.message}`);
   }
 }
 
@@ -1554,7 +1597,7 @@ async function loadFeatures() {
   if (!map || !state.mapReady) return;
   const runId = $('runSelect').value;
   const fh = Number($('fhSelect').value);
-  const selected = [...document.querySelectorAll('#featureToggles input:checked')].map((i) => i.value);
+  const selected = selectedFeatureTypes();
   if (!selected.length) {
     clearWeatherFeatures();
     return;
@@ -1563,7 +1606,7 @@ async function loadFeatures() {
     await loadNafpFeatures(selected, fh);
     return;
   }
-  status(`正在加载 ${selected.length} 类天气系统...`);
+  status(`正在加载 ${selected.length} 类风险/天气系统对象...`);
 
   const responses = await Promise.all(selected.map(async (type) => {
     try {
@@ -1580,11 +1623,11 @@ async function loadFeatures() {
   map.getSource(FEATURE_SOURCE_ID).setData(fc);
   renderPointMarkers(state.features);
   renderFeatureIndex();
-  status(`已加载 ${state.features.length} 个天气系统对象`);
+  status(`已加载 ${state.features.length} 个风险/天气系统对象`);
 }
 
 async function handleFeatureToggleChange(event) {
-  if (!event.target.matches('#featureToggles input[type="checkbox"]')) return;
+  if (!event.target.matches('#featureToggles input[type="checkbox"], #riskFeatureToggles input[type="checkbox"]')) return;
   await loadFeatures();
 }
 
@@ -1623,6 +1666,7 @@ function wireEvents() {
   $('btnLoadLayer').addEventListener('click', loadLayer);
   $('btnLoadFeatures').addEventListener('click', loadFeatures);
   $('featureToggles').addEventListener('change', handleFeatureToggleChange);
+  $('riskFeatureToggles').addEventListener('change', handleFeatureToggleChange);
   $('btnClearOverlays').addEventListener('click', clearMapOverlays);
   $('btnClearFeatures').addEventListener('click', clearFeatureSelection);
   $('featureIndexTypeFilter').addEventListener('change', renderFeatureIndex);

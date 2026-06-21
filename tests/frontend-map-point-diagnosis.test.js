@@ -64,6 +64,19 @@ test('point diagnosis groups risks into two operational channels', () => {
   assert.doesNotMatch(mapJs, /hazards: \[[^\]]*severe_convection_composite[^\]]*\]/);
 });
 
+test('right panel separates elements risks and weather systems', () => {
+  assert.match(html, /class="layer-panel" aria-label="要素、风险与天气系统"/);
+  assert.match(html, /<h2>要素<\/h2>[\s\S]*id="layerChips"[\s\S]*<h2>风险<\/h2>/);
+  assert.match(html, /<h2>风险<\/h2>[\s\S]*id="riskLayerChips"[\s\S]*id="riskFeatureToggles"[\s\S]*<h2>天气系统<\/h2>/);
+  assert.match(mapJs, /const weatherSystemFeatureTypes = \[/);
+  assert.match(mapJs, /const riskFeatureTypes = \[/);
+  assert.match(mapJs, /function isRiskLayer\(layerId\)/);
+  assert.match(mapJs, /renderLayerChipGroup\('layerChips', isElementLayer\)/);
+  assert.match(mapJs, /renderLayerChipGroup\('riskLayerChips', isRiskLayer\)/);
+  assert.match(mapJs, /#featureToggles input:checked, #riskFeatureToggles input:checked/);
+  assert.match(mapJs, /riskFeatureToggles'\)\.addEventListener\('change', handleFeatureToggleChange\)/);
+});
+
 test('point probe has a map marker and dense evidence-panel styling', () => {
   assert.match(css, /\.point-probe-toggle\.active/);
   assert.match(css, /\.point-probe-marker/);
