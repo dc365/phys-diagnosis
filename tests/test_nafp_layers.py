@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+import pytest
 
 from backend.app.main import app
 from weather_diag.diagnosis.nafp_layers import load_nafp_layer
@@ -76,6 +77,16 @@ def test_nafp_layers_include_multi_hazard_risk_scores():
     data = envelope(response.json())
     assert data["layer_id"] == "risk_short_duration_heavy_rain_score"
     assert data["unit"] == "0-1"
+
+
+def test_nafp_layers_do_not_expose_precipitation_composite_risk_grid():
+    with pytest.raises(KeyError):
+        load_nafp_layer(
+            "risk_precipitation_composite_score",
+            data_code="NAFP_ECTHIN_NEW_NC",
+            run_time="2026-06-17T20:00:00",
+            forecast_hour=24,
+        )
 
 
 def test_nafp_layer_metadata_endpoint_returns_enveloped_bounds():

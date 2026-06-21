@@ -79,7 +79,6 @@ MULTI_HAZARD_RISK_SCORE_LAYERS = {
     "risk_hail_score",
     "risk_rotating_storm_score",
     "risk_severe_convection_composite_score",
-    "risk_precipitation_composite_score",
 }
 
 

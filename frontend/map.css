@@ -876,6 +876,26 @@ pre {
 }
 .point-risk-grid {
   display: grid;
+  gap: 9px;
+}
+.point-risk-channel {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.point-risk-channel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+}
+.point-risk-channel header strong {
+  color: var(--radar-text);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.point-risk-channel-list {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
 }

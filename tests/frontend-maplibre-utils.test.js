@@ -220,6 +220,13 @@ test('recommended layer supports multi-hazard risk features', () => {
     recommendedFeatureLayer({ feature_type: 'hail_risk' }, available),
     { layerId: 'risk_hail_score', reason: 'risk-score' },
   );
+  assert.equal(
+    recommendedFeatureLayer(
+      { feature_type: 'short_duration_heavy_rain_risk' },
+      ['risk_precipitation_composite_score'],
+    ),
+    null,
+  );
 });
 
 test('forecastHourLabel formats timeline hours in Chinese', () => {

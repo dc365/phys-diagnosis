@@ -10,6 +10,25 @@ RISK_DOMAINS = {
 }
 
 
+RISK_CHANNELS = [
+    {
+        "id": "precipitation",
+        "label": "强降水风险",
+        "hazard_types": ["persistent_heavy_rain", "short_duration_heavy_rain"],
+    },
+    {
+        "id": "severe_convection",
+        "label": "强对流风险",
+        "hazard_types": [
+            "short_duration_heavy_rain",
+            "thunderstorm_gale",
+            "hail",
+            "rotating_storm_or_supercell",
+        ],
+    },
+]
+
+
 HAZARD_TYPES: dict[str, dict[str, Any]] = {
     "persistent_heavy_rain": {
         "label": "持续性强降水",
@@ -26,7 +45,7 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
         "mechanism_tags": ["convective", "low_level_convergence", "moisture_convergence"],
     },
     "thunderstorm_gale": {
-        "label": "雷暴大风",
+        "label": "雷暴大风/下击暴流",
         "risk_domain": ["severe_convection"],
         "score_grid": "risk_thunderstorm_gale_score",
         "feature_type": "thunderstorm_gale_risk",
@@ -57,7 +76,6 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
 
 
 DOMAIN_COMPOSITE_GRIDS = {
-    "precipitation": "risk_precipitation_composite_score",
     "severe_convection": "risk_severe_convection_composite_score",
 }
 

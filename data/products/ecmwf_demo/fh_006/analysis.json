@@ -333,12 +333,6 @@
       "mean": 0.17906710505485535,
       "unit": "0-1"
     },
-    "risk_precipitation_composite_score": {
-      "min": 0.0009450960205867887,
-      "max": 0.8399999737739563,
-      "mean": 0.15221497416496277,
-      "unit": "0-1"
-    },
     "risk_severe_convection_composite_score": {
       "min": 0.000629026850219816,
       "max": 0.8571428656578064,

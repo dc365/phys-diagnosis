@@ -92,7 +92,7 @@ layers:
     kind: raster
     unit: 0-1
   risk_thunderstorm_gale_score:
-    title: 雷暴大风风险评分
+    title: 雷暴大风/下击暴流风险评分
     variable: risk_thunderstorm_gale_score
     kind: raster
     unit: 0-1
@@ -109,10 +109,5 @@ layers:
   risk_severe_convection_composite_score:
     title: 强对流综合风险评分
     variable: risk_severe_convection_composite_score
-    kind: raster
-    unit: 0-1
-  risk_precipitation_composite_score:
-    title: 强降水综合风险评分
-    variable: risk_precipitation_composite_score
     kind: raster
     unit: 0-1

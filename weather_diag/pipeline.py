@@ -38,11 +38,10 @@ from weather_diag.analysis.report import generate_situation_report
 MULTI_HAZARD_SCORE_LABELS = {
     "risk_persistent_heavy_rain_score": "持续性强降水风险评分",
     "risk_short_duration_heavy_rain_score": "短时强降水风险评分",
-    "risk_thunderstorm_gale_score": "雷暴大风风险评分",
+    "risk_thunderstorm_gale_score": "雷暴大风/下击暴流风险评分",
     "risk_hail_score": "冰雹风险评分",
     "risk_rotating_storm_score": "旋转风暴/超级单体潜势评分",
     "risk_severe_convection_composite_score": "强对流综合风险评分",
-    "risk_precipitation_composite_score": "强降水综合风险评分",
 }
 
 

@@ -43,7 +43,7 @@ const featureTypes = [
   ['heavy_rain_risk', '强降水潜势'], ['convection_risk', '强对流潜势'],
   ['persistent_heavy_rain_risk', '持续性强降水'],
   ['short_duration_heavy_rain_risk', '短时强降水'],
-  ['thunderstorm_gale_risk', '雷暴大风'],
+  ['thunderstorm_gale_risk', '雷暴大风/下击暴流'],
   ['hail_risk', '冰雹'],
   ['rotating_storm_risk', '旋转风暴/超级单体潜势'],
   ['severe_convection_composite_risk', '强对流综合风险'],
@@ -90,13 +90,13 @@ const pointTargetNames = {
   precipitation_phase: '雨雪相态',
   persistent_heavy_rain: '持续性强降水',
   short_duration_heavy_rain: '短时强降水',
-  thunderstorm_gale: '雷暴大风',
+  thunderstorm_gale: '雷暴大风/下击暴流',
   hail: '冰雹',
   rotating_storm_or_supercell: '旋转风暴/超级单体潜势',
   severe_convection_composite: '强对流综合风险',
   persistent_heavy_rain_risk: '持续性强降水',
   short_duration_heavy_rain_risk: '短时强降水',
-  thunderstorm_gale_risk: '雷暴大风',
+  thunderstorm_gale_risk: '雷暴大风/下击暴流',
   hail_risk: '冰雹',
   rotating_storm_risk: '旋转风暴/超级单体潜势',
   severe_convection_composite_risk: '强对流综合风险',
@@ -106,6 +106,19 @@ const pointLevelNames = {
   moderate: '中',
   low: '低',
 };
+
+const pointRiskChannels = [
+  {
+    id: 'precipitation',
+    label: '强降水风险',
+    hazards: ['persistent_heavy_rain', 'short_duration_heavy_rain'],
+  },
+  {
+    id: 'severe_convection',
+    label: '强对流风险',
+    hazards: ['short_duration_heavy_rain', 'thunderstorm_gale', 'hail', 'rotating_storm_or_supercell'],
+  },
+];
 
 const layerPalettes = {
   score: ['#fff7bc', '#fec44f', '#fb6a4a', '#bd0026'],
@@ -990,6 +1003,38 @@ function renderPointRiskCard(risk) {
   `;
 }
 
+function riskDiagnosesByHazard(riskDiagnoses) {
+  const byHazard = new Map();
+  (riskDiagnoses || []).forEach((risk) => {
+    const hazardType = risk.hazard_type || risk.feature_type || risk.target_type;
+    if (!hazardType) return;
+    const current = byHazard.get(hazardType);
+    if (!current || Number(risk.score || 0) > Number(current.score || 0)) {
+      byHazard.set(hazardType, risk);
+    }
+  });
+  return byHazard;
+}
+
+function renderPointRiskChannelSection(channel, riskByHazard) {
+  const cards = channel.hazards
+    .map((hazardType) => riskByHazard.get(hazardType))
+    .filter(Boolean)
+    .map(renderPointRiskCard)
+    .join('');
+  if (!cards) return '';
+  return `
+    <section class="point-risk-channel" data-channel="${escapeHtml(channel.id)}">
+      <header>
+        <strong>${escapeHtml(channel.label)}</strong>
+      </header>
+      <div class="point-risk-channel-list">
+        ${cards}
+      </div>
+    </section>
+  `;
+}
+
 function evidenceSourceText(item) {
   if (item.source_path) return item.source_path;
   if (Array.isArray(item.source_paths)) return item.source_paths.join(' | ');
@@ -1040,6 +1085,10 @@ function renderPointDiagnosis(result) {
   const conclusions = result.diagnosis_conclusions || [];
   const chains = result.evidence_chains || [];
   const riskDiagnoses = result.risk_diagnoses || [];
+  const riskByHazard = riskDiagnosesByHazard(riskDiagnoses);
+  const riskChannelHtml = pointRiskChannels
+    .map((channel) => renderPointRiskChannelSection(channel, riskByHazard))
+    .join('');
   showPointPanel(`
     <div class="point-summary-strip">
       <div>
@@ -1055,9 +1104,9 @@ function renderPointDiagnosis(result) {
         <strong>${formatValue(nearest.distance_degrees, 'deg')}</strong>
       </div>
     </div>
-    ${riskDiagnoses.length ? `
+    ${riskChannelHtml ? `
       <section class="point-risk-grid">
-        ${riskDiagnoses.map(renderPointRiskCard).join('')}
+        ${riskChannelHtml}
       </section>
     ` : ''}
     <div class="point-score-grid">

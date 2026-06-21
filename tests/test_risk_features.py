@@ -189,11 +189,11 @@ def test_pipeline_writes_multi_hazard_risk_score_grids(tmp_path):
         "risk_hail_score",
         "risk_rotating_storm_score",
         "risk_severe_convection_composite_score",
-        "risk_precipitation_composite_score",
     ]:
         assert name in ds
         assert ds[name].attrs["units"] == "0-1"
         assert float(ds[name].max()) <= 1.0
+    assert "risk_precipitation_composite_score" not in ds
 
 
 def test_pipeline_outputs_multi_hazard_risk_features(tmp_path):
@@ -286,11 +286,9 @@ def test_multi_hazard_score_details_outputs_independent_score_grids():
         "risk_hail_score",
         "risk_rotating_storm_score",
         "risk_severe_convection_composite_score",
-        "risk_precipitation_composite_score",
     }
-    assert expected <= set(details["scores"])
+    assert set(details["scores"]) == expected
     assert details["scores"]["risk_short_duration_heavy_rain_score"].shape == lon2d.shape
-    assert float(np.nanmax(details["scores"]["risk_precipitation_composite_score"])) > 0.5
     assert float(np.nanmax(details["scores"]["risk_severe_convection_composite_score"])) > 0.5
 
 

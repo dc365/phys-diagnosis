@@ -120,7 +120,7 @@ ALGORITHM_CATALOG = [
             },
             {
                 "chain_id": "thunderstorm_gale",
-                "name": "雷暴大风",
+                "name": "雷暴大风/下击暴流",
                 "target": "thunderstorm_gale",
                 "method": "DCAPE、深层风切变、CAPE和低层触发综合评分",
             },
@@ -140,7 +140,7 @@ ALGORITHM_CATALOG = [
                 "chain_id": "severe_convection_composite",
                 "name": "强对流综合风险",
                 "target": "severe_convection_composite",
-                "method": "短时强降水、雷暴大风、冰雹和旋转风暴风险综合取大值",
+                "method": "短时强降水、雷暴大风/下击暴流、冰雹和旋转风暴风险综合取大值",
             },
             {
                 "chain_id": "dynamic_lift_potential",

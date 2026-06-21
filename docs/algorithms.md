@@ -222,13 +222,12 @@ NAFP 天气形势诊断中的低压/高压候选使用 `gh/500` 与 `div/850`：
 
 - `risk_persistent_heavy_rain_score`：持续性强降水，综合水汽输送、水汽辐合、上升运动和累计降水。
 - `risk_short_duration_heavy_rain_score`：短时强降水，综合低层水汽、CAPE/K 指数、低层触发和水汽辐合。
-- `risk_thunderstorm_gale_score`：雷暴大风，综合 DCAPE、深层风切变、CAPE 和低层触发。
+- `risk_thunderstorm_gale_score`：雷暴大风/下击暴流，综合 DCAPE、深层风切变、CAPE 和低层触发。
 - `risk_hail_score`：冰雹，综合 CAPE、深层风切变和冷性层结代理指标。
 - `risk_rotating_storm_score`：旋转风暴/超级单体潜势，综合 CAPE、深层风切变、低层切变或 SRH。
-- `risk_precipitation_composite_score`：强降水综合风险，由持续性强降水和短时强降水取大值。
-- `risk_severe_convection_composite_score`：强对流综合风险，由短时强降水、雷暴大风、冰雹和旋转风暴风险取大值。
+- `risk_severe_convection_composite_score`：强对流综合风险，由短时强降水、雷暴大风/下击暴流、冰雹和旋转风暴风险取大值。
 
-这些风险产品均输出为 0-1 格点场，格点值表示该风险类别的相对风险评分。风险类别不是互斥结论，同一格点可以同时具有短时强降水、雷暴大风、冰雹等多个风险分值；最终面/点诊断会把这些格点场整理为 `risk_diagnoses` 多灾种结论列表。
+这 6 类风险产品均输出为 0-1 格点场，格点值表示该风险类别的相对风险评分。风险类别不是互斥结论，同一格点可以同时具有短时强降水、雷暴大风/下击暴流、冰雹等多个风险分值；最终面/点诊断会把这些格点场整理为 `risk_diagnoses` 多灾种结论列表。前端展示时按两个业务通道组织：强降水风险包含持续性强降水和短时强降水，强对流风险包含短时强降水、雷暴大风/下击暴流、冰雹、旋转风暴/超级单体潜势。
 
 pipeline 产品层的 `heavy_rain_risk` 与 `convection_risk` 不再只输出一个阈值掩膜：
 

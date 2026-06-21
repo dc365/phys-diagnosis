@@ -52,10 +52,23 @@ test('point diagnosis renders multi-hazard risk cards before raw details', () =>
   assert.match(mapJs, /pointTargetNames = \{[\s\S]*hail/);
 });
 
+test('point diagnosis groups risks into two operational channels', () => {
+  assert.match(mapJs, /const pointRiskChannels = \[/);
+  assert.match(mapJs, /label: '强降水风险'[\s\S]*hazards: \['persistent_heavy_rain', 'short_duration_heavy_rain'\]/);
+  assert.match(
+    mapJs,
+    /label: '强对流风险'[\s\S]*hazards: \['short_duration_heavy_rain', 'thunderstorm_gale', 'hail', 'rotating_storm_or_supercell'\]/,
+  );
+  assert.match(mapJs, /function renderPointRiskChannelSection/);
+  assert.match(mapJs, /point-risk-channel/);
+  assert.doesNotMatch(mapJs, /hazards: \[[^\]]*severe_convection_composite[^\]]*\]/);
+});
+
 test('point probe has a map marker and dense evidence-panel styling', () => {
   assert.match(css, /\.point-probe-toggle\.active/);
   assert.match(css, /\.point-probe-marker/);
   assert.match(css, /\.point-score-grid/);
+  assert.match(css, /\.point-risk-channel/);
   assert.match(css, /\.point-evidence-chain/);
   assert.match(css, /\.point-evidence-item::before/);
 });

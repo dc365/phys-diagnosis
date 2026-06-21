@@ -174,15 +174,6 @@ def multi_hazard_score_details(fields: dict, thresholds: dict) -> dict:
         factors[grid_name] = details["factors"]
         available_weights[grid_name] = details["available_weight"]
 
-    scores["risk_precipitation_composite_score"] = np.nanmax(
-        np.stack(
-            [
-                scores["risk_persistent_heavy_rain_score"],
-                scores["risk_short_duration_heavy_rain_score"],
-            ]
-        ),
-        axis=0,
-    )
     scores["risk_severe_convection_composite_score"] = np.nanmax(
         np.stack(
             [
