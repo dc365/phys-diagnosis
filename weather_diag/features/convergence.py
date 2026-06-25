@@ -4,8 +4,8 @@ import numpy as np
 from scipy import ndimage
 
 from weather_diag.diagnostics.divergence import divergence
-from weather_diag.diagnostics.grid import mask_to_bbox_features
-from weather_diag.io.geojson import polygon_feature
+from weather_diag.diagnostics.grid import component_axis_line, mask_to_bbox_features
+from weather_diag.io.geojson import line_feature, polygon_feature
 
 
 def smooth_field(field: np.ndarray, sigma: float) -> np.ndarray:
@@ -52,8 +52,25 @@ def _grid_spacing_km(lat: np.ndarray, lon: np.ndarray) -> tuple[float, float]:
 
 
 def _component_area_km2(item: dict, lat: np.ndarray, lon: np.ndarray) -> float:
-    dx, dy = _grid_spacing_km(lat, lon)
-    return float(item.get("point_count", 0)) * dx * dy
+    ys, _xs = item["indices"]
+    lat_arr = np.asarray(lat, dtype=float)
+    lon_arr = np.asarray(lon, dtype=float)
+    if ys.size == 0 or lat_arr.size < 2 or lon_arr.size < 2:
+        return float(item.get("point_count", 0))
+    dlat = abs(float(np.nanmedian(np.diff(lat_arr))))
+    dlon = abs(float(np.nanmedian(np.diff(lon_arr))))
+    row_area = dlat * 111.32 * dlon * 111.32 * np.maximum(np.cos(np.deg2rad(lat_arr[ys])), 0.2)
+    return float(np.nansum(row_area))
+
+
+def _line_length_km(coords: list[list[float]]) -> float:
+    total = 0.0
+    for (lon0, lat0), (lon1, lat1) in zip(coords[:-1], coords[1:]):
+        mean_lat = (lat0 + lat1) / 2.0
+        dx = (lon1 - lon0) * 111.32 * max(np.cos(np.deg2rad(mean_lat)), 0.2)
+        dy = (lat1 - lat0) * 111.32
+        total += float(np.hypot(dx, dy))
+    return total
 
 
 def ranked_mask_items(
@@ -159,6 +176,30 @@ def _ranked_divergence_features(
     return features
 
 
+def _divergence_mask(div_field: np.ndarray, thresholds: dict, *, kind: str, u=None, v=None, lat=None, lon=None):
+    cfg = thresholds.get("convergence" if kind == "convergence" else "upper_divergence", {})
+    sigma = float(cfg.get("smoothing_sigma_grid", 1.0))
+    smoothed = smooth_field(div_field, sigma)
+    if kind == "convergence":
+        absolute = float(cfg.get("divergence_max", -1.0e-5))
+        percentile_threshold = _finite_percentile(smoothed, float(cfg.get("divergence_percentile", 10)))
+        threshold = min(percentile_threshold, absolute) if np.isfinite(percentile_threshold) else absolute
+        mask = (smoothed <= threshold) & (smoothed <= absolute)
+        if u is not None and v is not None:
+            vector_div = smooth_field(divergence(u, v, lat, lon), sigma)
+            mask &= vector_div <= absolute * 0.25
+    else:
+        absolute = float(cfg.get("divergence_min", 1.0e-5))
+        percentile_threshold = _finite_percentile(smoothed, float(cfg.get("divergence_percentile", 90)))
+        threshold = max(percentile_threshold, absolute) if np.isfinite(percentile_threshold) else absolute
+        mask = (smoothed >= threshold) & (smoothed >= absolute)
+        if u is not None and v is not None:
+            vector_div = smooth_field(divergence(u, v, lat, lon), sigma)
+            mask &= vector_div >= absolute * 0.25
+    mask = _morphology(mask, cfg)
+    return cfg, smoothed, mask, threshold, percentile_threshold, absolute
+
+
 def detect_low_level_convergence(
     div850: np.ndarray,
     lat,
@@ -168,23 +209,18 @@ def detect_low_level_convergence(
     u850: np.ndarray | None = None,
     v850: np.ndarray | None = None,
 ) -> list[dict]:
-    cfg = thresholds.get("convergence", {})
-    sigma = float(cfg.get("smoothing_sigma_grid", 1.0))
+    cfg, smoothed, mask, threshold, percentile_threshold, divergence_max = _divergence_mask(
+        div850,
+        thresholds,
+        kind="convergence",
+        u=u850,
+        v=v850,
+        lat=lat,
+        lon=lon,
+    )
     min_pts = int(cfg.get("min_area_grid_points", 12))
     max_objects = int(cfg.get("max_objects", 12))
     min_area_km2 = float(cfg.get("min_area_km2", 0.0))
-    divergence_max = float(cfg.get("divergence_max", -1.0e-5))
-    smoothed = smooth_field(div850, sigma)
-    if "divergence_percentile" in cfg:
-        percentile_threshold = _finite_percentile(smoothed, float(cfg["divergence_percentile"]))
-        threshold = min(percentile_threshold, divergence_max) if np.isfinite(percentile_threshold) else divergence_max
-    else:
-        threshold = divergence_max
-    mask = (smoothed <= threshold) & (smoothed <= divergence_max)
-    if u850 is not None and v850 is not None:
-        vector_div = smooth_field(divergence(u850, v850, lat, lon), sigma)
-        mask &= vector_div <= divergence_max * 0.25
-    mask = _morphology(mask, cfg)
     min_mean_strength = float(cfg.get("min_mean_convergence", cfg.get("convergence_mean_min", 0.0)))
     min_max_strength = float(cfg.get("convergence_min", abs(divergence_max)))
     return _ranked_divergence_features(
@@ -203,7 +239,7 @@ def detect_low_level_convergence(
         min_max_strength=min_max_strength,
         min_area_km2=min_area_km2,
         threshold_value=threshold,
-        percentile_threshold=percentile_threshold if "divergence_percentile" in cfg else None,
+        percentile_threshold=percentile_threshold,
         absolute_threshold=divergence_max,
         evidence=[
             f"850hPa 散度经平滑后小于 {divergence_max:.1e} s^-1，满足绝对辐合强度约束",
@@ -222,23 +258,18 @@ def detect_upper_divergence(
     u_upper: np.ndarray | None = None,
     v_upper: np.ndarray | None = None,
 ) -> list[dict]:
-    cfg = thresholds.get("upper_divergence", {})
-    sigma = float(cfg.get("smoothing_sigma_grid", 1.0))
+    cfg, smoothed, mask, threshold, percentile_threshold, divergence_min = _divergence_mask(
+        div_upper,
+        thresholds,
+        kind="divergence",
+        u=u_upper,
+        v=v_upper,
+        lat=lat,
+        lon=lon,
+    )
     min_pts = int(cfg.get("min_area_grid_points", 12))
     max_objects = int(cfg.get("max_objects", 12))
     min_area_km2 = float(cfg.get("min_area_km2", 0.0))
-    divergence_min = float(cfg.get("divergence_min", 1.0e-5))
-    smoothed = smooth_field(div_upper, sigma)
-    if "divergence_percentile" in cfg:
-        percentile_threshold = _finite_percentile(smoothed, float(cfg["divergence_percentile"]))
-        threshold = max(percentile_threshold, divergence_min) if np.isfinite(percentile_threshold) else divergence_min
-    else:
-        threshold = divergence_min
-    mask = (smoothed >= threshold) & (smoothed >= divergence_min)
-    if u_upper is not None and v_upper is not None:
-        vector_div = smooth_field(divergence(u_upper, v_upper, lat, lon), sigma)
-        mask &= vector_div >= divergence_min * 0.25
-    mask = _morphology(mask, cfg)
     min_mean_strength = float(cfg.get("min_mean_divergence", cfg.get("divergence_mean_min", 0.0)))
     min_max_strength = float(cfg.get("divergence_strength_min", divergence_min))
     return _ranked_divergence_features(
@@ -257,10 +288,128 @@ def detect_upper_divergence(
         min_max_strength=min_max_strength,
         min_area_km2=min_area_km2,
         threshold_value=threshold,
-        percentile_threshold=percentile_threshold if "divergence_percentile" in cfg else None,
+        percentile_threshold=percentile_threshold,
         absolute_threshold=divergence_min,
         evidence=[
             f"{level}hPa 散度经平滑后大于 {divergence_min:.1e} s^-1，满足绝对辐散强度约束",
             "同时结合区域分位阈值、面积和辐散强度过滤弱场误报",
         ],
+    )
+
+
+def _axis_features_from_divergence_mask(
+    mask: np.ndarray,
+    smoothed: np.ndarray,
+    lat,
+    lon,
+    *,
+    feature_type: str,
+    title: str,
+    level: str,
+    descending: bool,
+    min_points: int,
+    max_objects: int,
+) -> list[dict]:
+    items = ranked_mask_items(
+        mask,
+        lat,
+        lon,
+        min_points=min_points,
+        max_objects=max_objects,
+        primary_value=smoothed,
+        descending=descending,
+    )
+    features = []
+    for item in items:
+        line = component_axis_line(item, lat, lon, max_points=64)
+        coords = line.get("coordinates") or []
+        if len(coords) < 2:
+            continue
+        ys, xs = item["indices"]
+        strength = smoothed[ys, xs] if descending else -smoothed[ys, xs]
+        features.append(
+            line_feature(
+                coords,
+                {
+                    "id": f"{feature_type}_{item['rank']:03d}",
+                    "feature_type": feature_type,
+                    "title": title,
+                    "level": level,
+                    "rank": item["rank"],
+                    "geometry_role": "axis",
+                    "source_area_bbox": item.get("bbox"),
+                    "source_area_point_count": item.get("point_count"),
+                    "axis_length_km": round(_line_length_km(coords), 1),
+                    "mean_strength": float(np.nanmean(strength)),
+                    "max_strength": float(np.nanmax(strength)),
+                    "confidence": 0.64,
+                    "evidence": ["由辐合/辐散区连通对象进一步抽取 LineString 主轴", "业务图可默认显示轴线，debug 图层再显示面区域"],
+                },
+            )
+        )
+    return features
+
+
+def detect_low_level_convergence_axes(
+    div850: np.ndarray,
+    lat,
+    lon,
+    thresholds: dict,
+    *,
+    u850: np.ndarray | None = None,
+    v850: np.ndarray | None = None,
+) -> list[dict]:
+    cfg, smoothed, mask, _threshold, _percentile_threshold, _absolute = _divergence_mask(
+        div850,
+        thresholds,
+        kind="convergence",
+        u=u850,
+        v=v850,
+        lat=lat,
+        lon=lon,
+    )
+    return _axis_features_from_divergence_mask(
+        mask,
+        smoothed,
+        lat,
+        lon,
+        feature_type="low_level_convergence_axis",
+        title="850hPa 低层辐合轴",
+        level="850hPa",
+        descending=False,
+        min_points=int(cfg.get("min_area_grid_points", 12)),
+        max_objects=int(cfg.get("max_objects", 12)),
+    )
+
+
+def detect_upper_divergence_axes(
+    div_upper: np.ndarray,
+    lat,
+    lon,
+    thresholds: dict,
+    level: int,
+    *,
+    u_upper: np.ndarray | None = None,
+    v_upper: np.ndarray | None = None,
+) -> list[dict]:
+    cfg, smoothed, mask, _threshold, _percentile_threshold, _absolute = _divergence_mask(
+        div_upper,
+        thresholds,
+        kind="divergence",
+        u=u_upper,
+        v=v_upper,
+        lat=lat,
+        lon=lon,
+    )
+    return _axis_features_from_divergence_mask(
+        mask,
+        smoothed,
+        lat,
+        lon,
+        feature_type="upper_divergence_axis",
+        title=f"{level}hPa 高空辐散轴",
+        level=f"{level}hPa",
+        descending=True,
+        min_points=int(cfg.get("min_area_grid_points", 12)),
+        max_objects=int(cfg.get("max_objects", 12)),
     )
