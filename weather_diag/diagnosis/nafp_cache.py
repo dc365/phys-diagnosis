@@ -8,6 +8,7 @@ from time import perf_counter, time
 from typing import Any, Callable
 
 from weather_diag.data.nafp import parse_run_time
+from weather_diag.diagnosis import system_links
 from weather_diag.diagnosis.nafp_situation_integrated import extend_nafp_situation_result
 
 
@@ -31,6 +32,64 @@ class NafpSituationCacheEntry:
 
 _cache: OrderedDict[NafpSituationCacheKey, NafpSituationCacheEntry] = OrderedDict()
 _lock = RLock()
+
+
+def _patch_support_weights() -> None:
+    labels = {
+        "shear_line": "切变线",
+        "front_with_shear": "锋区切变线",
+        "low_level_convergence_axis": "低层辐合轴",
+        "upper_divergence_axis": "高空辐散轴",
+        "cold_vortex": "冷涡",
+        "mid_level_vortex": "低涡",
+        "upper_jet": "高空急流",
+        "upper_jet_exit_region": "急流出口辐散区",
+        "pv_anomaly": "高空PV异常",
+        "surface_front_candidate": "地面锋区候选",
+        "dryline_candidate": "干线候选",
+    }
+    system_links.TYPE_LABELS.update(labels)
+    system_links.SUPPORT_WEIGHTS.setdefault("heavy_rain_potential", {}).update(
+        {
+            "shear_line": 0.78,
+            "front_with_shear": 0.82,
+            "low_level_convergence_axis": 0.96,
+            "upper_divergence_axis": 0.76,
+            "cold_vortex": 0.62,
+            "mid_level_vortex": 0.58,
+            "upper_jet": 0.68,
+            "upper_jet_exit_region": 0.74,
+            "pv_anomaly": 0.52,
+        }
+    )
+    system_links.SUPPORT_WEIGHTS.setdefault("convection_potential", {}).update(
+        {
+            "shear_line": 0.92,
+            "front_with_shear": 0.94,
+            "low_level_convergence_axis": 1.0,
+            "upper_divergence_axis": 0.94,
+            "cold_vortex": 0.82,
+            "mid_level_vortex": 0.72,
+            "upper_jet": 0.78,
+            "upper_jet_exit_region": 0.82,
+            "pv_anomaly": 0.76,
+            "surface_front_candidate": 0.78,
+            "dryline_candidate": 0.82,
+        }
+    )
+    system_links.SUPPORT_WEIGHTS.setdefault("dynamic_lift_potential", {}).update(
+        {
+            "shear_line": 0.82,
+            "front_with_shear": 0.84,
+            "low_level_convergence_axis": 0.86,
+            "upper_divergence_axis": 0.96,
+            "cold_vortex": 0.88,
+            "mid_level_vortex": 0.78,
+            "upper_jet": 0.82,
+            "upper_jet_exit_region": 0.9,
+            "pv_anomaly": 0.84,
+        }
+    )
 
 
 def nafp_situation_cache_key(
@@ -90,6 +149,7 @@ def _extend_result_safely(
     key: NafpSituationCacheKey,
 ) -> dict[str, Any]:
     try:
+        _patch_support_weights()
         return extend_nafp_situation_result(
             result,
             root=Path(key.root),
