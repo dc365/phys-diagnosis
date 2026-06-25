@@ -1,24 +1,14 @@
-# 天气形势分析与物理量诊断工作台
+# Weather diagnosis workstation
 
-这是一个天气形势分析与物理量诊断工程，用于基于ECMWF/EC模式NetCDF格点数据进行：
+This project diagnoses synoptic weather systems, meteorological physical fields, risk grids and MapLibre GIS products from ECMWF/EC NetCDF data.
 
-- NetCDF数据读取与变量标准化
-- 天气系统客观识别
-- 物理量诊断
-- 多灾种风险评分
-- MapLibre GIS展示
+Recent weather-system algorithm additions include:
 
-## 当前天气系统算法补充
-
-近期已补充以下天气系统或支撑诊断算法：
-
-- 锋面候选细分：冷锋、暖锋、静止锋、混合锋面候选。
-- 850/700/500hPa切变线候选。
-- 500/700/850hPa低涡、冷涡候选。
-- 200/300hPa高空急流与急流出口辐散区。
-- 高空PV异常和干侵入支撑诊断。
-- 地面温度、露点和10m风边界候选。
-- 低层辐合、高空辐散轴线提取。
-- 副高588/5880单位自适应。
-
-详细说明见docs目录中的天气系统优化文档、图层精简文档和锋面分类文档。
+- front type classification
+- shear-line candidates
+- mid-level vortex and cold-vortex candidates
+- upper-level jet and jet-exit diagnostics
+- PV anomaly supporting diagnosis
+- surface boundary candidates
+- convergence and divergence axes
+- subtropical-high unit auto detection
