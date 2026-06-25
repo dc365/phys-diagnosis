@@ -32,6 +32,29 @@ def _finite_percentile(values: np.ndarray, percentile: float) -> float:
     return float(np.nanpercentile(valid, percentile))
 
 
+def _finite_mean(values: np.ndarray, default: float = 0.0) -> float:
+    arr = np.asarray(values, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return default
+    return float(np.nanmean(finite))
+
+
+def _finite_fraction(values: np.ndarray, predicate) -> float:
+    arr = np.asarray(values, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return 0.0
+    return float(np.mean(predicate(finite)))
+
+
+def _support_mask(values: np.ndarray, percentile: float) -> tuple[np.ndarray, float]:
+    threshold = _finite_percentile(values, percentile)
+    if not np.isfinite(threshold) or threshold <= 0:
+        return np.zeros_like(values, dtype=bool), threshold
+    return values > threshold, threshold
+
+
 def _frontogenesis(
     dtdx: np.ndarray,
     dtdy: np.ndarray,
@@ -62,68 +85,29 @@ def _thermal_front_diagnostics(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, str]:
     """Return cross-front wind and signed temperature advection diagnostics.
 
-    The thermal normal points from the cold side toward the warm side because it
-    follows +grad(T). A positive cross-front wind therefore means the low-level
-    flow has a component from cold air toward warm air, which is the objective
-    signal used here for a cold-front candidate. A negative value means warm-air
-    flow toward the cold side and supports a warm-front candidate.
-
-    `temperature_advection = -V·grad(T)`: positive means warm advection and
-    negative means cold advection. If a model ttadv product is supplied, it is
-    kept as the primary advection field; otherwise the value is computed from
-    the 850hPa wind and temperature gradient.
+    +grad(T) points from the cold side to the warm side. Therefore positive
+    V850·grad(T)/|grad(T)| supports cold-air advance, while negative values
+    support warm-air overrun/advection toward the cold side.
     """
-    gradient = np.sqrt(dtdx**2 + dtdy**2)
-    cross_front_wind = np.full_like(gradient, np.nan, dtype=float)
-    computed_advection = np.zeros_like(gradient, dtype=float)
-
+    grad_mag = np.sqrt(dtdx**2 + dtdy**2)
+    cross_front_wind = np.full_like(grad_mag, np.nan, dtype=float)
+    computed_adv = np.zeros_like(grad_mag, dtype=float)
     if u850 is not None and v850 is not None:
-        nx = np.divide(dtdx, gradient, out=np.zeros_like(gradient), where=gradient > 1e-12)
-        ny = np.divide(dtdy, gradient, out=np.zeros_like(gradient), where=gradient > 1e-12)
+        nx = np.divide(dtdx, grad_mag, out=np.zeros_like(grad_mag), where=grad_mag > 1e-12)
+        ny = np.divide(dtdy, grad_mag, out=np.zeros_like(grad_mag), where=grad_mag > 1e-12)
         cross_front_wind = u850 * nx + v850 * ny
-        computed_advection = -(u850 * dtdx + v850 * dtdy)
-
+        computed_adv = -(u850 * dtdx + v850 * dtdy)
     if temp_adv850 is not None:
-        thermal_advection = np.asarray(temp_adv850, dtype=float)
-        source = "model_ttadv850"
-    elif u850 is not None and v850 is not None:
-        thermal_advection = computed_advection
-        source = "computed_from_uv850_t850"
-    else:
-        thermal_advection = np.zeros_like(gradient, dtype=float)
-        source = "unavailable"
-
-    return cross_front_wind, computed_advection, thermal_advection, source
-
-
-def _support_mask(values: np.ndarray, percentile: float) -> tuple[np.ndarray, float]:
-    threshold = _finite_percentile(values, percentile)
-    if not np.isfinite(threshold) or threshold <= 0:
-        return np.zeros_like(values, dtype=bool), threshold
-    return values > threshold, threshold
-
-
-def _finite_fraction(values: np.ndarray, predicate) -> float:
-    arr = np.asarray(values, dtype=float)
-    finite = arr[np.isfinite(arr)]
-    if finite.size == 0:
-        return 0.0
-    return float(np.mean(predicate(finite)))
-
-
-def _finite_mean(values: np.ndarray, default: float = 0.0) -> float:
-    arr = np.asarray(values, dtype=float)
-    finite = arr[np.isfinite(arr)]
-    if finite.size == 0:
-        return default
-    return float(np.nanmean(finite))
+        return cross_front_wind, computed_adv, np.asarray(temp_adv850, dtype=float), "model_ttadv850"
+    if u850 is not None and v850 is not None:
+        return cross_front_wind, computed_adv, computed_adv, "computed_from_uv850_t850"
+    return cross_front_wind, computed_adv, np.zeros_like(grad_mag, dtype=float), "unavailable"
 
 
 def _classify_front_component(ys: np.ndarray, xs: np.ndarray, derived: dict, cfg: dict) -> dict:
     cross = np.asarray(derived.get("cross_front_wind"), dtype=float)
     advection = np.asarray(derived.get("temperature_advection"), dtype=float)
     gradient = np.asarray(derived.get("gradient"), dtype=float)
-
     cross_threshold = float(cfg.get("cross_front_wind_min_ms", 1.0))
     stationary_threshold = float(cfg.get("stationary_cross_front_max_ms", 0.8))
     consistency_min = float(cfg.get("front_type_consistency_min", 0.55))
@@ -159,40 +143,34 @@ def _classify_front_component(ys: np.ndarray, xs: np.ndarray, derived: dict, cfg
 
     cold_score = cold_ratio + (0.12 if mean_cross > 0 else 0.0) + (0.10 if advection_mean < 0 else 0.0)
     warm_score = warm_ratio + (0.12 if mean_cross < 0 else 0.0) + (0.10 if advection_mean > 0 else 0.0)
-
-    if (
-        stationary_ratio >= consistency_min
-        and abs(mean_cross) <= stationary_threshold
-        and max(cold_ratio, warm_ratio) < consistency_min
-    ):
+    if stationary_ratio >= consistency_min and abs(mean_cross) <= stationary_threshold and max(cold_ratio, warm_ratio) < consistency_min:
         front_type = "stationary_front"
         motion = "quasi_stationary"
         reason = "锋面法向风较弱，冷暖侧推进信号均不占优，判为静止锋候选。"
-        type_strength = stationary_ratio
+        strength = stationary_ratio
     elif cold_score >= warm_score + mixed_gap and (cold_ratio >= consistency_min or mean_cross >= 0.35 * cross_threshold):
         front_type = "cold_front"
         motion = "cold_air_advancing"
         reason = "850hPa 风在温度梯度法向上主要由冷侧指向暖侧，并伴随冷平流或冷侧推进信号。"
-        type_strength = min(1.0, cold_score)
+        strength = min(1.0, cold_score)
     elif warm_score >= cold_score + mixed_gap and (warm_ratio >= consistency_min or mean_cross <= -0.35 * cross_threshold):
         front_type = "warm_front"
         motion = "warm_air_overrunning"
         reason = "850hPa 风在温度梯度法向上主要由暖侧指向冷侧，并伴随暖平流或暖空气爬升推进信号。"
-        type_strength = min(1.0, warm_score)
+        strength = min(1.0, warm_score)
     else:
         front_type = "mixed_front"
         motion = "mixed_or_uncertain"
         reason = "冷锋与暖锋信号接近或空间上混合，暂标记为混合锋面候选。"
-        type_strength = max(cold_ratio, warm_ratio, stationary_ratio)
+        strength = max(cold_ratio, warm_ratio, stationary_ratio)
 
-    confidence = 0.48 + 0.34 * float(np.clip(type_strength, 0.0, 1.0))
-    if abs(advection_mean) > 0 and front_type in {"cold_front", "warm_front"}:
+    confidence = 0.48 + 0.34 * float(np.clip(strength, 0.0, 1.0))
+    if front_type in {"cold_front", "warm_front"} and abs(advection_mean) > 0:
         sign_ok = (front_type == "cold_front" and advection_mean < 0) or (front_type == "warm_front" and advection_mean > 0)
         confidence += 0.08 if sign_ok else -0.08
     if gradient_mean > 0:
         confidence += 0.04
     confidence = float(np.clip(confidence, 0.35, 0.9))
-
     return {
         "front_type": front_type,
         "front_type_label": FRONT_TYPE_LABELS[front_type],
@@ -227,20 +205,14 @@ def front_candidate_fields(
     p_score = float(cfg.get("score_percentile", 82))
     p_dynamic = float(cfg.get("dynamic_support_percentile", 70))
     min_support = int(cfg.get("min_support_components", 1))
-
     dtdx, dtdy = derivatives_lonlat(t850, lat, lon)
     gradient = np.sqrt(dtdx**2 + dtdy**2)
     cross_front_wind, computed_advection, thermal_advection, thermal_advection_source = _thermal_front_diagnostics(
-        dtdx,
-        dtdy,
-        u850,
-        v850,
-        temp_adv850,
+        dtdx, dtdy, u850, v850, temp_adv850
     )
     grad_score = normalize01(gradient, 5, 98)
     score_terms = [(0.45, grad_score)]
     support_count = np.zeros_like(gradient, dtype=int)
-
     frontogenesis = np.zeros_like(gradient, dtype=float)
     wind_deformation = np.zeros_like(gradient, dtype=float)
     frontogenesis_threshold = float("nan")
@@ -248,46 +220,33 @@ def front_candidate_fields(
     dynamic_fields_available = u850 is not None and v850 is not None
     if dynamic_fields_available:
         frontogenesis, wind_deformation = _frontogenesis(dtdx, dtdy, u850, v850, lat, lon)
-        frontogenesis_score = normalize01(frontogenesis, 20, 98)
-        deformation_score = normalize01(wind_deformation, 20, 98)
-        score_terms.extend([(0.18, frontogenesis_score), (0.17, deformation_score)])
+        score_terms.extend([(0.18, normalize01(frontogenesis, 20, 98)), (0.17, normalize01(wind_deformation, 20, 98))])
         mask_part, frontogenesis_threshold = _support_mask(frontogenesis, p_dynamic)
         support_count += mask_part
         mask_part, wind_deformation_threshold = _support_mask(wind_deformation, p_dynamic)
         support_count += mask_part
-
     if div850 is not None:
         convergence = np.maximum(-div850, 0.0)
-        conv_score = normalize01(convergence, 5, 98)
-        score_terms.append((0.12, conv_score))
+        score_terms.append((0.12, normalize01(convergence, 5, 98)))
         mask_part, _ = _support_mask(convergence, p_dynamic)
         support_count += mask_part
-
-    if temp_adv850 is not None or dynamic_fields_available:
-        advection = np.abs(thermal_advection)
-        adv_score = normalize01(advection, 5, 98)
-        score_terms.append((0.06, adv_score))
-        mask_part, _ = _support_mask(advection, p_dynamic)
+    if temp_adv850 is not None:
+        advection_abs = np.abs(temp_adv850)
+        score_terms.append((0.06, normalize01(advection_abs, 5, 98)))
+        mask_part, _ = _support_mask(advection_abs, p_dynamic)
         support_count += mask_part
-
     if rh850 is not None:
-        moisture_score = normalize01(rh850, 40, 95)
-        score_terms.append((0.02, moisture_score))
+        score_terms.append((0.02, normalize01(rh850, 40, 95)))
         mask_part, _ = _support_mask(rh850, max(60.0, p_dynamic))
         support_count += mask_part
-
     weight_sum = sum(weight for weight, _ in score_terms)
     score = sum(weight * term for weight, term in score_terms) / max(weight_sum, 1e-6)
-
     gradient_threshold = _finite_percentile(gradient, p_grad)
     score_threshold = _finite_percentile(score, p_score)
     mask = (score >= score_threshold) & (gradient >= gradient_threshold)
     if dynamic_fields_available:
         mask &= support_count >= min_support
-
     return {
-        "dtdx": dtdx,
-        "dtdy": dtdy,
         "gradient": gradient,
         "score": score,
         "mask": mask,
@@ -317,52 +276,31 @@ def _axis_length_km(coords: list[list[float]]) -> float:
     return total
 
 
-def _front_axis_features(
-    derived: dict,
-    lat,
-    lon,
-    *,
-    min_points: int,
-    max_objects: int,
-    evidence: list[str],
-    cfg: dict | None = None,
-) -> list[dict]:
+def _front_axis_features(derived: dict, lat, lon, *, min_points: int, max_objects: int, evidence: list[str], cfg: dict | None = None) -> list[dict]:
     cfg = cfg or {}
     score = np.asarray(derived["score"], dtype=float)
     gradient = np.asarray(derived["gradient"], dtype=float)
-    components = mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points)
     ranked = []
-    for item in components:
+    for item in mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points):
         ys, xs = item["indices"]
         line = component_axis_line(item, lat, lon)
         coords = line.get("coordinates", [])
         if len(coords) < 2:
             continue
+        cls = _classify_front_component(ys, xs, derived, cfg)
         values = score[ys, xs]
         grads = gradient[ys, xs]
-        classification = _classify_front_component(ys, xs, derived, cfg)
-        ranked.append(
-            {
-                "item": item,
-                "line": line,
-                "classification": classification,
-                "mean_score": float(np.nanmean(values)),
-                "max_score": float(np.nanmax(values)),
-                "mean_gradient": float(np.nanmean(grads)),
-                "max_gradient": float(np.nanmax(grads)),
-                "axis_length_km": _axis_length_km(coords),
-            }
-        )
-    ranked.sort(
-        key=lambda item: (
-            item["axis_length_km"],
-            item["max_score"],
-            item["mean_score"],
-            item["classification"].get("front_type_confidence") or 0,
-            item["item"].get("point_count", 0),
-        ),
-        reverse=True,
-    )
+        ranked.append({
+            "item": item,
+            "line": line,
+            "classification": cls,
+            "mean_score": float(np.nanmean(values)),
+            "max_score": float(np.nanmax(values)),
+            "mean_gradient": float(np.nanmean(grads)),
+            "max_gradient": float(np.nanmax(grads)),
+            "axis_length_km": _axis_length_km(coords),
+        })
+    ranked.sort(key=lambda item: (item["axis_length_km"], item["max_score"], item["mean_score"], item["classification"].get("front_type_confidence") or 0, item["item"].get("point_count", 0)), reverse=True)
     if max_objects > 0:
         ranked = ranked[:max_objects]
     features = []
@@ -376,19 +314,7 @@ def _front_axis_features(
             "level": "850hPa",
             "rank": rank,
             "geometry_role": "axis",
-            "front_type": cls["front_type"],
-            "front_type_label": cls["front_type_label"],
-            "front_motion": cls["front_motion"],
-            "front_motion_label": cls["front_motion_label"],
-            "front_type_confidence": cls["front_type_confidence"],
-            "cross_front_wind_mean_ms": cls["cross_front_wind_mean_ms"],
-            "cross_front_wind_abs_mean_ms": cls["cross_front_wind_abs_mean_ms"],
-            "cold_front_ratio": cls["cold_front_ratio"],
-            "warm_front_ratio": cls["warm_front_ratio"],
-            "stationary_front_ratio": cls["stationary_front_ratio"],
-            "temperature_advection_mean": cls["temperature_advection_mean"],
-            "temperature_advection_source": cls["temperature_advection_source"],
-            "classification_reason": cls["classification_reason"],
+            **cls,
             "source_area_point_count": source["point_count"],
             "source_area_bbox": source["bbox"],
             "centroid": source["centroid"],
@@ -402,31 +328,18 @@ def _front_axis_features(
             "frontogenesis_threshold": derived["frontogenesis_threshold"],
             "wind_deformation_threshold": derived["wind_deformation_threshold"],
             "confidence": 0.68,
-            "evidence": evidence
-            + [
-                "候选锋区已抽取为 LineString 轴线，业务图层默认不输出面区域",
-                cls["classification_reason"],
-            ],
+            "evidence": evidence + ["候选锋区已抽取为 LineString 轴线，业务图层默认不输出面区域", cls["classification_reason"]],
         }
-        features.append(line_feature(item["line"]["coordinates"], props))
+        features.append(line_feature(item["line"].get("coordinates") or [], props))
     return features
 
 
-def front_axis_components(
-    derived: dict,
-    lat,
-    lon,
-    *,
-    min_points: int,
-    max_objects: int,
-    thresholds: dict | None = None,
-) -> list[dict]:
+def front_axis_components(derived: dict, lat, lon, *, min_points: int, max_objects: int, thresholds: dict | None = None) -> list[dict]:
     cfg = (thresholds or {}).get("front_candidate", {}) if thresholds else {}
     score = np.asarray(derived["score"], dtype=float)
     gradient = np.asarray(derived["gradient"], dtype=float)
-    items = mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points)
     components = []
-    for item in items:
+    for item in mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points):
         ys, xs = item["indices"]
         if ys.size == 0:
             continue
@@ -434,33 +347,23 @@ def front_axis_components(
         coords = line.get("coordinates") or []
         if len(coords) < 2:
             continue
+        cls = _classify_front_component(ys, xs, derived, cfg)
         values = score[ys, xs]
-        gradient_values = gradient[ys, xs]
-        classification = _classify_front_component(ys, xs, derived, cfg)
-        components.append(
-            {
-                "item": item,
-                "line": line,
-                "classification": classification,
-                "front_type": classification["front_type"],
-                "front_type_label": classification["front_type_label"],
-                "front_motion": classification["front_motion"],
-                "point_count": int(item["point_count"]),
-                "mean_score": float(np.nanmean(values)),
-                "max_score": float(np.nanmax(values)),
-                "mean_gradient": float(np.nanmean(gradient_values)),
-                "max_gradient": float(np.nanmax(gradient_values)),
-            }
-        )
-    components.sort(
-        key=lambda item: (
-            item["max_score"],
-            item["mean_score"],
-            item["classification"].get("front_type_confidence") or 0,
-            item["point_count"],
-        ),
-        reverse=True,
-    )
+        grads = gradient[ys, xs]
+        components.append({
+            "item": item,
+            "line": line,
+            "classification": cls,
+            "front_type": cls["front_type"],
+            "front_type_label": cls["front_type_label"],
+            "front_motion": cls["front_motion"],
+            "point_count": int(item["point_count"]),
+            "mean_score": float(np.nanmean(values)),
+            "max_score": float(np.nanmax(values)),
+            "mean_gradient": float(np.nanmean(grads)),
+            "max_gradient": float(np.nanmax(grads)),
+        })
+    components.sort(key=lambda item: (item["max_score"], item["mean_score"], item["classification"].get("front_type_confidence") or 0, item["point_count"]), reverse=True)
     if max_objects > 0:
         components = components[:max_objects]
     for rank, component in enumerate(components, start=1):
@@ -468,32 +371,11 @@ def front_axis_components(
     return components
 
 
-def detect_front_candidate_axes(
-    t850: np.ndarray,
-    div850: np.ndarray | None,
-    temp_adv850: np.ndarray | None,
-    lat,
-    lon,
-    thresholds: dict,
-    *,
-    u850: np.ndarray | None = None,
-    v850: np.ndarray | None = None,
-    rh850: np.ndarray | None = None,
-) -> list[dict]:
+def detect_front_candidate_axes(t850: np.ndarray, div850: np.ndarray | None, temp_adv850: np.ndarray | None, lat, lon, thresholds: dict, *, u850: np.ndarray | None = None, v850: np.ndarray | None = None, rh850: np.ndarray | None = None) -> list[dict]:
     cfg = thresholds.get("front_candidate", {})
     min_pts = int(cfg.get("min_area_grid_points", 10))
     max_objects = int(cfg.get("max_objects", 12))
-    derived = front_candidate_fields(
-        t850,
-        div850,
-        temp_adv850,
-        lat,
-        lon,
-        thresholds,
-        u850=u850,
-        v850=v850,
-        rh850=rh850,
-    )
+    derived = front_candidate_fields(t850, div850, temp_adv850, lat, lon, thresholds, u850=u850, v850=v850, rh850=rh850)
     evidence = ["850hPa 温度梯度较大"]
     if u850 is not None and v850 is not None:
         evidence.append("850hPa 风场形变、锋生函数和锋面法向风提供动力支撑")
@@ -501,15 +383,7 @@ def detect_front_candidate_axes(
         evidence.append("低层存在辐合信号")
     if temp_adv850 is not None:
         evidence.append("温度平流变化明显")
-    features = _front_axis_features(
-        derived,
-        lat,
-        lon,
-        min_points=min_pts,
-        max_objects=max_objects,
-        evidence=evidence,
-        cfg=cfg,
-    )
+    features = _front_axis_features(derived, lat, lon, min_points=min_pts, max_objects=max_objects, evidence=evidence, cfg=cfg)
     for feature in features:
         type_conf = feature["properties"].get("front_type_confidence") or 0.0
         base = 0.66 if u850 is not None and v850 is not None else 0.58
@@ -517,34 +391,12 @@ def detect_front_candidate_axes(
     return features
 
 
-def detect_front_candidates(
-    t850: np.ndarray,
-    div850: np.ndarray | None,
-    temp_adv850: np.ndarray | None,
-    lat,
-    lon,
-    thresholds: dict,
-    *,
-    u850: np.ndarray | None = None,
-    v850: np.ndarray | None = None,
-    rh850: np.ndarray | None = None,
-) -> list[dict]:
+def detect_front_candidates(t850: np.ndarray, div850: np.ndarray | None, temp_adv850: np.ndarray | None, lat, lon, thresholds: dict, *, u850: np.ndarray | None = None, v850: np.ndarray | None = None, rh850: np.ndarray | None = None) -> list[dict]:
     cfg = thresholds.get("front_candidate", {})
     min_pts = int(cfg.get("min_area_grid_points", 10))
     max_objects = int(cfg.get("max_objects", 12))
     output_geometry = str(cfg.get("output_geometry", "axis")).lower()
-    derived = front_candidate_fields(
-        t850,
-        div850,
-        temp_adv850,
-        lat,
-        lon,
-        thresholds,
-        u850=u850,
-        v850=v850,
-        rh850=rh850,
-    )
-    score = derived["score"]
+    derived = front_candidate_fields(t850, div850, temp_adv850, lat, lon, thresholds, u850=u850, v850=v850, rh850=rh850)
     evidence = ["850hPa 温度梯度较大"]
     if u850 is not None and v850 is not None:
         evidence.append("850hPa 风场形变、锋生函数和锋面法向风提供动力支撑")
@@ -552,15 +404,12 @@ def detect_front_candidates(
         evidence.append("低层存在辐合信号")
     if temp_adv850 is not None:
         evidence.append("温度平流变化明显")
-
     if output_geometry in {"area", "polygon"}:
         features = mask_area_features(
-            derived["mask"],
-            lat,
-            lon,
+            derived["mask"], lat, lon,
             feature_type="front_candidate",
             title="锋面候选区",
-            value_field=score,
+            value_field=derived["score"],
             min_points=min_pts,
             threshold_desc="温度梯度、风场形变、锋生函数和低层辐合综合评分较高",
             evidence=evidence,
@@ -573,30 +422,15 @@ def detect_front_candidates(
                 "wind_deformation_threshold": derived["wind_deformation_threshold"],
             },
         )
-        for f in features:
-            f["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
-        features.sort(
-            key=lambda feature: (
-                feature["properties"].get("point_count") or 0,
-                feature["properties"].get("mean_value") or 0,
-            ),
-            reverse=True,
-        )
+        for feature in features:
+            feature["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
+        features.sort(key=lambda feature: (feature["properties"].get("point_count") or 0, feature["properties"].get("mean_value") or 0), reverse=True)
     else:
-        features = _front_axis_features(
-            derived,
-            lat,
-            lon,
-            min_points=min_pts,
-            max_objects=max_objects,
-            evidence=evidence,
-            cfg=cfg,
-        )
-        for f in features:
-            type_conf = f["properties"].get("front_type_confidence") or 0.0
+        features = _front_axis_features(derived, lat, lon, min_points=min_pts, max_objects=max_objects, evidence=evidence, cfg=cfg)
+        for feature in features:
+            type_conf = feature["properties"].get("front_type_confidence") or 0.0
             base = 0.66 if u850 is not None and v850 is not None else 0.58
-            f["properties"]["confidence"] = round(float(np.clip(base + 0.12 * (type_conf - 0.5), 0.45, 0.85)), 2)
-
+            feature["properties"]["confidence"] = round(float(np.clip(base + 0.12 * (type_conf - 0.5), 0.45, 0.85)), 2)
     if max_objects > 0:
         features = features[:max_objects]
     for rank, feature in enumerate(features, start=1):
