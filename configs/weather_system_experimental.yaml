@@ -1,0 +1,25 @@
+# 新增天气系统实验参数。
+# 这些参数可逐步合并到 thresholds.yaml 或后台阈值矩阵中。
+
+pv_anomaly:
+  preferred_levels_hpa: [300]
+  pv_percentile: 90
+  pv_min: 1.5
+  min_area_grid_points: 8
+  max_objects: 8
+  smoothing_sigma_grid: 1.0
+  require_positive_pv_advection: false
+  mid_dry_rh_max: 65
+
+surface_boundary:
+  score_percentile: 86
+  temp_gradient_percentile: 80
+  min_area_grid_points: 8
+  min_length_km: 120
+  max_objects: 8
+  smoothing_sigma_grid: 1.0
+
+# 未来接入综合形势接口时，建议默认主图层只显示部分对象：
+# - 主系统：subtropical_high, trough, ridge, shear_line, front_candidate, vortex, low_level_jet, moisture_transport
+# - 支撑层：convergence_axis, upper_divergence_axis, upper_jet, pv_anomaly, surface_boundary
+# - debug：source_area, mask, bbox, score_grid
