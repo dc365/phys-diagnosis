@@ -32,6 +32,13 @@ def detect_moisture_transport(
         u=u850,
         v=v850,
         min_direction_coherence=min_coherence if u850 is not None and v850 is not None else 0.0,
+        length_cap_km=float(cfg.get("rank_length_cap_km", 1800.0)),
+        mean_weight=float(cfg.get("rank_mean_weight", 0.35)),
+        max_weight=float(cfg.get("rank_max_weight", 0.30)),
+        length_weight=float(cfg.get("rank_length_weight", 0.20)),
+        coherence_weight=float(cfg.get("rank_coherence_weight", 0.15)),
+        streamline_max_turn_deg=float(cfg.get("streamline_max_turn_deg", 55.0)),
+        streamline_allow_gap_grid=int(cfg.get("streamline_allow_gap_grid", 1)),
     )
 
     features = []
@@ -48,6 +55,8 @@ def detect_moisture_transport(
                     "point_count": component["point_count"],
                     "axis_length": component["axis_length"],
                     "axis_length_km": round(component.get("axis_length_km", 0.0), 1),
+                    "rank_score": component.get("rank_score"),
+                    "length_score_capped_km": component.get("length_score_capped_km"),
                     "axis_method": component.get("axis_method"),
                     "max_value": component["max_value"],
                     "mean_value": component["mean_value"],
@@ -58,6 +67,7 @@ def detect_moisture_transport(
                         f"850hPa 水汽通量超过第 {p:.0f} 百分位阈值",
                         "水汽通量高值呈连续输送带",
                         "风矢量流线追踪得到输送轴" if component.get("axis_method") == "streamline_axis" else "高值区几何主轴作为输送轴",
+                        "按强度、长度封顶和风向一致性综合排序，避免长而弱的输送带优先",
                         "风向一致性支持水汽沿轴向输送" if component["direction_coherence"] is not None else "未提供风矢量一致性检验",
                     ],
                 },
