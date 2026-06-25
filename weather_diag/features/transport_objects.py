@@ -115,36 +115,51 @@ def _trace_one_direction(
     *,
     sign: float,
     max_steps: int,
+    max_turn_deg: float = 55.0,
+    allow_gap_grid: int = 1,
 ) -> list[tuple[int, int]]:
     y = float(seed_y)
     x = float(seed_x)
     path: list[tuple[int, int]] = []
     visited: set[tuple[int, int]] = set()
+    previous_dir: np.ndarray | None = None
+    gap_count = 0
     dy_grid = float(np.nanmedian(np.abs(np.diff(lat)))) if len(lat) > 1 else 1.0
     dx_grid = float(np.nanmedian(np.abs(np.diff(lon)))) if len(lon) > 1 else 1.0
+    max_turn_cos = float(np.cos(np.deg2rad(max_turn_deg)))
     for _ in range(max_steps):
         iy = int(round(y))
         ix = int(round(x))
-        if iy < 0 or iy >= mask.shape[0] or ix < 0 or ix >= mask.shape[1] or not mask[iy, ix]:
+        if iy < 0 or iy >= mask.shape[0] or ix < 0 or ix >= mask.shape[1]:
             break
-        if (iy, ix) in visited:
-            break
-        visited.add((iy, ix))
-        path.append((iy, ix))
+        if not mask[iy, ix]:
+            gap_count += 1
+            if gap_count > allow_gap_grid:
+                break
+        else:
+            gap_count = 0
+            if (iy, ix) in visited:
+                break
+            visited.add((iy, ix))
+            path.append((iy, ix))
         uu = float(u[iy, ix])
         vv = float(v[iy, ix])
         speed = float(np.hypot(uu, vv))
         if not np.isfinite(speed) or speed <= 1.0e-6:
             break
         km_per_lon = _lon_km_per_degree(float(lat[iy]))
-        # Convert physical vector to fractional grid-index vector, then normalize to one grid step.
         dx = (uu / km_per_lon) / max(dx_grid, 1.0e-6)
         dy = (vv / 111.32) / max(dy_grid, 1.0e-6)
-        norm = float(np.hypot(dx, dy))
+        step = np.asarray([dx, dy], dtype=float)
+        norm = float(np.hypot(step[0], step[1]))
         if not np.isfinite(norm) or norm <= 1.0e-9:
             break
-        x += sign * dx / norm
-        y += sign * dy / norm
+        step = sign * step / norm
+        if previous_dir is not None and float(np.dot(previous_dir, step)) < max_turn_cos:
+            break
+        previous_dir = step
+        x += step[0]
+        y += step[1]
     return path
 
 
@@ -157,6 +172,8 @@ def _stream_axis_line(
     v: np.ndarray | None,
     *,
     min_points: int,
+    max_turn_deg: float = 55.0,
+    allow_gap_grid: int = 1,
 ) -> dict | None:
     if u is None or v is None:
         return None
@@ -174,8 +191,9 @@ def _stream_axis_line(
     seed_y = int(ys[seed_i])
     seed_x = int(xs[seed_i])
     max_steps = int(max(12, min(mask.size, ys.size * 2)))
-    backward = _trace_one_direction(seed_y, seed_x, mask, lat_arr, lon_arr, np.asarray(u, dtype=float), np.asarray(v, dtype=float), sign=-1.0, max_steps=max_steps)
-    forward = _trace_one_direction(seed_y, seed_x, mask, lat_arr, lon_arr, np.asarray(u, dtype=float), np.asarray(v, dtype=float), sign=1.0, max_steps=max_steps)
+    kwargs = {"max_turn_deg": max_turn_deg, "allow_gap_grid": allow_gap_grid}
+    backward = _trace_one_direction(seed_y, seed_x, mask, lat_arr, lon_arr, np.asarray(u, dtype=float), np.asarray(v, dtype=float), sign=-1.0, max_steps=max_steps, **kwargs)
+    forward = _trace_one_direction(seed_y, seed_x, mask, lat_arr, lon_arr, np.asarray(u, dtype=float), np.asarray(v, dtype=float), sign=1.0, max_steps=max_steps, **kwargs)
     nodes = list(reversed(backward[1:])) + forward
     if len(nodes) < max(3, min_points // 3):
         return None
@@ -184,6 +202,46 @@ def _stream_axis_line(
     if len(coords) < 2:
         return None
     return {"type": "line", "coordinates": coords, "bbox": _line_bbox(coords), "method": "streamline_axis"}
+
+
+def _score01(values: list[float] | np.ndarray, value: float, *, cap: float | None = None) -> float:
+    arr = np.asarray(values, dtype=float)
+    valid = arr[np.isfinite(arr)]
+    if valid.size == 0 or not np.isfinite(value):
+        return 0.0
+    lo = float(np.nanmin(valid))
+    hi = float(np.nanmax(valid))
+    if cap is not None:
+        hi = min(hi, cap)
+        value = min(value, cap)
+    if hi <= lo:
+        return 1.0 if value >= hi else 0.0
+    return float(np.clip((value - lo) / (hi - lo), 0.0, 1.0))
+
+
+def _apply_transport_rank_scores(
+    components: list[dict],
+    *,
+    length_cap_km: float,
+    mean_weight: float,
+    max_weight: float,
+    length_weight: float,
+    coherence_weight: float,
+) -> None:
+    means = [c["mean_value"] for c in components]
+    maxes = [c["max_value"] for c in components]
+    lengths = [min(c["axis_length_km"], length_cap_km) for c in components]
+    for component in components:
+        coherence = component.get("direction_coherence")
+        coherence_score = float(coherence) if coherence is not None and np.isfinite(coherence) else 0.5
+        rank_score = (
+            mean_weight * _score01(means, component["mean_value"])
+            + max_weight * _score01(maxes, component["max_value"])
+            + length_weight * _score01(lengths, min(component["axis_length_km"], length_cap_km), cap=length_cap_km)
+            + coherence_weight * float(np.clip(coherence_score, 0.0, 1.0))
+        )
+        component["rank_score"] = round(float(rank_score), 4)
+        component["length_score_capped_km"] = float(min(component["axis_length_km"], length_cap_km))
 
 
 def ranked_transport_components(
@@ -197,6 +255,13 @@ def ranked_transport_components(
     u: np.ndarray | None = None,
     v: np.ndarray | None = None,
     min_direction_coherence: float = 0.0,
+    length_cap_km: float = 1800.0,
+    mean_weight: float = 0.35,
+    max_weight: float = 0.30,
+    length_weight: float = 0.20,
+    coherence_weight: float = 0.15,
+    streamline_max_turn_deg: float = 55.0,
+    streamline_allow_gap_grid: int = 1,
 ) -> list[dict]:
     components = []
     for item in mask_to_bbox_features(mask, lat, lon, min_points=min_points):
@@ -204,7 +269,17 @@ def ranked_transport_components(
         coherence = direction_coherence(u, v, ys, xs)
         if coherence is not None and coherence < min_direction_coherence:
             continue
-        line = _stream_axis_line(item, lat, lon, value_field, u, v, min_points=min_points)
+        line = _stream_axis_line(
+            item,
+            lat,
+            lon,
+            value_field,
+            u,
+            v,
+            min_points=min_points,
+            max_turn_deg=streamline_max_turn_deg,
+            allow_gap_grid=streamline_allow_gap_grid,
+        )
         if line is None:
             line = component_axis_line(item, lat, lon)
             line["method"] = "component_pca_axis"
@@ -224,12 +299,20 @@ def ranked_transport_components(
             }
         )
 
+    _apply_transport_rank_scores(
+        components,
+        length_cap_km=max(100.0, float(length_cap_km)),
+        mean_weight=float(mean_weight),
+        max_weight=float(max_weight),
+        length_weight=float(length_weight),
+        coherence_weight=float(coherence_weight),
+    )
     components.sort(
         key=lambda component: (
-            component["axis_length_km"],
+            component.get("rank_score", 0.0),
             component["mean_value"],
             component["max_value"],
-            component["point_count"],
+            component["axis_length_km"],
         ),
         reverse=True,
     )
