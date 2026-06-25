@@ -16,6 +16,7 @@ pressure_system:
 subtropical_high:
   level_hpa: 500
   contour_gpm: 5880
+  auto_unit: true
   min_area_grid_points: 20
   # 5880gpm 区域由格点掩膜生成，默认对业务展示边界做保守平滑，避免地图上出现明显台阶。
   smooth_boundary: true
@@ -54,6 +55,13 @@ low_level_jet:
   min_area_grid_points: 10
   min_direction_coherence: 0.65
   max_objects: 12
+  rank_length_cap_km: 1800
+  rank_mean_weight: 0.35
+  rank_max_weight: 0.30
+  rank_length_weight: 0.20
+  rank_coherence_weight: 0.15
+  streamline_max_turn_deg: 55
+  streamline_allow_gap_grid: 1
 
 moisture_transport:
   level_hpa: 850
@@ -61,6 +69,13 @@ moisture_transport:
   min_area_grid_points: 12
   min_direction_coherence: 0.65
   max_objects: 12
+  rank_length_cap_km: 1800
+  rank_mean_weight: 0.35
+  rank_max_weight: 0.30
+  rank_length_weight: 0.20
+  rank_coherence_weight: 0.15
+  streamline_max_turn_deg: 55
+  streamline_allow_gap_grid: 1
 
 front_candidate:
   level_hpa: 850
@@ -72,6 +87,49 @@ front_candidate:
   max_objects: 12
   # 业务图默认输出锋面轴线 LineString；调试时可改为 area。
   output_geometry: axis
+  cross_front_wind_min_ms: 1.0
+  stationary_cross_front_max_ms: 0.8
+  front_type_consistency_min: 0.55
+  front_type_mixed_gap: 0.15
+
+shear_line:
+  levels_hpa: [850, 700, 500]
+  score_percentile: 84
+  dynamic_percentile: 75
+  vorticity_min: 1.0e-5
+  convergence_min: 4.0e-6
+  min_support_components: 2
+  min_area_grid_points: 10
+  min_length_km: 300
+  max_objects: 8
+  smoothing_sigma_grid: 1.0
+  separate_front_with_shear: true
+  front_gradient_percentile: 85
+  front_with_shear_ratio_min: 0.45
+
+vortex:
+  levels_hpa: [850, 700, 500]
+  smoothing_sigma_grid: 1.2
+  min_distance_grid: 8
+  max_objects: 8
+  min_height_prominence: 20.0
+  closed_height_interval: 20.0
+  min_closed_area_km2: 40000
+  vorticity_min: 1.0e-5
+
+upper_jet:
+  preferred_levels_hpa: [200, 300]
+  wind_speed_min_ms: 30.0
+  wind_speed_percentile: 85
+  min_area_grid_points: 10
+  min_direction_coherence: 0.60
+  rank_length_cap_km: 2500
+  max_objects: 8
+  smoothing_sigma_grid: 1.0
+  exit_divergence_min: 8.0e-6
+  exit_divergence_percentile: 88
+  exit_min_area_grid_points: 8
+  exit_max_objects: 6
 
 trough_ridge:
   level_hpa: 500
