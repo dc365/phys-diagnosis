@@ -210,12 +210,25 @@ def test_nafp_situation_detects_front_candidates_with_threshold_audit():
     front = fronts[0]
     assert front["feature_type"] == "front_candidate"
     assert front["level"] == "850"
-    assert front["geometry"]["type"] == "polygon"
+    assert front["geometry"]["type"] == "line"
+    assert len(front["geometry"]["coordinates"]) > 2
     assert front["geometry"]["bbox"]
     assert front["confidence"] >= 0.55
-    assert "温度梯度" in front["diagnosis"]
-    assert "低层辐合" in front["diagnosis"]
-    assert "温度平流" in front["diagnosis"]
+    assert front["front_type"] in {
+        "cold_front",
+        "warm_front",
+        "stationary_front",
+        "mixed_front",
+        "front_candidate",
+    }
+    assert front["front_type_label"].endswith("候选")
+    assert front["front_motion"]
+    assert front["front_motion_label"]
+    assert front["front_type_confidence"] is not None
+    assert front["classification_reason"]
+    assert front["front_type_label"] in front["name"]
+    assert front["axis_length_km"] > 0
+    assert front["source_area_point_count"] > 0
 
     assert result["diagnostics"]["tt850"]["source_path"].endswith("/tt/850/2026/06/17/20/26061720.024")
     assert result["diagnostics"]["tt850_gradient"]["p90"] > 0

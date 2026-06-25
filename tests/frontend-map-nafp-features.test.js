@@ -12,6 +12,16 @@ test('map feature toggles focus on primary weather systems', () => {
   assert.match(mapJs, /\['upper_divergence', '高空辐散区'\]/);
 });
 
+test('map front axis display follows classified front algorithm output', () => {
+  assert.match(mapJs, /\['front_candidate', '锋面轴线'\]/);
+  assert.match(mapJs, /frontTypeColors/);
+  assert.match(mapJs, /frontTypeColorExpression/);
+  assert.match(mapJs, /\['get', 'front_type'\]/);
+  assert.match(mapJs, /front_type_label/);
+  assert.match(mapJs, /classification_reason/);
+  assert.match(mapJs, /front_motion_label/);
+});
+
 test('map feature loading can use one NAFP features request for the selected types', () => {
   assert.match(mapJs, /buildNafpFeaturesUrl/);
   assert.match(mapJs, /async function loadNafpFeatures\(selected, fh\)/);

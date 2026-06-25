@@ -297,6 +297,22 @@ test('featureDisplayLabel uses Chinese GIS labels for pressure centers', () => {
   assert.equal(featureDisplayLabel({ feature_type: 'low', label: 'L' }), '低');
 });
 
+test('featureDisplayLabel uses classified front labels for front axes', () => {
+  assert.equal(
+    featureDisplayLabel({
+      feature_type: 'front_candidate',
+      front_type: 'cold_front',
+      front_type_label: '冷锋候选',
+      label: '锋面候选',
+    }),
+    '冷锋候选',
+  );
+  assert.equal(
+    featureDisplayLabel({ feature_type: 'front_candidate', front_type: 'warm_front' }),
+    '暖锋候选',
+  );
+});
+
 test('featureQuality maps confidence into duty-review labels', () => {
   assert.deepEqual(featureQuality({ confidence: 0.81 }), {
     level: 'high',

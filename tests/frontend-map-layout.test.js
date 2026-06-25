@@ -16,11 +16,11 @@ test('map page keeps the meteorological map workbench structure', () => {
 });
 
 test('map page cache-busts static assets after interface changes', () => {
-  assert.match(html, /href="\/static\/map\.css\?v=hide-source-paths-20260625"/);
+  assert.match(html, /href="\/static\/map\.css\?v=front-axis-20260625"/);
   const utilsVersion = html.match(/src="\/static\/maplibre-utils\.js\?v=([^"]+)"/)?.[1];
   const mapVersion = html.match(/src="\/static\/map\.js\?v=([^"]+)"/)?.[1];
-  assert.equal(utilsVersion, 'hide-source-paths-20260625');
-  assert.equal(mapVersion, 'hide-source-paths-20260625');
+  assert.equal(utilsVersion, 'front-axis-20260625');
+  assert.equal(mapVersion, 'front-axis-20260625');
   assert.equal(utilsVersion, mapVersion);
 });
 
@@ -152,7 +152,8 @@ test('right risk panel exposes area risk as an independent map function', () => 
 });
 
 test('weather system toggles use the same colors as map feature layers', () => {
-  assert.match(mapJs, /const color = featureColors\[type\] \|\| '#333333'/);
+  assert.match(mapJs, /function featureColor\(properties\)/);
+  assert.match(mapJs, /const color = featureColor\(type\)/);
   assert.match(mapJs, /input\.checked = false/);
   assert.doesNotMatch(mapJs, /input\.checked = true/);
   assert.match(mapJs, /className = `feature-swatch feature-swatch-\$\{featureLegendKind\(type\)\}`/);

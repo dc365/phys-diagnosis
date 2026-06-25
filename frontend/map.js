@@ -70,7 +70,7 @@ const weatherSystemFeatureTypes = [
   ['high', '高压中心'], ['low', '低压中心'], ['subtropical_high', '副高588区'],
   ['trough', '槽线候选'], ['ridge', '脊线候选'], ['low_level_convergence', '低层辐合区'],
   ['upper_divergence', '高空辐散区'], ['low_level_jet', '低空急流'],
-  ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面候选'],
+  ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面轴线'],
 ];
 
 const riskFeatureTypes = [
@@ -112,6 +112,14 @@ const featureColors = {
   hail_risk: '#0b7285',
   rotating_storm_risk: '#e67700',
   severe_convection_composite_risk: '#862e9c',
+};
+
+const frontTypeColors = {
+  cold_front: '#1864ab',
+  warm_front: '#e03131',
+  stationary_front: '#7048e8',
+  mixed_front: '#5c677d',
+  front_candidate: featureColors.front_candidate,
 };
 
 const areaRiskColors = {
@@ -275,10 +283,27 @@ function dataSourceLabel(item) {
 }
 
 function colorMatchExpression() {
-  const expression = ['match', ['get', 'feature_type']];
-  Object.entries(featureColors).forEach(([type, color]) => expression.push(type, color));
-  expression.push('#333333');
+  const expression = ['case', ['==', ['get', 'feature_type'], 'front_candidate'], frontTypeColorExpression()];
+  const featureTypeExpression = ['match', ['get', 'feature_type']];
+  Object.entries(featureColors).forEach(([type, color]) => featureTypeExpression.push(type, color));
+  featureTypeExpression.push('#333333');
+  expression.push(featureTypeExpression);
   return expression;
+}
+
+function frontTypeColorExpression() {
+  const expression = ['match', ['get', 'front_type']];
+  Object.entries(frontTypeColors).forEach(([type, color]) => expression.push(type, color));
+  expression.push(frontTypeColors.front_candidate);
+  return expression;
+}
+
+function featureColor(properties) {
+  const props = typeof properties === 'string' ? { feature_type: properties } : (properties || {});
+  if (props.feature_type === 'front_candidate') {
+    return frontTypeColors[props.front_type] || featureColors.front_candidate;
+  }
+  return featureColors[props.feature_type] || '#333333';
 }
 
 function areaRiskColorExpression() {
@@ -518,7 +543,7 @@ function renderFeatureToggleGroup(boxId, items) {
   if (!box) return;
   box.innerHTML = '';
   items.forEach(([type, label]) => {
-    const color = featureColors[type] || '#333333';
+    const color = featureColor(type);
     const el = document.createElement('label');
     el.dataset.featureType = type;
 
@@ -2062,6 +2087,37 @@ function featureMetric(label, value) {
   `;
 }
 
+function featureMetaRow(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+}
+
+function renderFrontClassificationMeta(props) {
+  if (props.feature_type !== 'front_candidate') return '';
+  return [
+    featureMetaRow('锋面类型', props.front_type_label || featureDisplayLabel(props)),
+    featureMetaRow('移向判据', props.front_motion_label),
+    featureMetaRow(
+      '分类置信度',
+      props.front_type_confidence === null || props.front_type_confidence === undefined
+        ? ''
+        : Number(props.front_type_confidence).toFixed(2),
+    ),
+    featureMetaRow(
+      '法向风',
+      props.cross_front_wind_mean_ms === null || props.cross_front_wind_mean_ms === undefined
+        ? ''
+        : `${formatValue(props.cross_front_wind_mean_ms)} m/s`,
+    ),
+    featureMetaRow(
+      '锋面轴长',
+      props.axis_length_km === null || props.axis_length_km === undefined
+        ? ''
+        : `${formatValue(props.axis_length_km)} km`,
+    ),
+  ].join('');
+}
+
 function featureEvidenceItem(item) {
   if (typeof item === 'string') {
     return `
@@ -2121,7 +2177,9 @@ function renderFeatureDetailCard(props) {
         <div><dt>评分</dt><dd>${escapeHtml(props.score !== undefined ? formatValue(props.score) : '-')}</dd></div>
         <div><dt>范围</dt><dd>${escapeHtml(bboxText)}</dd></div>
         <div><dt>联动图层</dt><dd>${escapeHtml(layerSuggestion ? layerDisplayName(layerSuggestion.layerId) : '-')}</dd></div>
+        ${renderFrontClassificationMeta(props)}
       </dl>
+      ${props.classification_reason && props.classification_reason !== props.diagnosis ? `<p class="object-diagnosis">${escapeHtml(props.classification_reason)}</p>` : ''}
     </section>
     <section class="feature-evidence-card">
       <header>
@@ -2537,7 +2595,7 @@ function renderPointMarkers(features) {
     .forEach((feature) => {
       const props = feature.properties || {};
       const [lon, lat] = feature.geometry.coordinates;
-      const color = featureColors[props.feature_type] || '#333333';
+      const color = featureColor(props);
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'weather-point-label';

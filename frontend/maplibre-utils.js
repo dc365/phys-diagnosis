@@ -338,6 +338,16 @@
     if (type === 'low') return '低';
     if (type === 'low_pressure_convergence') return '低压辐合';
     if (type === 'high_pressure_divergence') return '高压辐散';
+    if (type === 'front_candidate') {
+      const frontLabels = {
+        cold_front: '冷锋候选',
+        warm_front: '暖锋候选',
+        stationary_front: '静止锋候选',
+        mixed_front: '混合锋面候选',
+        front_candidate: '锋面候选',
+      };
+      return properties?.front_type_label || frontLabels[properties?.front_type] || properties?.label || '锋面轴线';
+    }
     return properties?.label || type || '对象';
   }
 

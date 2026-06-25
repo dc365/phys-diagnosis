@@ -829,10 +829,24 @@ def _front_candidate_systems(
     systems = []
     min_points = int(_rule_float(min_points_rule, "threshold", 10.0))
     max_objects = max(1, int(_rule_float(max_objects_rule, "threshold", 12.0)))
-    components = front_axis_components(derived, tt_field.lat, tt_field.lon, min_points=min_points, max_objects=max_objects)
+    components = front_axis_components(
+        derived,
+        tt_field.lat,
+        tt_field.lon,
+        min_points=min_points,
+        max_objects=max_objects,
+        thresholds=thresholds,
+    )
     for idx, component in enumerate(components, start=1):
         item = component["item"]
         line = component["line"]
+        classification = component.get("classification") or {}
+        front_type_label = classification.get("front_type_label") or component.get("front_type_label") or "锋面候选"
+        front_type_confidence = classification.get("front_type_confidence")
+        base_confidence = 0.66 if wind850 is not None else 0.58
+        confidence = base_confidence
+        if isinstance(front_type_confidence, (int, float)) and np.isfinite(front_type_confidence):
+            confidence = float(np.clip(base_confidence + 0.12 * (float(front_type_confidence) - 0.5), 0.45, 0.85))
         evidence = [
             _system_evidence(
                 "tt850",
@@ -901,7 +915,7 @@ def _front_candidate_systems(
                 "id": f"system-front-candidate-850-{idx}",
                 "type": "front_candidate",
                 "feature_type": "front_candidate",
-                "name": "850hPa front candidate axis",
+                "name": f"850hPa {front_type_label}轴线",
                 "level": "850",
                 "geometry": {
                     "type": "line",
@@ -911,8 +925,22 @@ def _front_candidate_systems(
                 "source_area_bbox": item.get("bbox"),
                 "source_area_point_count": item.get("point_count"),
                 "axis_length_km": round(_line_length_km(line.get("coordinates") or []), 1),
-                "confidence": 0.66 if wind850 is not None else 0.58,
-                "diagnosis": "850hPa 温度梯度、风场形变、锋生函数、低层辐合和温度平流综合识别锋面候选区，并抽取为锋面轴线。",
+                "front_type": classification.get("front_type") or component.get("front_type") or "front_candidate",
+                "front_type_label": front_type_label,
+                "front_motion": classification.get("front_motion") or component.get("front_motion") or "undetermined",
+                "front_motion_label": classification.get("front_motion_label") or "",
+                "front_type_confidence": front_type_confidence,
+                "cross_front_wind_mean_ms": classification.get("cross_front_wind_mean_ms"),
+                "cross_front_wind_abs_mean_ms": classification.get("cross_front_wind_abs_mean_ms"),
+                "cold_front_ratio": classification.get("cold_front_ratio"),
+                "warm_front_ratio": classification.get("warm_front_ratio"),
+                "stationary_front_ratio": classification.get("stationary_front_ratio"),
+                "temperature_advection_mean": classification.get("temperature_advection_mean"),
+                "temperature_advection_source": classification.get("temperature_advection_source"),
+                "classification_reason": classification.get("classification_reason") or "",
+                "confidence": round(confidence, 2),
+                "diagnosis": classification.get("classification_reason")
+                or "850hPa 温度梯度、风场形变、锋生函数、低层辐合和温度平流综合识别锋面候选区，并抽取为锋面轴线。",
                 "evidence": evidence,
             }
         )
