@@ -1,20 +1,32 @@
-# NAFP 综合形势接口接入待办
+# NAFP integration status
 
-本次已提交天气系统 feature 层算法和配置，但为了降低一次性改动风险，部分新增算法暂未全部接入 `weather_diag/diagnosis/nafp_situation.py` 的主返回列表。
+The new weather-system feature algorithms are now connected through the NAFP situation cache path.
 
-建议下一步按以下顺序接入：
+Integration files:
 
-1. `shear_line_850`：优先接入，因为它能直接区分锋面和切变线。
-2. `low_level_convergence_axis`：替代默认展示中的大面积低层辐合面。
-3. `cold_vortex_500`：和槽线、冷涡强对流风险联动。
-4. `upper_jet_200/300` 与 `upper_jet_exit_region`：作为强降水和强对流的高空动力支撑。
-5. `pv_anomaly_300`：作为辅助支撑层，默认不主显。
-6. `surface_front_candidate` / `dryline_candidate`：作为地面触发边界，默认不主显。
+- weather_diag/diagnosis/nafp_situation_integrated.py
+- weather_diag/diagnosis/nafp_cache.py
 
-接入时建议同步更新：
+Connected objects:
 
-- `PRIMARY_SYSTEM_LIMITS`
-- `SYSTEM_DISPLAY_PRIORITY`
-- `DYNAMIC_CONFIDENCE_SYSTEM_TYPES`
-- 后台阈值矩阵 `algorithm_rules.py`
-- 前端 MapLibre 图层分组和图例
+1. shear_line and front_with_shear
+2. low_level_convergence_axis
+3. upper_divergence_axis
+4. cold_vortex and mid_level_vortex
+5. upper_jet
+6. upper_jet_exit_region
+7. pv_anomaly
+8. surface_front_candidate and dryline_candidate
+
+Also updated:
+
+- display ranking and primary flags
+- evidence-chain supporting systems
+- risk diagnosis supporting systems
+- support weights for the new weather systems
+
+Follow-up work:
+
+- add the new entries to the algorithm governance threshold matrix
+- group MapLibre layers into default systems, supporting diagnostics, risk layers and debug layers
+- calibrate thresholds with test_datas/NAFP_ECTHIN_NC and manually checked weather cases
