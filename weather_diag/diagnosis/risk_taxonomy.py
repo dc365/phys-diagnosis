@@ -32,6 +32,8 @@ RISK_CHANNELS = [
 HAZARD_TYPES: dict[str, dict[str, Any]] = {
     "persistent_heavy_rain": {
         "label": "持续性强降水",
+        "description": "水汽输送、辐合抬升、深厚湿层和累计降水共同支持时，持续性强降水风险升高。",
+        "evidence_summary": "重点查看低层水汽输送、水汽辐合、700hPa 上升运动、深厚湿层、低层辐合和模式累计降水。",
         "risk_domain": ["precipitation"],
         "score_grid": "risk_persistent_heavy_rain_score",
         "feature_type": "persistent_heavy_rain_risk",
@@ -39,6 +41,8 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
     },
     "short_duration_heavy_rain": {
         "label": "短时强降水",
+        "description": "暖湿低层、局地触发、不稳定能量和水汽辐合同步增强时，短时强降水风险升高。",
+        "evidence_summary": "重点查看低层水汽、可降水量、水汽辐合、低层辐合、上升运动、CAPE/K 指数、列车效应和短时雨强。",
         "risk_domain": ["precipitation", "severe_convection"],
         "score_grid": "risk_short_duration_heavy_rain_score",
         "feature_type": "short_duration_heavy_rain_risk",
@@ -46,6 +50,8 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
     },
     "thunderstorm_gale": {
         "label": "雷暴大风/下击暴流",
+        "description": "下沉冷池潜势、不稳定能量、深层风切变和触发条件配合时，雷暴大风或下击暴流风险升高。",
+        "evidence_summary": "重点查看 DCAPE、中层干空气、0-6km 风切变、高空强风、雷暴发生潜势和线状组织潜势。",
         "risk_domain": ["severe_convection"],
         "score_grid": "risk_thunderstorm_gale_score",
         "feature_type": "thunderstorm_gale_risk",
@@ -53,6 +59,8 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
     },
     "hail": {
         "label": "冰雹",
+        "description": "强不稳定、组织化风切变、中层冷空气和适宜 0℃ 层高度配合时，冰雹风险升高。",
+        "evidence_summary": "重点查看 CAPE、0-6km 风切变、中层冷空气、700-500hPa 递减率、0℃ 层高度、超级单体环境和触发条件。",
         "risk_domain": ["severe_convection"],
         "score_grid": "risk_hail_score",
         "feature_type": "hail_risk",
@@ -60,6 +68,8 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
     },
     "rotating_storm_or_supercell": {
         "label": "旋转风暴/超级单体潜势",
+        "description": "不稳定能量、深层风切变、低层切变或 SRH 共同支持时，旋转风暴或超级单体组织潜势升高。",
+        "evidence_summary": "重点查看 CAPE、0-6km 风切变、0-1km 风切变、SRH、LCL、CIN 可突破和触发条件。",
         "risk_domain": ["severe_convection"],
         "score_grid": "risk_rotating_storm_score",
         "feature_type": "rotating_storm_risk",
@@ -67,6 +77,8 @@ HAZARD_TYPES: dict[str, dict[str, Any]] = {
     },
     "severe_convection_composite": {
         "label": "强对流综合风险",
+        "description": "综合短时强降水、雷暴大风、冰雹和旋转风暴风险，用于快速识别强对流多灾种叠加区域。",
+        "evidence_summary": "重点查看短时强降水、雷暴大风、冰雹和旋转风暴四类风险评分的叠加关系。",
         "risk_domain": ["severe_convection"],
         "score_grid": "risk_severe_convection_composite_score",
         "feature_type": "severe_convection_composite_risk",
@@ -89,19 +101,33 @@ LEGACY_TARGET_HAZARDS = {
         "rotating_storm_or_supercell",
         "severe_convection_composite",
     ],
-    "heavy_rain_risk": ["persistent_heavy_rain", "short_duration_heavy_rain"],
-    "convection_risk": [
-        "short_duration_heavy_rain",
-        "thunderstorm_gale",
-        "hail",
-        "rotating_storm_or_supercell",
-        "severe_convection_composite",
-    ],
 }
 
 
 def hazard_metadata(hazard_type: str) -> dict[str, Any]:
     return deepcopy(HAZARD_TYPES[hazard_type])
+
+
+def risk_metadata(hazard_type: str) -> dict[str, Any]:
+    meta = HAZARD_TYPES[hazard_type]
+    return {
+        "hazard_type": hazard_type,
+        "label": meta["label"],
+        "description": meta["description"],
+        "evidence_summary": meta["evidence_summary"],
+        "risk_domain": list(meta["risk_domain"]),
+        "source_grid": meta["score_grid"],
+        "feature_type": meta["feature_type"],
+        "mechanism_tags": list(meta["mechanism_tags"]),
+        "score_range": [0, 1],
+        "score_unit": "risk_score",
+        "score_direction": "higher_is_riskier",
+    }
+
+
+def risk_metadata_catalog(hazard_types: list[str] | None = None) -> dict[str, dict[str, Any]]:
+    selected = hazard_types or list(HAZARD_TYPES)
+    return {hazard_type: risk_metadata(hazard_type) for hazard_type in selected}
 
 
 def risk_grid_for_hazard(hazard_type: str) -> str:

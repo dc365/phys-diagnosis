@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>个例复盘工作台｜气象物理量课程</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body  >
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="index.html">课程首页</a>
+        <a class="side-home" href="glossary.html">物理量速查</a>
+        <a class="side-home" href="cases.html">个例复盘</a>
+        <a class="side-home" href="learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>个例复盘工作台</h1>
+          <p class="subtitle">暴雨、强对流、冷空气、雨雪相态和模式检验的可复制模板。</p>
+        </div>
+        <div class="hero-actions">
+          
+          <a class="btn ghost" href="glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>暴雨复盘模板</h2>
+<pre><code class="language-text">1. 实况：时间、区域、最大雨量、小时雨强、灾情。
+2. 500hPa：槽、脊、副高、冷涡、台风背景。
+3. 850/925hPa：低空急流、水汽输送、比湿、θe。
+4. 水汽辐合：水汽通量散度、低层切变线、地形迎风坡。
+5. 700hPa：垂直速度、中层湿度、湿层厚度。
+6. 热力：CAPE、CIN、K、LI、探空结构。
+7. 雷达：强回波、移动、列车效应、回波训练。
+8. 模式：落区偏差、强度偏差、时间偏差、原因。
+9. 结论：关键机制和下次预报启示。
+</code></pre>
+<h2>强对流复盘模板</h2>
+<pre><code class="language-text">1. 实况：雷电、冰雹、大风、短时强降水、灾情。
+2. 热力：低层暖湿、CAPE、CIN、LCL、LFC、EL。
+3. 触发：冷锋、辐合线、切变线、地形、阵风锋。
+4. 组织：0–6km 切变、0–1km 切变、SRH。
+5. 大风/冰雹：DCAPE、中层干空气、0℃层、中层温度。
+6. 雷达：单体、多单体、线状、弓形、钩状、速度偶极子。
+7. 模式：对流触发时刻和位置是否报准。
+</code></pre>
+<h2>冷空气复盘模板</h2>
+<pre><code class="language-text">1. 冷高压强度和路径。
+2. 冷锋位置和移动速度。
+3. 850hPa 温度下降幅度。
+4. 地面风向转变、气压上升、露点下降。
+5. 降温、大风、雨雪和沙尘实况。
+6. 模式是否提前/滞后，强度是否偏差。
+</code></pre>
+<h2>雨雪相态复盘模板</h2>
+<pre><code class="language-text">1. 地面温度、湿球温度、路面温度。
+2. 925/850hPa 温度和暖层强度。
+3. 近地面冷层厚度。
+4. 探空或模式探空的整层温度结构。
+5. 降水强度是否导致蒸发冷却。
+6. 实况相态转变时间和模式偏差。
+</code></pre>
+<h2>模式检验模板</h2>
+<p>每次过程结束后回答 5 个问题：</p>
+<ol>
+<li>哪个模式的形势判断最好？</li>
+<li>哪个模式的降水落区最接近？</li>
+<li>偏差是水汽、动力、触发、相态还是移动速度造成的？</li>
+<li>多模式一致性如何？起报是否稳定？</li>
+<li>下次遇到类似天气型，应该怎么订正？</li>
+</ol>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="assets/js/search-index.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

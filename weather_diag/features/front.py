@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from weather_diag.diagnostics.grid import derivatives_lonlat, normalize01
+from weather_diag.diagnostics.grid import component_axis_line, derivatives_lonlat, mask_to_bbox_features, normalize01
+from weather_diag.io.geojson import line_feature
 
 from .areas import mask_area_features
 
@@ -127,7 +128,132 @@ def front_candidate_fields(
     }
 
 
-def detect_front_candidates(
+def _axis_length_km(coords: list[list[float]]) -> float:
+    total = 0.0
+    for (lon0, lat0), (lon1, lat1) in zip(coords[:-1], coords[1:]):
+        dx = (lon1 - lon0) * 111.32 * max(np.cos(np.deg2rad((lat0 + lat1) / 2.0)), 0.2)
+        dy = (lat1 - lat0) * 111.32
+        total += float(np.hypot(dx, dy))
+    return total
+
+
+def _front_axis_features(
+    derived: dict,
+    lat,
+    lon,
+    *,
+    min_points: int,
+    max_objects: int,
+    evidence: list[str],
+) -> list[dict]:
+    score = np.asarray(derived["score"], dtype=float)
+    gradient = np.asarray(derived["gradient"], dtype=float)
+    components = mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points)
+    ranked = []
+    for item in components:
+        ys, xs = item["indices"]
+        line = component_axis_line(item, lat, lon)
+        coords = line.get("coordinates", [])
+        if len(coords) < 2:
+            continue
+        values = score[ys, xs]
+        grads = gradient[ys, xs]
+        ranked.append(
+            {
+                "item": item,
+                "line": line,
+                "mean_score": float(np.nanmean(values)),
+                "max_score": float(np.nanmax(values)),
+                "mean_gradient": float(np.nanmean(grads)),
+                "max_gradient": float(np.nanmax(grads)),
+                "axis_length_km": _axis_length_km(coords),
+            }
+        )
+    ranked.sort(
+        key=lambda item: (
+            item["axis_length_km"],
+            item["max_score"],
+            item["mean_score"],
+            item["item"].get("point_count", 0),
+        ),
+        reverse=True,
+    )
+    if max_objects > 0:
+        ranked = ranked[:max_objects]
+    features = []
+    for rank, item in enumerate(ranked, start=1):
+        source = item["item"]
+        props = {
+            "id": f"front_candidate_{rank:03d}",
+            "feature_type": "front_candidate",
+            "title": "850hPa 锋面候选轴线",
+            "level": "850hPa",
+            "rank": rank,
+            "geometry_role": "axis",
+            "source_area_point_count": source["point_count"],
+            "source_area_bbox": source["bbox"],
+            "centroid": source["centroid"],
+            "axis_length_km": round(item["axis_length_km"], 1),
+            "max_value": item["max_score"],
+            "mean_value": item["mean_score"],
+            "max_gradient": item["max_gradient"],
+            "mean_gradient": item["mean_gradient"],
+            "score_threshold": derived["score_threshold"],
+            "gradient_threshold": derived["gradient_threshold"],
+            "frontogenesis_threshold": derived["frontogenesis_threshold"],
+            "wind_deformation_threshold": derived["wind_deformation_threshold"],
+            "confidence": 0.68,
+            "evidence": evidence + ["候选锋区已抽取为 LineString 轴线，业务图层默认不输出面区域"],
+        }
+        features.append(line_feature(item["line"]["coordinates"], props))
+    return features
+
+
+def front_axis_components(
+    derived: dict,
+    lat,
+    lon,
+    *,
+    min_points: int,
+    max_objects: int,
+) -> list[dict]:
+    score = np.asarray(derived["score"], dtype=float)
+    gradient = np.asarray(derived["gradient"], dtype=float)
+    items = mask_to_bbox_features(derived["mask"], lat, lon, min_points=min_points)
+    components = []
+    for item in items:
+        ys, xs = item["indices"]
+        if ys.size == 0:
+            continue
+        line = component_axis_line(item, lat, lon, max_points=64)
+        coords = line.get("coordinates") or []
+        if len(coords) < 2:
+            continue
+        values = score[ys, xs]
+        gradient_values = gradient[ys, xs]
+        components.append(
+            {
+                "item": item,
+                "line": line,
+                "point_count": int(item["point_count"]),
+                "mean_score": float(np.nanmean(values)),
+                "max_score": float(np.nanmax(values)),
+                "mean_gradient": float(np.nanmean(gradient_values)),
+                "max_gradient": float(np.nanmax(gradient_values)),
+            }
+        )
+    components.sort(
+        key=lambda item: (item["max_score"], item["mean_score"], item["point_count"]),
+        reverse=True,
+    )
+    if max_objects > 0:
+        components = components[:max_objects]
+    for rank, component in enumerate(components, start=1):
+        component["rank"] = rank
+    return components
+
+
+def detect_front_candidate_axes(
     t850: np.ndarray,
     div850: np.ndarray | None,
     temp_adv850: np.ndarray | None,
@@ -153,6 +279,53 @@ def detect_front_candidates(
         v850=v850,
         rh850=rh850,
     )
+    evidence = ["850hPa 温度梯度较大"]
+    if u850 is not None and v850 is not None:
+        evidence.append("850hPa 风场形变和锋生函数提供动力支撑")
+    if div850 is not None:
+        evidence.append("低层存在辐合信号")
+    if temp_adv850 is not None:
+        evidence.append("温度平流变化明显")
+    features = _front_axis_features(
+        derived,
+        lat,
+        lon,
+        min_points=min_pts,
+        max_objects=max_objects,
+        evidence=evidence,
+    )
+    for feature in features:
+        feature["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
+    return features
+
+
+def detect_front_candidates(
+    t850: np.ndarray,
+    div850: np.ndarray | None,
+    temp_adv850: np.ndarray | None,
+    lat,
+    lon,
+    thresholds: dict,
+    *,
+    u850: np.ndarray | None = None,
+    v850: np.ndarray | None = None,
+    rh850: np.ndarray | None = None,
+) -> list[dict]:
+    cfg = thresholds.get("front_candidate", {})
+    min_pts = int(cfg.get("min_area_grid_points", 10))
+    max_objects = int(cfg.get("max_objects", 12))
+    output_geometry = str(cfg.get("output_geometry", "axis")).lower()
+    derived = front_candidate_fields(
+        t850,
+        div850,
+        temp_adv850,
+        lat,
+        lon,
+        thresholds,
+        u850=u850,
+        v850=v850,
+        rh850=rh850,
+    )
     score = derived["score"]
     evidence = ["850hPa 温度梯度较大"]
     if u850 is not None and v850 is not None:
@@ -161,33 +334,48 @@ def detect_front_candidates(
         evidence.append("低层存在辐合信号")
     if temp_adv850 is not None:
         evidence.append("温度平流变化明显")
-    features = mask_area_features(
-        derived["mask"],
-        lat,
-        lon,
-        feature_type="front_candidate",
-        title="锋面候选区",
-        value_field=score,
-        min_points=min_pts,
-        threshold_desc="温度梯度、风场形变、锋生函数和低层辐合综合评分较高",
-        evidence=evidence,
-        extra_props={
-            "level": "850hPa",
-            "score_threshold": derived["score_threshold"],
-            "gradient_threshold": derived["gradient_threshold"],
-            "frontogenesis_threshold": derived["frontogenesis_threshold"],
-            "wind_deformation_threshold": derived["wind_deformation_threshold"],
-        },
-    )
-    for f in features:
-        f["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
-    features.sort(
-        key=lambda feature: (
-            feature["properties"].get("point_count") or 0,
-            feature["properties"].get("mean_value") or 0,
-        ),
-        reverse=True,
-    )
+
+    if output_geometry in {"area", "polygon"}:
+        features = mask_area_features(
+            derived["mask"],
+            lat,
+            lon,
+            feature_type="front_candidate",
+            title="锋面候选区",
+            value_field=score,
+            min_points=min_pts,
+            threshold_desc="温度梯度、风场形变、锋生函数和低层辐合综合评分较高",
+            evidence=evidence,
+            extra_props={
+                "level": "850hPa",
+                "geometry_role": "area",
+                "score_threshold": derived["score_threshold"],
+                "gradient_threshold": derived["gradient_threshold"],
+                "frontogenesis_threshold": derived["frontogenesis_threshold"],
+                "wind_deformation_threshold": derived["wind_deformation_threshold"],
+            },
+        )
+        for f in features:
+            f["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
+        features.sort(
+            key=lambda feature: (
+                feature["properties"].get("point_count") or 0,
+                feature["properties"].get("mean_value") or 0,
+            ),
+            reverse=True,
+        )
+    else:
+        features = _front_axis_features(
+            derived,
+            lat,
+            lon,
+            min_points=min_pts,
+            max_objects=max_objects,
+            evidence=evidence,
+        )
+        for f in features:
+            f["properties"]["confidence"] = 0.66 if u850 is not None and v850 is not None else 0.58
+
     if max_objects > 0:
         features = features[:max_objects]
     for rank, feature in enumerate(features, start=1):

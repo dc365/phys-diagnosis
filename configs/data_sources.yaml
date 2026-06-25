@@ -1,0 +1,24 @@
+# ponytail: local absolute path for this phase; replace with deploy config later.
+data_sources:
+  - code: NAFP_ECTHIN_NC
+    label: ECTHIN
+    name: NAFP_ECTHIN_NC
+    model: EC
+    format: nc
+    root: /Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC
+    forecast_hour_start: 0
+    forecast_hour_end: 240
+    forecast_hour_step: 3
+    enabled: true
+    default: true
+  - code: NAFP_CMA_GFS_NC
+    label: CMA-GFS
+    name: NAFP_CMA_GFS_NC
+    model: CMA-GFS
+    format: nc
+    root: /Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_CMA_GFS_NC
+    forecast_hour_start: 0
+    forecast_hour_end: 240
+    forecast_hour_step: 3
+    enabled: true
+    default: false

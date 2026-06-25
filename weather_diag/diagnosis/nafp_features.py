@@ -10,13 +10,6 @@ from weather_diag.diagnosis.risk_taxonomy import feature_type_for_hazard
 FEATURE_TYPE_ALIASES = {
     "trough": {"trough_candidate"},
     "ridge": {"ridge_candidate"},
-    "heavy_rain_risk": {"heavy_rain_potential"},
-    "convection_risk": {"convection_potential"},
-}
-
-CHAIN_FEATURE_TYPES = {
-    "heavy_rain_potential": "heavy_rain_risk",
-    "convection_potential": "convection_risk",
 }
 
 
@@ -101,36 +94,6 @@ def _system_feature(system: dict[str, Any]) -> dict[str, Any] | None:
     return {"type": "Feature", "geometry": geometry, "properties": properties}
 
 
-def _chain_feature(chain: dict[str, Any]) -> dict[str, Any] | None:
-    target_type = str(chain.get("target_type") or "")
-    feature_type = CHAIN_FEATURE_TYPES.get(target_type)
-    if not feature_type:
-        return None
-    region = chain.get("region")
-    geometry = _system_geometry_to_geojson(region)
-    if geometry is None:
-        return None
-    properties = {
-        "id": chain.get("id") or f"chain-{target_type}",
-        "type": feature_type,
-        "feature_type": feature_type,
-        "source_feature_type": target_type,
-        "target_type": target_type,
-        "name": "强降水潜势区" if feature_type == "heavy_rain_risk" else "强对流潜势区",
-        "level": chain.get("level"),
-        "confidence": chain.get("score"),
-        "score": chain.get("score"),
-        "diagnosis": "综合证据链识别的潜势区",
-        "evidence": chain.get("evidence") or [],
-        "dominant_evidence": chain.get("dominant_evidence") or [],
-        "missing_evidence": chain.get("missing_evidence") or [],
-        "linked_systems": chain.get("linked_systems") or [],
-    }
-    if region.get("bbox"):
-        properties["bbox"] = region["bbox"]
-    return {"type": "Feature", "geometry": geometry, "properties": _json_safe(properties)}
-
-
 def _risk_feature(risk: dict[str, Any]) -> dict[str, Any] | None:
     hazard_type = str(risk.get("hazard_type") or "")
     if not hazard_type:
@@ -163,6 +126,11 @@ def _risk_feature(risk: dict[str, Any]) -> dict[str, Any] | None:
         "name": risk.get("label") or hazard_type,
         "score_statistic": risk.get("score_statistic"),
         "score_source": risk.get("score_source"),
+        "region_source": risk.get("region_source"),
+        "input_completeness": risk.get("input_completeness"),
+        "missing_critical_factors": risk.get("missing_critical_factors") or [],
+        "score_cap_applied": risk.get("score_cap_applied"),
+        "score_cap_value": risk.get("score_cap_value"),
     }
     if region.get("bbox"):
         properties["bbox"] = region["bbox"]
@@ -188,14 +156,6 @@ def nafp_situation_to_feature_collection(
         if source_filter is not None and source_type not in source_filter:
             continue
         feature = _system_feature(system)
-        if feature is not None:
-            features.append(feature)
-
-    for chain in result.get("evidence_chains") or []:
-        source_type = str(chain.get("target_type") or "")
-        if source_filter is not None and source_type not in source_filter:
-            continue
-        feature = _chain_feature(chain)
         if feature is not None:
             features.append(feature)
 

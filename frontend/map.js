@@ -1,13 +1,18 @@
 const DEFAULT_BOUNDS = [70, 15, 140, 55];
 const DEFAULT_CENTER = [105, 35];
-const DEFAULT_POINT_DATA_CODE = 'NAFP_ECTHIN_NEW_NC';
+const DEFAULT_POINT_DATA_CODE = 'NAFP_ECTHIN_NC';
 const GRID_SOURCE_ID = 'diagnostic-grid';
 const GRID_FILL_LAYER_ID = 'diagnostic-grid-fill';
 const REFERENCE_OVERLAY_LAYER_ID = 'map-reference-overlay';
-const GRID_FILL_OPACITY = 0.34;
+const GRID_FILL_OPACITY = 0.5;
 const CONTOUR_SOURCE_ID = 'diagnostic-contours';
 const CONTOUR_LAYER_ID = 'diagnostic-contour-lines';
+const CONTOUR_LABEL_SOURCE_ID = 'diagnostic-contour-label-points';
 const CONTOUR_LABEL_LAYER_ID = 'diagnostic-contour-labels';
+const MAX_CONTOUR_LABELS = 36;
+const CONTOUR_LABEL_BOUNDS_PADDING_DEGREES = 1.5;
+const CONTOUR_LABEL_MIN_DISTANCE_DEGREES = 2.4;
+const CONTOUR_LABEL_SAME_VALUE_MIN_DISTANCE_DEGREES = 6.4;
 const FEATURE_SOURCE_ID = 'weather-features';
 const FEATURE_LAYER_IDS = {
   polygonFill: 'weather-feature-polygons',
@@ -15,6 +20,25 @@ const FEATURE_LAYER_IDS = {
   line: 'weather-feature-lines',
   point: 'weather-feature-points',
 };
+const AREA_RISK_SOURCE_ID = 'area-risk';
+const AREA_RISK_BBOX_SOURCE_ID = 'area-risk-selected-bbox';
+const AREA_RISK_LAYER_IDS = {
+  halo: 'area-risk-halo',
+  point: 'area-risk-points',
+  selectedBbox: 'area-risk-selected-bbox',
+};
+const AREA_RISK_API_PATH = '/api/v1/diagnosis/nafp/area-risks';
+const BASEMAP_SOURCE_ID = 'base-map-raster';
+const BASEMAP_LABEL_SOURCE_ID = 'base-map-label-raster';
+const BASEMAP_LAYER_ID = 'base-map-raster';
+const BASEMAP_LABEL_LAYER_ID = 'base-map-label-raster';
+const BASEMAP_LOCAL_TEMPLATE = '/static/basemaps/china/{z}/{x}/{y}.png';
+const BASEMAP_IDS = new Set(['offline', 'local-xyz', 'tdt-vector', 'tdt-image']);
+const LOCAL_TEST_FORECAST_HOURS = [0, 24];
+const LOCAL_TEST_RUN_TIMES = [
+  { run_time: '2026-06-17T20:00:00', forecast_hours: LOCAL_TEST_FORECAST_HOURS },
+  { run_time: '2026-06-17T08:00:00', forecast_hours: LOCAL_TEST_FORECAST_HOURS },
+];
 
 const state = {
   runs: [],
@@ -23,6 +47,7 @@ const state = {
   forecastHours: [],
   layerSource: 'nafp',
   layers: {},
+  contours: null,
   currentBounds: DEFAULT_BOUNDS,
   features: [],
   selectedFeatureId: '',
@@ -32,18 +57,23 @@ const state = {
   pointDataCode: DEFAULT_POINT_DATA_CODE,
   pointRunTime: '',
   pointRunTimes: [],
+  nafpPrecomputeKey: '',
+  nafpPrecomputePromise: null,
+  areaRiskCatalog: null,
+  areaRiskFeatures: [],
+  selectedAreaRiskId: '',
+  areaRiskLoaded: false,
+  basemap: 'offline',
 };
 
 const weatherSystemFeatureTypes = [
   ['high', '高压中心'], ['low', '低压中心'], ['subtropical_high', '副高588区'],
-  ['low_pressure_convergence', '低压辐合区'], ['high_pressure_divergence', '高压辐散区'],
   ['trough', '槽线候选'], ['ridge', '脊线候选'], ['low_level_convergence', '低层辐合区'],
   ['upper_divergence', '高空辐散区'], ['low_level_jet', '低空急流'],
   ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面候选'],
 ];
 
 const riskFeatureTypes = [
-  ['heavy_rain_risk', '强降水潜势'], ['convection_risk', '强对流潜势'],
   ['persistent_heavy_rain_risk', '持续性强降水'],
   ['short_duration_heavy_rain_risk', '短时强降水'],
   ['thunderstorm_gale_risk', '雷暴大风/下击暴流'],
@@ -53,6 +83,15 @@ const riskFeatureTypes = [
 ];
 
 const featureTypes = [...weatherSystemFeatureTypes, ...riskFeatureTypes];
+
+const areaRiskTypes = [
+  ['persistent_heavy_rain', '持续性强降水'],
+  ['short_duration_heavy_rain', '短时强降水'],
+  ['thunderstorm_gale', '雷暴大风/下击暴流'],
+  ['hail', '冰雹'],
+  ['rotating_storm_or_supercell', '旋转风暴/超级单体潜势'],
+  ['severe_convection_composite', '强对流综合风险'],
+];
 
 const featureColors = {
   high: '#e03131',
@@ -67,14 +106,21 @@ const featureColors = {
   low_level_jet: '#d9480f',
   moisture_transport: '#228be6',
   front_candidate: '#495057',
-  heavy_rain_risk: '#c92a2a',
-  convection_risk: '#9c36b5',
   persistent_heavy_rain_risk: '#b02a37',
   short_duration_heavy_rain_risk: '#1971c2',
   thunderstorm_gale_risk: '#5f3dc4',
   hail_risk: '#0b7285',
   rotating_storm_risk: '#e67700',
   severe_convection_composite_risk: '#862e9c',
+};
+
+const areaRiskColors = {
+  persistent_heavy_rain: featureColors.persistent_heavy_rain_risk,
+  short_duration_heavy_rain: featureColors.short_duration_heavy_rain_risk,
+  thunderstorm_gale: featureColors.thunderstorm_gale_risk,
+  hail: featureColors.hail_risk,
+  rotating_storm_or_supercell: featureColors.rotating_storm_risk,
+  severe_convection_composite: featureColors.severe_convection_composite_risk,
 };
 
 const featureLegendKinds = {
@@ -124,8 +170,15 @@ const pointRiskChannels = [
     hazards: ['short_duration_heavy_rain', 'thunderstorm_gale', 'hail', 'rotating_storm_or_supercell'],
   },
 ];
-
-const legacyRiskLayerIds = new Set(['heavy_rain_score', 'convection_score']);
+const pointRiskHazardTypes = new Set(pointRiskChannels.flatMap((channel) => channel.hazards));
+const pointRiskTargetAliases = new Map([
+  ['persistent_heavy_rain_risk', 'persistent_heavy_rain'],
+  ['short_duration_heavy_rain_risk', 'short_duration_heavy_rain'],
+  ['thunderstorm_gale_risk', 'thunderstorm_gale'],
+  ['hail_risk', 'hail'],
+  ['rotating_storm_risk', 'rotating_storm_or_supercell'],
+  ['rotating_storm_or_supercell_risk', 'rotating_storm_or_supercell'],
+]);
 
 const layerPalettes = {
   score: ['#fff7bc', '#fec44f', '#fb6a4a', '#bd0026'],
@@ -149,9 +202,13 @@ const chinesePlaceLabels = [
 ];
 
 const {
+  areaRiskPayloadToFeatureCollection,
+  areaRiskValidTime,
   buildLayerContourUrl,
   buildColorRampExpression,
+  colorRampDomainForLayer,
   buildLayerGridUrl,
+  buildNafpAreaRiskUrl,
   buildNafpFeaturesUrl,
   buildNafpLayerContourUrl,
   buildNafpLayerGridUrl,
@@ -161,11 +218,16 @@ const {
   featureIndexRows,
   featureQuality,
   forecastHourLabel,
+  legendEndpointLabel,
   mergeFeatureCollections,
   metadataToBounds,
   nextForecastHour,
+  pickDefaultRunTime,
+  primaryFeatureCollection,
   rankFeatureEvidence,
   recommendedFeatureLayer,
+  runTimesWithDefaultRunTime,
+  smoothFeatureCollectionForDisplay,
 } = window.WeatherMapUtils;
 
 let map;
@@ -208,10 +270,21 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function dataSourceLabel(item) {
+  return item?.label || item?.display_name || item?.mode_name || item?.name || item?.code || DEFAULT_POINT_DATA_CODE;
+}
+
 function colorMatchExpression() {
   const expression = ['match', ['get', 'feature_type']];
   Object.entries(featureColors).forEach(([type, color]) => expression.push(type, color));
   expression.push('#333333');
+  return expression;
+}
+
+function areaRiskColorExpression() {
+  const expression = ['match', ['get', 'hazard_type']];
+  Object.entries(areaRiskColors).forEach(([type, color]) => expression.push(type, color));
+  expression.push('#32d5e7');
   return expression;
 }
 
@@ -220,7 +293,7 @@ function featureLegendKind(type) {
 }
 
 function isRiskLayer(layerId) {
-  return legacyRiskLayerIds.has(layerId) || String(layerId || '').startsWith('risk_');
+  return String(layerId || '').startsWith('risk_');
 }
 
 function isElementLayer(layerId) {
@@ -230,35 +303,214 @@ function isElementLayer(layerId) {
 function createBaseStyle() {
   return {
     version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      osm: {
-        type: 'raster',
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        attribution: '© OpenStreetMap contributors',
-      },
-    },
+    glyphs: '/static/vendor/maplibre-fonts/{fontstack}/{range}.pbf',
+    sources: {},
     layers: [
       {
         id: 'background',
         type: 'background',
         paint: { 'background-color': '#edf4fb' },
       },
-      {
-        id: 'osm',
-        type: 'raster',
-        source: 'osm',
-        paint: {
-          'raster-opacity': 0.56,
-          'raster-saturation': -0.45,
-          'raster-contrast': -0.08,
-          'raster-brightness-min': 0.05,
-          'raster-brightness-max': 0.92,
-        },
-      },
     ],
   };
+}
+
+function mapPageParams() {
+  return new URLSearchParams(window.location.search || '');
+}
+
+function mapConfig() {
+  return window.WEATHER_MAP_CONFIG || {};
+}
+
+function normalizedBasemapId(value) {
+  const id = String(value || '').trim();
+  return BASEMAP_IDS.has(id) ? id : 'offline';
+}
+
+function initialBasemapId() {
+  const params = mapPageParams();
+  const config = mapConfig();
+  return normalizedBasemapId(params.get('basemap') || config.basemap || config.defaultBasemap || 'offline');
+}
+
+function setupBasemapControl() {
+  const select = $('basemapSelect');
+  if (!select) return;
+  state.basemap = initialBasemapId();
+  select.value = state.basemap;
+}
+
+function selectedBasemapId() {
+  return normalizedBasemapId($('basemapSelect')?.value || state.basemap);
+}
+
+function localTileTemplate() {
+  const params = mapPageParams();
+  const config = mapConfig();
+  return params.get('tiles') || config.localTileTemplate || BASEMAP_LOCAL_TEMPLATE;
+}
+
+function tiandituToken() {
+  const params = mapPageParams();
+  const config = mapConfig();
+  return params.get('tdt_tk') || params.get('tk') || config.tiandituToken || config.tdtToken || '';
+}
+
+function tiandituTiles(layer, token) {
+  return Array.from({ length: 8 }, (_, index) => {
+    return `https://t${index}.tianditu.gov.cn/DataServer?T=${layer}&x={x}&y={y}&l={z}&tk=${encodeURIComponent(token)}`;
+  });
+}
+
+function basemapDefinition(id) {
+  if (id === 'local-xyz') {
+    return {
+      label: '内网瓦片',
+      sources: [
+        {
+          id: BASEMAP_SOURCE_ID,
+          definition: {
+            type: 'raster',
+            tiles: [localTileTemplate()],
+            tileSize: 256,
+            minzoom: 0,
+            maxzoom: 12,
+            attribution: '内网底图',
+          },
+        },
+      ],
+      layers: [
+        {
+          id: BASEMAP_LAYER_ID,
+          type: 'raster',
+          source: BASEMAP_SOURCE_ID,
+          paint: {
+            'raster-opacity': 0.74,
+            'raster-saturation': -0.25,
+          },
+        },
+      ],
+      status: `底图：内网瓦片 ${localTileTemplate()}`,
+    };
+  }
+
+  if (id === 'tdt-vector' || id === 'tdt-image') {
+    const token = tiandituToken();
+    if (!token) {
+      return {
+        label: '天地图',
+        error: '天地图底图需要 tk：例如 ?basemap=tdt-vector&tdt_tk=你的Key',
+      };
+    }
+    const baseLayer = id === 'tdt-image' ? 'img_w' : 'vec_w';
+    const labelLayer = id === 'tdt-image' ? 'cia_w' : 'cva_w';
+    return {
+      label: id === 'tdt-image' ? '天地图影像' : '天地图矢量',
+      sources: [
+        {
+          id: BASEMAP_SOURCE_ID,
+          definition: {
+            type: 'raster',
+            tiles: tiandituTiles(baseLayer, token),
+            tileSize: 256,
+            minzoom: 0,
+            maxzoom: 18,
+            attribution: '天地图',
+          },
+        },
+        {
+          id: BASEMAP_LABEL_SOURCE_ID,
+          definition: {
+            type: 'raster',
+            tiles: tiandituTiles(labelLayer, token),
+            tileSize: 256,
+            minzoom: 0,
+            maxzoom: 18,
+            attribution: '天地图注记',
+          },
+        },
+      ],
+      layers: [
+        {
+          id: BASEMAP_LAYER_ID,
+          type: 'raster',
+          source: BASEMAP_SOURCE_ID,
+          paint: {
+            'raster-opacity': id === 'tdt-image' ? 0.68 : 0.82,
+            'raster-saturation': id === 'tdt-image' ? -0.12 : -0.35,
+          },
+        },
+        {
+          id: BASEMAP_LABEL_LAYER_ID,
+          type: 'raster',
+          source: BASEMAP_LABEL_SOURCE_ID,
+          paint: {
+            'raster-opacity': 0.82,
+          },
+        },
+      ],
+      status: `底图：${id === 'tdt-image' ? '天地图影像' : '天地图矢量'}`,
+    };
+  }
+
+  return null;
+}
+
+function removeBasemap() {
+  if (!map) return;
+  [BASEMAP_LABEL_LAYER_ID, BASEMAP_LAYER_ID].forEach((layerId) => {
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+  });
+  [BASEMAP_LABEL_SOURCE_ID, BASEMAP_SOURCE_ID].forEach((sourceId) => {
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+  });
+}
+
+function addLayerBefore(layer, beforeLayerId) {
+  if (beforeLayerId && map.getLayer(beforeLayerId)) {
+    map.addLayer(layer, beforeLayerId);
+    return;
+  }
+  map.addLayer(layer);
+}
+
+function basemapLabelBeforeLayerId() {
+  if (map.getLayer(CONTOUR_LAYER_ID)) return CONTOUR_LAYER_ID;
+  if (map.getLayer(FEATURE_LAYER_IDS.polygonFill)) return FEATURE_LAYER_IDS.polygonFill;
+  return undefined;
+}
+
+function applyBaseMap() {
+  if (!map || !state.mapReady) return;
+  const id = selectedBasemapId();
+  state.basemap = id;
+  removeBasemap();
+  if (id === 'offline') {
+    status('底图：离线简图（无外网请求）');
+    return;
+  }
+
+  const definition = basemapDefinition(id);
+  if (!definition) {
+    status('底图：离线简图（无外网请求）');
+    return;
+  }
+  if (definition.error) {
+    status(definition.error);
+    return;
+  }
+
+  definition.sources.forEach((source) => {
+    map.addSource(source.id, source.definition);
+  });
+  definition.layers.forEach((layer) => {
+    const beforeLayerId = layer.id === BASEMAP_LAYER_ID
+      ? GRID_FILL_LAYER_ID
+      : basemapLabelBeforeLayerId();
+    addLayerBefore(layer, beforeLayerId);
+  });
+  status(definition.status || `底图：${definition.label}`);
 }
 
 function renderFeatureToggleGroup(boxId, items) {
@@ -273,7 +525,7 @@ function renderFeatureToggleGroup(boxId, items) {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.value = type;
-    input.checked = true;
+    input.checked = false;
     input.style.accentColor = color;
 
     const swatch = document.createElement('span');
@@ -291,8 +543,69 @@ function renderFeatureToggleGroup(boxId, items) {
 }
 
 function setupFeatureToggles() {
-  renderFeatureToggleGroup('riskFeatureToggles', riskFeatureTypes);
   renderFeatureToggleGroup('featureToggles', weatherSystemFeatureTypes);
+}
+
+function setupAreaRiskControls() {
+  const typeSelect = $('areaRiskTypeSelect');
+  if (typeSelect) {
+    typeSelect.innerHTML = '';
+    areaRiskTypes.forEach(([type, label]) => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = label;
+      typeSelect.appendChild(option);
+    });
+    typeSelect.value = 'short_duration_heavy_rain';
+  }
+  syncAreaRiskModeControls();
+  renderAreaRiskList();
+}
+
+function syncAreaRiskModeControls() {
+  const mode = $('areaRiskModeSelect')?.value || 'dominant';
+  const typeSelect = $('areaRiskTypeSelect');
+  if (typeSelect) typeSelect.disabled = mode !== 'single';
+}
+
+function appendAreaScopeOption(select, value, label, countText) {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = countText ? `${label} (${countText})` : label;
+  select.appendChild(option);
+}
+
+function populateAreaRiskScopes(catalog) {
+  const select = $('areaRiskScopeSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  (catalog?.cities || []).forEach((city) => {
+    appendAreaScopeOption(select, `city:${city.city_code}`, city.city_name, `${city.town_count}乡镇`);
+  });
+  (catalog?.counties || []).forEach((county) => {
+    appendAreaScopeOption(select, `county:${county.county_code}`, `${county.city_name}·${county.county_name}`, `${county.town_count}乡镇`);
+  });
+  (catalog?.towns || []).forEach((town) => {
+    appendAreaScopeOption(select, `town:${town.town_code}`, `${town.county_name}·${town.town_name}`, `${town.station_count || 0}站`);
+  });
+  if (!select.options.length) {
+    appendAreaScopeOption(select, 'all:all', '全部区域', '');
+  }
+}
+
+async function refreshAreaRiskCatalog() {
+  const summary = $('areaRiskSummary');
+  try {
+    const catalog = await getEnvelope('/api/v1/diagnosis/nafp/areas');
+    state.areaRiskCatalog = catalog;
+    populateAreaRiskScopes(catalog);
+    if (summary) summary.textContent = `${catalog.town_count || 0}个乡镇`;
+  } catch (error) {
+    state.areaRiskCatalog = null;
+    populateAreaRiskScopes(null);
+    if (summary) summary.textContent = '区域目录失败';
+    console.warn('area risk catalog load failed', error);
+  }
 }
 
 function appendFeatureIndexOptionGroup(select, label, items) {
@@ -493,6 +806,18 @@ function selectedPointRunTime() {
   return $('pointRunTimeSelect')?.value || state.pointRunTime || '';
 }
 
+function selectedPointRunOption() {
+  return $('pointRunTimeSelect')?.selectedOptions?.[0] || null;
+}
+
+function selectedPointRunIsSynthetic() {
+  return selectedPointRunOption()?.dataset.synthetic === 'true';
+}
+
+function syntheticRunStatus(prefix = 'NAFP 原始格点') {
+  return `${prefix}未自动加载：默认起报 ${formatPointRunTimeLabel(selectedPointRunTime())} 暂无本机数据，可切换 06-17 测试时次`;
+}
+
 function selectedLayerSource() {
   const source = $('layerSourceSelect')?.value || state.layerSource || 'nafp';
   return source === 'product' ? 'product' : 'nafp';
@@ -500,6 +825,53 @@ function selectedLayerSource() {
 
 function shouldUseNafpLayerSource() {
   return selectedLayerSource() === 'nafp';
+}
+
+function nafpPrecomputeKey(forecastHour = state.forecastHour) {
+  if (!selectedPointRunTime()) return '';
+  return [
+    selectedPointDataCode(),
+    selectedPointRunTime(),
+    Number(forecastHour),
+  ].join('|');
+}
+
+async function precomputeNafpSituation(forecastHour = state.forecastHour) {
+  if (!shouldUseNafpLayerSource() || !selectedPointRunTime() || selectedPointRunIsSynthetic()) return null;
+  const key = nafpPrecomputeKey(forecastHour);
+  if (!key) return null;
+  if (state.nafpPrecomputeKey === key && state.nafpPrecomputePromise) {
+    return state.nafpPrecomputePromise;
+  }
+
+  const payload = {
+    data_code: selectedPointDataCode(),
+    run_time: selectedPointRunTime(),
+    forecast_hours: [Number(forecastHour)],
+  };
+  state.nafpPrecomputeKey = key;
+  state.nafpPrecomputePromise = postEnvelope('/api/v1/diagnosis/nafp/precompute', payload)
+    .catch((error) => {
+      if (state.nafpPrecomputeKey === key) state.nafpPrecomputeKey = '';
+      console.warn('NAFP situation precompute failed', error);
+      return null;
+    })
+    .finally(() => {
+      if (state.nafpPrecomputeKey === key) state.nafpPrecomputePromise = null;
+    });
+  return state.nafpPrecomputePromise;
+}
+
+function scheduleNafpSituationPrecompute() {
+  if (!shouldUseNafpLayerSource() || !selectedPointRunTime() || selectedPointRunIsSynthetic()) return;
+  void precomputeNafpSituation();
+}
+
+async function waitForNafpPrecompute(forecastHour) {
+  const key = nafpPrecomputeKey(forecastHour);
+  if (key && state.nafpPrecomputeKey === key && state.nafpPrecomputePromise) {
+    await state.nafpPrecomputePromise;
+  }
 }
 
 function syncProductRunVisibility() {
@@ -550,12 +922,12 @@ function populatePointDataCodes(items, defaultCode) {
   const sel = $('pointDataCodeSelect');
   const options = items.length
     ? items
-    : [{ code: DEFAULT_POINT_DATA_CODE, enabled: true }];
+    : [{ code: DEFAULT_POINT_DATA_CODE, label: 'ECTHIN', enabled: true }];
   sel.innerHTML = '';
   options.forEach((item) => {
     const option = document.createElement('option');
     option.value = item.code;
-    option.textContent = item.code;
+    option.textContent = dataSourceLabel(item);
     sel.appendChild(option);
   });
   const preferred = defaultCode || state.pointDataCode || DEFAULT_POINT_DATA_CODE;
@@ -565,7 +937,15 @@ function populatePointDataCodes(items, defaultCode) {
 
 function populatePointRunTimes(payload) {
   const sel = $('pointRunTimeSelect');
-  const runs = payload?.run_times || [];
+  const sourceRuns = payload?.run_times || [];
+  const preferred = pickDefaultRunTime({
+    runTimes: sourceRuns,
+    backendDefaultRunTime: payload?.default_run_time,
+    currentRunTime: state.pointRunTime,
+  });
+  const runs = runTimesWithDefaultRunTime(sourceRuns, preferred, {
+    fallbackRunTimes: LOCAL_TEST_RUN_TIMES,
+  });
   state.pointRunTimes = runs;
   sel.innerHTML = '';
   if (!runs.length) {
@@ -584,12 +964,13 @@ function populatePointRunTimes(payload) {
     option.value = run.run_time;
     option.textContent = formatPointRunTimeLabel(run.run_time);
     option.dataset.forecastHours = JSON.stringify(run.forecast_hours || []);
+    if (run.synthetic) option.dataset.synthetic = 'true';
     sel.appendChild(option);
   });
-  const preferred = payload?.default_run_time || state.pointRunTime || runs[0].run_time;
   sel.value = runs.some((run) => run.run_time === preferred) ? preferred : runs[0].run_time;
   state.pointRunTime = sel.value;
   if (shouldUseNafpLayerSource()) syncForecastHoursFromPointRunTime();
+  scheduleNafpSituationPrecompute();
 }
 
 async function refreshPointRunTimes() {
@@ -618,13 +999,15 @@ async function setForecastHour(hour) {
   state.forecastHour = Number(hour);
   $('fhSelect').value = String(state.forecastHour);
   renderTimeline();
+  scheduleNafpSituationPrecompute();
   await loadLayer();
   await loadFeatures();
+  if (state.areaRiskLoaded) await loadAreaRisks({ fitBounds: false });
 }
 
 function initializeMap() {
   if (!window.maplibregl) {
-    status('MapLibre 加载失败，请检查网络或 CDN 可用性');
+    status('MapLibre 加载失败，请检查本地静态资源');
     return;
   }
 
@@ -652,9 +1035,11 @@ function initializeMap() {
   map.on('load', () => {
     state.mapReady = true;
     ensureGridLayer();
+    applyBaseMap();
     ensureReferenceOverlayLayer();
     ensureContourLayer();
     ensureFeatureLayers();
+    ensureAreaRiskLayers();
     renderChinesePlaceLabels();
     fitCurrentBounds({ duration: 0 });
     status('MapLibre GIS 已就绪');
@@ -697,24 +1082,17 @@ function ensureGridLayer() {
 }
 
 function ensureReferenceOverlayLayer() {
-  if (!map || map.getLayer(REFERENCE_OVERLAY_LAYER_ID)) return;
-  map.addLayer({
-    id: REFERENCE_OVERLAY_LAYER_ID,
-    type: 'raster',
-    source: 'osm',
-    paint: {
-      'raster-opacity': 0.28,
-      'raster-saturation': -0.7,
-      'raster-contrast': 0.3,
-      'raster-brightness-min': 0.08,
-      'raster-brightness-max': 0.96,
-    },
-  });
+  // Offline demos use the generated grid, contours, DOM place labels, and area
+  // overlays only. This hook stays so the grid-loading order remains stable.
 }
 
 function ensureContourLayer() {
   if (!map || map.getSource(CONTOUR_SOURCE_ID)) return;
   map.addSource(CONTOUR_SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  });
+  map.addSource(CONTOUR_LABEL_SOURCE_ID, {
     type: 'geojson',
     data: { type: 'FeatureCollection', features: [] },
   });
@@ -731,25 +1109,23 @@ function ensureContourLayer() {
   map.addLayer({
     id: CONTOUR_LABEL_LAYER_ID,
     type: 'symbol',
-    source: CONTOUR_SOURCE_ID,
+    source: CONTOUR_LABEL_SOURCE_ID,
     layout: {
-      'symbol-placement': 'line',
-      'symbol-spacing': 180,
       'text-field': ['get', 'value_text'],
-      'text-font': ['Open Sans Regular'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 2, 10, 6, 12],
-      'text-rotation-alignment': 'map',
-      'text-pitch-alignment': 'viewport',
-      'text-keep-upright': true,
+      'text-font': ['Noto Sans Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 2, 10, 5, 12, 8, 13],
       'text-allow-overlap': false,
       'text-ignore-placement': false,
+      'text-padding': 3,
+      'text-pitch-alignment': 'viewport',
+      'text-rotation-alignment': 'viewport',
     },
     paint: {
-      'text-color': '#162231',
-      'text-halo-color': '#f4f8fc',
-      'text-halo-width': 1.3,
+      'text-color': '#253746',
+      'text-halo-color': 'rgba(245, 250, 253, 0.9)',
+      'text-halo-width': 1.35,
       'text-halo-blur': 0.35,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.74, 6, 0.92],
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.78, 4, 0.94],
     },
   });
   map.on('click', CONTOUR_LAYER_ID, (event) => {
@@ -759,6 +1135,203 @@ function ensureContourLayer() {
   });
   map.on('mouseenter', CONTOUR_LAYER_ID, () => { map.getCanvas().style.cursor = 'crosshair'; });
   map.on('mouseleave', CONTOUR_LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
+  map.on('moveend', refreshContourLabelSource);
+}
+
+function isValidLngLatCoordinate(coordinate) {
+  return Array.isArray(coordinate)
+    && coordinate.length >= 2
+    && Number.isFinite(Number(coordinate[0]))
+    && Number.isFinite(Number(coordinate[1]));
+}
+
+function contourLineLength(coordinates) {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return 0;
+  return coordinates.slice(1).reduce((total, coordinate, index) => {
+    const previous = coordinates[index];
+    if (!isValidLngLatCoordinate(previous) || !isValidLngLatCoordinate(coordinate)) return total;
+    const dx = Number(coordinate[0]) - Number(previous[0]);
+    const dy = Number(coordinate[1]) - Number(previous[1]);
+    return total + Math.hypot(dx, dy);
+  }, 0);
+}
+
+function contourLineCoordinates(feature) {
+  const geometry = feature?.geometry || {};
+  const coordinates = geometry.coordinates || [];
+  if (geometry.type === 'LineString') return coordinates;
+  if (geometry.type === 'MultiLineString') {
+    return coordinates
+      .filter((line) => Array.isArray(line) && line.length)
+      .sort((a, b) => contourLineLength(b) - contourLineLength(a))[0] || [];
+  }
+  return [];
+}
+
+function contourLabelCoordinate(feature) {
+  const coordinates = contourLineCoordinates(feature).filter(isValidLngLatCoordinate);
+  if (!coordinates.length) return null;
+  const target = contourLineLength(coordinates) / 2;
+  let traveled = 0;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const previous = coordinates[index - 1];
+    const coordinate = coordinates[index];
+    const segment = contourLineLength([previous, coordinate]);
+    if (segment <= 0) continue;
+    if (traveled + segment >= target) {
+      const ratio = (target - traveled) / segment;
+      return [
+        Number(previous[0]) + (Number(coordinate[0]) - Number(previous[0])) * ratio,
+        Number(previous[1]) + (Number(coordinate[1]) - Number(previous[1])) * ratio,
+      ];
+    }
+    traveled += segment;
+  }
+  return coordinates[Math.floor(coordinates.length / 2)];
+}
+
+function contourLabelText(feature) {
+  const props = feature?.properties || {};
+  if (props.value_text) return String(props.value_text);
+  if (props.value === undefined || props.value === null) return '';
+  return formatValue(props.value, props.unit);
+}
+
+function contourLabelBounds() {
+  if (!map || typeof map.getBounds !== 'function') return null;
+  try {
+    const bounds = map.getBounds();
+    return {
+      west: bounds.getWest() - CONTOUR_LABEL_BOUNDS_PADDING_DEGREES,
+      south: bounds.getSouth() - CONTOUR_LABEL_BOUNDS_PADDING_DEGREES,
+      east: bounds.getEast() + CONTOUR_LABEL_BOUNDS_PADDING_DEGREES,
+      north: bounds.getNorth() + CONTOUR_LABEL_BOUNDS_PADDING_DEGREES,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function contourLabelCenter(bounds) {
+  if (!bounds) return null;
+  return [
+    (Number(bounds.west) + Number(bounds.east)) / 2,
+    (Number(bounds.south) + Number(bounds.north)) / 2,
+  ];
+}
+
+function contourCoordinateInBounds(coordinate, bounds) {
+  if (!bounds || !isValidLngLatCoordinate(coordinate)) return true;
+  const lon = Number(coordinate[0]);
+  const lat = Number(coordinate[1]);
+  const withinLat = lat >= Number(bounds.south) && lat <= Number(bounds.north);
+  if (!withinLat) return false;
+  if (Number(bounds.west) <= Number(bounds.east)) {
+    return lon >= Number(bounds.west) && lon <= Number(bounds.east);
+  }
+  return lon >= Number(bounds.west) || lon <= Number(bounds.east);
+}
+
+function contourCandidateDistance(first, second) {
+  const firstCoordinate = Array.isArray(first?.coordinate) ? first.coordinate : first;
+  const secondCoordinate = Array.isArray(second?.coordinate) ? second.coordinate : second;
+  if (!isValidLngLatCoordinate(firstCoordinate) || !isValidLngLatCoordinate(secondCoordinate)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const firstLon = Number(firstCoordinate[0]);
+  const firstLat = Number(firstCoordinate[1]);
+  const secondLon = Number(secondCoordinate[0]);
+  const secondLat = Number(secondCoordinate[1]);
+  const averageLatRadians = ((firstLat + secondLat) / 2) * Math.PI / 180;
+  const dx = (firstLon - secondLon) * Math.cos(averageLatRadians);
+  const dy = firstLat - secondLat;
+  return Math.hypot(dx, dy);
+}
+
+function contourLabelTooClose(candidate, selected) {
+  return selected.some((label) => {
+    const distance = contourCandidateDistance(candidate, label);
+    if (candidate.text === label.text) {
+      return distance < CONTOUR_LABEL_SAME_VALUE_MIN_DISTANCE_DEGREES;
+    }
+    return distance < CONTOUR_LABEL_MIN_DISTANCE_DEGREES;
+  });
+}
+
+function contourLabelCandidates(collection) {
+  const bounds = contourLabelBounds();
+  const center = contourLabelCenter(bounds);
+  const candidates = (collection?.features || [])
+    .map((feature) => {
+      const coordinates = contourLineCoordinates(feature).filter(isValidLngLatCoordinate);
+      const coordinate = contourLabelCoordinate(feature);
+      const length = contourLineLength(coordinates);
+      const text = contourLabelText(feature);
+      const centerPenalty = center ? contourCandidateDistance(coordinate, center) * 0.04 : 0;
+      return {
+        coordinate,
+        text,
+        length,
+        score: length - centerPenalty,
+      };
+    })
+    .filter((label) => label.text && isValidLngLatCoordinate(label.coordinate) && label.length > 0)
+    .map((label, index) => ({ ...label, id: `candidate-${index}` }));
+  const visibleCandidates = candidates.filter((label) => contourCoordinateInBounds(label.coordinate, bounds));
+  return visibleCandidates.length ? visibleCandidates : candidates;
+}
+
+function selectContourLabelCandidates(candidates) {
+  const ranked = [...candidates].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.length !== a.length) return b.length - a.length;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  const selected = [];
+  const selectedIds = new Set();
+  const selectedTexts = new Set();
+
+  ranked.forEach((candidate) => {
+    if (selected.length >= MAX_CONTOUR_LABELS || selectedTexts.has(candidate.text)) return;
+    if (contourLabelTooClose(candidate, selected)) return;
+    selected.push(candidate);
+    selectedIds.add(candidate.id);
+    selectedTexts.add(candidate.text);
+  });
+
+  ranked.forEach((candidate) => {
+    if (selected.length >= MAX_CONTOUR_LABELS || selectedIds.has(candidate.id)) return;
+    if (contourLabelTooClose(candidate, selected)) return;
+    selected.push(candidate);
+    selectedIds.add(candidate.id);
+  });
+
+  return selected;
+}
+
+function contourLabelFeatureCollection(collection) {
+  const labels = selectContourLabelCandidates(contourLabelCandidates(collection));
+
+  return {
+    type: 'FeatureCollection',
+    features: labels.map((label, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: label.coordinate,
+      },
+      properties: {
+        id: `contour-label-${index}`,
+        value_text: label.text,
+      },
+    })),
+  };
+}
+
+function refreshContourLabelSource() {
+  const source = map?.getSource(CONTOUR_LABEL_SOURCE_ID);
+  if (!source || !state.contours || !$('contourToggle')?.checked) return;
+  source.setData(contourLabelFeatureCollection(state.contours));
 }
 
 function ensureFeatureLayers() {
@@ -785,6 +1358,10 @@ function ensureFeatureLayers() {
     type: 'line',
     source: FEATURE_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': colorMatchExpression(),
       'line-width': 2,
@@ -797,6 +1374,10 @@ function ensureFeatureLayers() {
     type: 'line',
     source: FEATURE_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'LineString'],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': colorMatchExpression(),
       'line-width': 3,
@@ -822,6 +1403,67 @@ function ensureFeatureLayers() {
       if (state.pointProbeActive) return;
       const feature = event.features?.[0];
       if (feature) selectFeature(feature, event.lngLat);
+    });
+    map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
+  });
+}
+
+function ensureAreaRiskLayers() {
+  if (!map || map.getSource(AREA_RISK_SOURCE_ID)) return;
+
+  map.addSource(AREA_RISK_SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  });
+  map.addSource(AREA_RISK_BBOX_SOURCE_ID, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  });
+
+  map.addLayer({
+    id: AREA_RISK_LAYER_IDS.selectedBbox,
+    type: 'line',
+    source: AREA_RISK_BBOX_SOURCE_ID,
+    paint: {
+      'line-color': '#f6b51f',
+      'line-width': 2,
+      'line-opacity': 0.9,
+      'line-dasharray': [2, 1.4],
+    },
+  });
+
+  map.addLayer({
+    id: AREA_RISK_LAYER_IDS.halo,
+    type: 'circle',
+    source: AREA_RISK_SOURCE_ID,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['get', 'score'], 0, 7, 0.5, 17, 1, 28],
+      'circle-color': areaRiskColorExpression(),
+      'circle-opacity': ['interpolate', ['linear'], ['get', 'score'], 0, 0.12, 0.5, 0.2, 1, 0.34],
+      'circle-blur': 0.45,
+    },
+  });
+
+  map.addLayer({
+    id: AREA_RISK_LAYER_IDS.point,
+    type: 'circle',
+    source: AREA_RISK_SOURCE_ID,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['get', 'score'], 0, 4.5, 0.5, 8, 1, 13],
+      'circle-color': areaRiskColorExpression(),
+      'circle-opacity': 0.9,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-opacity': 0.92,
+      'circle-stroke-width': ['case', ['==', ['get', 'id'], ['literal', state.selectedAreaRiskId]], 3, 1.4],
+    },
+  });
+
+  [AREA_RISK_LAYER_IDS.point].forEach((layerId) => {
+    map.on('click', layerId, (event) => {
+      if (state.pointProbeActive) return;
+      const feature = event.features?.[0];
+      if (feature) selectAreaRiskFeature(feature.properties?.id, event.lngLat);
     });
     map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -896,7 +1538,9 @@ async function refreshLayers() {
     o.textContent = cfg.title || id;
     sel.appendChild(o);
   });
-  sel.value = state.layers.heavy_rain_score ? 'heavy_rain_score' : Object.keys(state.layers)[0] || '';
+  sel.value = state.layers.risk_short_duration_heavy_rain_score
+    ? 'risk_short_duration_heavy_rain_score'
+    : Object.keys(state.layers)[0] || '';
   renderLayerChips();
 }
 
@@ -927,6 +1571,15 @@ function levelLabel(level) {
 
 function targetLabel(targetType) {
   return pointTargetNames[targetType] || targetType || '诊断目标';
+}
+
+function pointRiskTargetOf(item) {
+  return item?.target_type || item?.hazard_type || item?.feature_type || '';
+}
+
+function isPointRiskTarget(targetType) {
+  const normalized = pointRiskTargetAliases.get(String(targetType || '')) || String(targetType || '');
+  return pointRiskHazardTypes.has(normalized);
 }
 
 function setPointProbeActive(active) {
@@ -1007,17 +1660,6 @@ function renderPointProbeMarker(result) {
     .addTo(map);
 }
 
-function renderPointScoreCard(score) {
-  const level = String(score.level || 'low');
-  return `
-    <article class="point-score-card ${escapeHtml(level)}">
-      <span>${escapeHtml(targetLabel(score.target_type))}</span>
-      <strong>${formatScore(score.score)}</strong>
-      <em>${escapeHtml(levelLabel(level))}</em>
-    </article>
-  `;
-}
-
 function renderPointRiskCard(risk) {
   const level = String(risk.risk_level || risk.level || 'low');
   const hazardType = risk.hazard_type || risk.feature_type || risk.target_type || '';
@@ -1028,11 +1670,7 @@ function renderPointRiskCard(risk) {
         <span>${escapeHtml(label)}</span>
         <strong>${formatScore(risk.score)}</strong>
       </header>
-      <dl>
-        <div><dt>风险等级</dt><dd>${escapeHtml(levelLabel(level))}</dd></div>
-        <div><dt>风险类别</dt><dd>${escapeHtml(hazardType || '-')}</dd></div>
-        <div><dt>风险域</dt><dd>${escapeHtml(risk.risk_domain || '-')}</dd></div>
-      </dl>
+      <em>风险等级：${escapeHtml(levelLabel(level))}</em>
     </article>
   `;
 }
@@ -1050,9 +1688,33 @@ function riskDiagnosesByHazard(riskDiagnoses) {
   return byHazard;
 }
 
-function renderPointRiskChannelSection(channel, riskByHazard) {
+function pointRiskEvidenceChains(riskDiagnoses) {
+  return (riskDiagnoses || [])
+    .filter((risk) => isPointRiskTarget(pointRiskTargetOf(risk)))
+    .map((risk) => ({
+      target_type: pointRiskTargetOf(risk),
+      level: risk.risk_level || risk.level,
+      score: risk.score,
+      evidence: risk.evidence || risk.dominant_evidence || [],
+    }));
+}
+
+function bestPointRisk(result) {
+  const risks = (result?.risk_diagnoses || []).filter((risk) => isPointRiskTarget(pointRiskTargetOf(risk)));
+  if (!risks.length) return result?.scores?.[0] || null;
+  return risks.reduce((best, risk) => {
+    return Number(risk.score || 0) > Number(best.score || 0) ? risk : best;
+  }, risks[0]);
+}
+
+function renderPointRiskChannelSection(channel, riskByHazard, renderedHazards = new Set()) {
   const cards = channel.hazards
-    .map((hazardType) => riskByHazard.get(hazardType))
+    .filter((hazardType) => !renderedHazards.has(hazardType))
+    .map((hazardType) => {
+      const risk = riskByHazard.get(hazardType);
+      if (risk) renderedHazards.add(hazardType);
+      return risk;
+    })
     .filter(Boolean)
     .map(renderPointRiskCard)
     .join('');
@@ -1069,16 +1731,9 @@ function renderPointRiskChannelSection(channel, riskByHazard) {
   `;
 }
 
-function evidenceSourceText(item) {
-  if (item.source_path) return item.source_path;
-  if (Array.isArray(item.source_paths)) return item.source_paths.join(' | ');
-  return '';
-}
-
 function renderPointEvidenceItem(item) {
   const threshold = item.threshold === null || item.threshold === undefined ? '-' : formatValue(item.threshold, item.unit);
   const value = item.value || formatValue(item.raw_value, item.unit);
-  const source = evidenceSourceText(item);
   return `
     <article class="point-evidence-item">
       <header>
@@ -1091,7 +1746,6 @@ function renderPointEvidenceItem(item) {
         <div><dt>权重</dt><dd>${formatScore(item.weight)}</dd></div>
         <div><dt>贡献</dt><dd>${formatScore(item.contribution)}</dd></div>
       </dl>
-      ${source ? `<p class="point-source-path">${escapeHtml(source)}</p>` : ''}
     </article>
   `;
 }
@@ -1116,12 +1770,13 @@ function renderPointDiagnosis(result) {
   const point = result.point || {};
   const requested = point.requested || {};
   const nearest = point.nearest_grid_point || {};
-  const conclusions = result.diagnosis_conclusions || [];
-  const chains = result.evidence_chains || [];
+  const conclusions = (result.diagnosis_conclusions || []).filter((item) => isPointRiskTarget(pointRiskTargetOf(item)));
   const riskDiagnoses = result.risk_diagnoses || [];
+  const chains = pointRiskEvidenceChains(riskDiagnoses);
   const riskByHazard = riskDiagnosesByHazard(riskDiagnoses);
+  const renderedHazards = new Set();
   const riskChannelHtml = pointRiskChannels
-    .map((channel) => renderPointRiskChannelSection(channel, riskByHazard))
+    .map((channel) => renderPointRiskChannelSection(channel, riskByHazard, renderedHazards))
     .join('');
   showPointPanel(`
     <div class="point-summary-strip">
@@ -1143,12 +1798,11 @@ function renderPointDiagnosis(result) {
         ${riskChannelHtml}
       </section>
     ` : ''}
-    <div class="point-score-grid">
-      ${(result.scores || []).map(renderPointScoreCard).join('')}
-    </div>
-    <section class="point-chain-stack">
-      ${chains.map(renderPointEvidenceChain).join('')}
-    </section>
+    ${chains.length ? `
+      <section class="point-chain-stack">
+        ${chains.map(renderPointEvidenceChain).join('')}
+      </section>
+    ` : ''}
     ${conclusions.length ? `
       <section class="point-conclusions">
         ${conclusions.map((item) => `<p>${escapeHtml(item.headline || item.action_hint || '')}</p>`).join('')}
@@ -1188,10 +1842,11 @@ async function diagnosePointAt(lngLat) {
   try {
     const result = await postEnvelope('/api/v1/diagnosis/nafp/point', payload);
     renderPointDiagnosis(result);
-    const best = result.scores?.[0];
+    const best = bestPointRisk(result);
+    const bestType = best?.hazard_type || best?.feature_type || best?.target_type;
     popup
       .setLngLat([payload.lon, payload.lat])
-      .setHTML(`<strong>点位诊断</strong><span>${targetLabel(best?.target_type)} ${formatScore(best?.score)}</span>`)
+      .setHTML(`<strong>点位诊断</strong><span>${targetLabel(bestType)} ${formatScore(best?.score)}</span>`)
       .addTo(map);
   } catch (error) {
     showPointPanel(`
@@ -1204,10 +1859,10 @@ async function diagnosePointAt(lngLat) {
   }
 }
 
-function updateLegend(metadata, palette) {
+function updateLegend(metadata, palette, domain = metadata) {
   $('legendTitle').textContent = metadata.title || metadata.layer_id || '诊断图层';
-  $('legendMin').textContent = `低值 ${formatValue(metadata.min, metadata.unit)}`;
-  $('legendMax').textContent = `高值 ${formatValue(metadata.max, metadata.unit)}`;
+  $('legendMin').textContent = legendEndpointLabel(domain.min, metadata.unit, '低值');
+  $('legendMax').textContent = legendEndpointLabel(domain.max, metadata.unit, '高值');
   $('legendRamp').style.background = `linear-gradient(90deg, ${palette.join(', ')})`;
   $('mapLegend').hidden = false;
 }
@@ -1236,9 +1891,10 @@ async function loadLayer(options = {}) {
   const source = map.getSource(GRID_SOURCE_ID);
   source.setData(grid);
   const palette = paletteForLayer(layer);
-  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(md.min, md.max, palette));
+  const domain = colorRampDomainForLayer(layer, md);
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
   await loadContours();
-  updateLegend(md, palette);
+  updateLegend(md, palette, domain);
   renderLayerChips();
   if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
   status(`已加载 GIS 图层：${md.title || layer} +${fh}h`);
@@ -1251,6 +1907,11 @@ async function loadNafpLayerData(layer, fh) {
     status(`NAFP 原始格点未就绪：${selectedPointDataCode()} 未发现起报时次`);
     return;
   }
+  if (selectedPointRunIsSynthetic()) {
+    status(syntheticRunStatus('NAFP 原始格点'));
+    clearContours();
+    return;
+  }
   const title = state.layers[layer]?.title || layer;
   status(`正在加载 NAFP 原始格点：${title} ${formatPointRunTimeLabel(selectedPointRunTime())} +${fh}h`);
 
@@ -1260,17 +1921,21 @@ async function loadNafpLayerData(layer, fh) {
   const source = map.getSource(GRID_SOURCE_ID);
   source.setData(grid);
   const palette = paletteForLayer(layer);
-  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(md.min, md.max, palette));
+  const domain = colorRampDomainForLayer(layer, md);
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
   await loadContours();
-  updateLegend(md, palette);
+  updateLegend(md, palette, domain);
   renderLayerChips();
   if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
   status(`已加载 NAFP 原始格点：${md.title || layer} +${fh}h`);
 }
 
 function clearContours() {
+  state.contours = null;
   const source = map?.getSource(CONTOUR_SOURCE_ID);
   if (source) source.setData({ type: 'FeatureCollection', features: [] });
+  const labelSource = map?.getSource(CONTOUR_LABEL_SOURCE_ID);
+  if (labelSource) labelSource.setData({ type: 'FeatureCollection', features: [] });
 }
 
 async function loadContours() {
@@ -1291,6 +1956,10 @@ async function loadContours() {
     clearContours();
     return;
   }
+  if (useNafp && selectedPointRunIsSynthetic()) {
+    clearContours();
+    return;
+  }
   if (!useNafp && !runId) {
     clearContours();
     return;
@@ -1299,7 +1968,9 @@ async function loadContours() {
     const contours = useNafp
       ? await getEnvelope(buildNafpLayerContourUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()))
       : await api(buildLayerContourUrl(layer, runId, fh, Date.now()));
+    state.contours = contours;
     map.getSource(CONTOUR_SOURCE_ID).setData(contours);
+    map.getSource(CONTOUR_LABEL_SOURCE_ID).setData(contourLabelFeatureCollection(contours));
   } catch (error) {
     console.warn(`contour load failed: ${layer}`, error);
     clearContours();
@@ -1369,8 +2040,7 @@ function featureEvidenceLine(item) {
   const threshold = item.threshold === null || item.threshold === undefined
     ? ''
     : `阈值 ${formatValue(item.threshold, item.unit)}`;
-  const source = item.source_path || (Array.isArray(item.source_paths) ? item.source_paths[0] : '');
-  return [label, value, threshold, source].filter(Boolean).join(' | ');
+  return [label, value, threshold].filter(Boolean).join(' | ');
 }
 
 function featureEvidenceStrengthText(item) {
@@ -1401,7 +2071,6 @@ function featureEvidenceItem(item) {
     `;
   }
   const label = item?.signal || item?.entry_id || item?.field || '证据';
-  const source = item?.source_path || (Array.isArray(item?.source_paths) ? item.source_paths[0] : '');
   return `
     <li class="feature-evidence-item">
       <header>
@@ -1414,7 +2083,6 @@ function featureEvidenceItem(item) {
         <div><dt>阈值</dt><dd>${escapeHtml(item?.threshold === null || item?.threshold === undefined ? '-' : formatValue(item.threshold, item?.unit))}</dd></div>
         <div><dt>规则</dt><dd>${escapeHtml(item?.entry_id || '-')}</dd></div>
       </dl>
-      ${source ? `<p class="feature-source-path">${escapeHtml(source)}</p>` : ''}
     </li>
   `;
 }
@@ -1467,6 +2135,330 @@ function renderFeatureDetailCard(props) {
   `;
 }
 
+function selectedAreaRiskMode() {
+  return $('areaRiskModeSelect')?.value === 'single' ? 'single' : 'dominant';
+}
+
+function selectedAreaRiskType() {
+  return $('areaRiskTypeSelect')?.value || 'short_duration_heavy_rain';
+}
+
+function selectedAreaRiskScope() {
+  return $('areaRiskScopeSelect')?.value || 'all:all';
+}
+
+function areaRiskFeatureById(featureId) {
+  return state.areaRiskFeatures.find((feature) => {
+    return String(feature?.properties?.id || feature?.id || '') === String(featureId || '');
+  });
+}
+
+function areaRiskColor(hazardType) {
+  return areaRiskColors[hazardType] || '#32d5e7';
+}
+
+function formatDateTimeLabel(value) {
+  const text = String(value || '');
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):?(\d{2})?/);
+  if (!match) return text || '-';
+  return `${match[2]}-${match[3]} ${match[4]}:${match[5] || '00'}`;
+}
+
+function updateAreaRiskSelectionPaint() {
+  if (!map?.getLayer(AREA_RISK_LAYER_IDS.point)) return;
+  map.setPaintProperty(AREA_RISK_LAYER_IDS.point, 'circle-stroke-width', [
+    'case',
+    ['==', ['get', 'id'], state.selectedAreaRiskId || ''],
+    3,
+    1.4,
+  ]);
+}
+
+function areaRiskMapFeatureCollection(collection) {
+  return {
+    ...(collection || { type: 'FeatureCollection' }),
+    features: (collection?.features || []).map((feature) => ({
+      ...feature,
+      properties: {
+        ...(feature.properties || {}),
+        bbox: JSON.stringify(feature.properties?.bbox || []),
+        evidence_chain: '',
+        metadata: '',
+      },
+    })),
+  };
+}
+
+function bboxPolygonFeature(feature) {
+  const props = feature?.properties || {};
+  const bbox = parseFeatureProperty(props.bbox);
+  const center = feature?.geometry?.coordinates || DEFAULT_CENTER;
+  let minLon;
+  let minLat;
+  let maxLon;
+  let maxLat;
+  if (Array.isArray(bbox) && bbox.length === 4 && bbox.every((value) => Number.isFinite(Number(value)))) {
+    [minLon, minLat, maxLon, maxLat] = bbox.map(Number);
+  } else {
+    const lon = Number(center[0]);
+    const lat = Number(center[1]);
+    minLon = lon - 0.04;
+    maxLon = lon + 0.04;
+    minLat = lat - 0.04;
+    maxLat = lat + 0.04;
+  }
+  const lonPad = Math.max((maxLon - minLon) * 0.14, 0.025);
+  const latPad = Math.max((maxLat - minLat) * 0.14, 0.025);
+  minLon -= lonPad;
+  maxLon += lonPad;
+  minLat -= latPad;
+  maxLat += latPad;
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [minLon, minLat],
+        [maxLon, minLat],
+        [maxLon, maxLat],
+        [minLon, maxLat],
+        [minLon, minLat],
+      ]],
+    },
+    properties: { id: props.id || '' },
+  };
+}
+
+function clearAreaRiskBbox() {
+  map?.getSource(AREA_RISK_BBOX_SOURCE_ID)?.setData({ type: 'FeatureCollection', features: [] });
+}
+
+function clearAreaRisks(message = '区域风险已清空') {
+  state.areaRiskFeatures = [];
+  state.selectedAreaRiskId = '';
+  state.areaRiskLoaded = false;
+  map?.getSource(AREA_RISK_SOURCE_ID)?.setData({ type: 'FeatureCollection', features: [] });
+  clearAreaRiskBbox();
+  updateAreaRiskSelectionPaint();
+  renderAreaRiskList();
+  const summary = $('areaRiskSummary');
+  if (summary) summary.textContent = '未加载';
+  status(message);
+}
+
+function renderAreaRiskList() {
+  const list = $('areaRiskList');
+  const summary = $('areaRiskSummary');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!state.areaRiskFeatures.length) {
+    const empty = document.createElement('div');
+    empty.className = 'area-risk-empty';
+    empty.textContent = state.areaRiskLoaded ? '当前时效无区域风险' : '选择区域后加载';
+    list.appendChild(empty);
+    if (summary && state.areaRiskLoaded) summary.textContent = '无风险点';
+    return;
+  }
+
+  const topFeatures = state.areaRiskFeatures.slice(0, 12);
+  if (summary) {
+    const best = topFeatures[0]?.properties;
+    summary.textContent = `${state.areaRiskFeatures.length}个区域 · 最高 ${formatScore(best?.score)}`;
+  }
+  topFeatures.forEach((feature) => {
+    const props = feature.properties || {};
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `area-risk-item${props.id === state.selectedAreaRiskId ? ' active' : ''}`;
+    button.dataset.areaRiskId = props.id;
+    button.style.setProperty('--area-risk-color', areaRiskColor(props.hazard_type));
+
+    const title = document.createElement('strong');
+    title.textContent = props.town_name || props.county_name || '区域';
+    const label = document.createElement('span');
+    label.textContent = `${props.label || targetLabel(props.hazard_type)} · ${levelLabel(props.risk_level)}`;
+    const score = document.createElement('em');
+    score.textContent = formatScore(props.score);
+    const meta = document.createElement('small');
+    meta.textContent = `${formatDateTimeLabel(props.valid_time)} · ${props.county_name || props.city_name || ''}`;
+
+    button.append(title, label, score, meta);
+    button.addEventListener('click', () => selectAreaRiskFeature(props.id));
+    list.appendChild(button);
+  });
+}
+
+function areaRiskMetric(label, value) {
+  return `
+    <div>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function areaRiskFactorItem(item) {
+  return `
+    <li class="area-risk-factor">
+      <strong>${escapeHtml(item?.label || item?.field || item?.factor || '因子')}</strong>
+      <span>贡献 ${formatScore(item?.mean_contribution)}</span>
+    </li>
+  `;
+}
+
+function renderAreaRiskDetailCard(feature) {
+  const props = feature?.properties || {};
+  const chain = props.evidence_chain || {};
+  const factors = Array.isArray(chain.dominant_factors) ? chain.dominant_factors : [];
+  const maxSample = chain.max_sample || {};
+  return `
+    <section class="object-detail-card area-risk-detail-card">
+      <header class="object-detail-head">
+        <div>
+          <span>区域风险</span>
+          <strong>${escapeHtml(props.town_name || props.county_name || '区域')}</strong>
+        </div>
+        <em class="object-quality-badge ${escapeHtml(props.risk_level || 'low')}">${escapeHtml(levelLabel(props.risk_level))}</em>
+      </header>
+      <div class="object-quality-strip ${escapeHtml(props.risk_level || 'low')}">
+        ${areaRiskMetric('最高评分', formatScore(props.score))}
+        ${areaRiskMetric('P90', formatScore(props.p90_score))}
+        ${areaRiskMetric('均值', formatScore(props.mean_score))}
+      </div>
+      <dl class="object-meta-grid">
+        <div><dt>风险类别</dt><dd>${escapeHtml(props.label || targetLabel(props.hazard_type))}</dd></div>
+        <div><dt>有效时间</dt><dd>${escapeHtml(formatDateTimeLabel(props.valid_time))}</dd></div>
+        <div><dt>乡镇</dt><dd>${escapeHtml(props.town_code || '-')}</dd></div>
+        <div><dt>行政区</dt><dd>${escapeHtml([props.city_name, props.county_name].filter(Boolean).join('·') || '-')}</dd></div>
+        <div><dt>源格点</dt><dd>${escapeHtml(props.source_grid || '-')}</dd></div>
+        <div><dt>天气对象</dt><dd>${escapeHtml(props.feature_type || '-')}</dd></div>
+      </dl>
+    </section>
+    <section class="feature-evidence-card area-risk-evidence-card">
+      <header>
+        <strong>证据链</strong>
+        <span>${escapeHtml(chain.sampling_method || 'station_points')}</span>
+      </header>
+      <div class="area-risk-evidence-summary">
+        ${areaRiskMetric('站点数', String(props.station_count ?? 0))}
+        ${areaRiskMetric('采样数', String(props.sample_count ?? 0))}
+        ${areaRiskMetric('评分来源', escapeHtml(chain.score_statistic || 'station_points_max'))}
+      </div>
+      ${maxSample.station_name ? `
+        <p class="area-risk-max-sample">
+          最大样本：${escapeHtml(maxSample.station_name)} ${escapeHtml(formatScore(maxSample.score))}
+        </p>
+      ` : ''}
+      <ol class="area-risk-factor-list">
+        ${factors.length ? factors.map(areaRiskFactorItem).join('') : '<li class="feature-evidence-empty">暂无主导因子。</li>'}
+      </ol>
+    </section>
+  `;
+}
+
+function selectAreaRiskFeature(featureId, lngLat) {
+  const feature = areaRiskFeatureById(featureId);
+  if (!feature || !map) return;
+  const props = feature.properties || {};
+  state.selectedAreaRiskId = props.id || '';
+  updateAreaRiskSelectionPaint();
+  renderAreaRiskList();
+  map.getSource(AREA_RISK_BBOX_SOURCE_ID)?.setData({
+    type: 'FeatureCollection',
+    features: [bboxPolygonFeature(feature)],
+  });
+  showObjectHtmlDetail('区域风险详情', renderAreaRiskDetailCard(feature));
+  const center = feature.geometry?.coordinates || DEFAULT_CENTER;
+  const popupLngLat = lngLat || center;
+  popup
+    .setLngLat(popupLngLat)
+    .setHTML(`<strong>${escapeHtml(props.town_name || '区域风险')}</strong><span>${escapeHtml(props.label || targetLabel(props.hazard_type))} ${formatScore(props.score)}</span>`)
+    .addTo(map);
+  if (!lngLat) {
+    map.flyTo({
+      center,
+      zoom: Math.max(map.getZoom(), 7),
+      duration: 450,
+    });
+  }
+}
+
+function fitAreaRiskBounds(features) {
+  const bounds = features
+    .map((feature) => parseFeatureProperty(feature.properties?.bbox))
+    .filter((bbox) => Array.isArray(bbox) && bbox.length === 4)
+    .reduce((acc, bbox) => {
+      const values = bbox.map(Number);
+      if (!values.every(Number.isFinite)) return acc;
+      if (!acc) return values;
+      return [
+        Math.min(acc[0], values[0]),
+        Math.min(acc[1], values[1]),
+        Math.max(acc[2], values[2]),
+        Math.max(acc[3], values[3]),
+      ];
+    }, null);
+  if (bounds) {
+    const isNarrow = window.innerWidth <= 700;
+    map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
+      padding: isNarrow
+        ? { top: 250, right: 18, bottom: 112, left: 18 }
+        : { top: 118, right: 350, bottom: 108, left: 420 },
+      maxZoom: 7.2,
+      duration: 520,
+    });
+  }
+}
+
+async function loadAreaRisks(options = {}) {
+  if (!map || !state.mapReady) return;
+  if (!selectedPointRunTime()) {
+    clearAreaRisks(`区域风险未就绪：${selectedPointDataCode()} 未发现起报时次`);
+    return;
+  }
+  if (selectedPointRunIsSynthetic()) {
+    clearAreaRisks(syntheticRunStatus('区域风险'));
+    return;
+  }
+  const mode = selectedAreaRiskMode();
+  const riskType = mode === 'single' ? selectedAreaRiskType() : '';
+  const validTime = areaRiskValidTime(selectedPointRunTime(), Number($('fhSelect').value || state.forecastHour));
+  const url = buildNafpAreaRiskUrl({
+    dataCode: selectedPointDataCode(),
+    runTime: selectedPointRunTime(),
+    scopeValue: selectedAreaRiskScope(),
+    validTime,
+    riskType,
+    cacheBust: Date.now(),
+  });
+  if (!url.startsWith(AREA_RISK_API_PATH)) console.warn(`unexpected area risk url: ${url}`);
+  status(`正在加载区域风险：${formatDateTimeLabel(validTime)}`);
+  try {
+    const payload = await getEnvelope(url);
+    const collection = areaRiskPayloadToFeatureCollection(payload, { mode, riskType });
+    state.areaRiskFeatures = collection.features || [];
+    state.selectedAreaRiskId = '';
+    state.areaRiskLoaded = true;
+    ensureAreaRiskLayers();
+    map.getSource(AREA_RISK_SOURCE_ID).setData(areaRiskMapFeatureCollection(collection));
+    clearAreaRiskBbox();
+    updateAreaRiskSelectionPaint();
+    renderAreaRiskList();
+    if (options.fitBounds !== false && state.areaRiskFeatures.length) fitAreaRiskBounds(state.areaRiskFeatures);
+    const summary = payload.summary || {};
+    status(`已加载区域风险：${state.areaRiskFeatures.length}/${summary.town_count || state.areaRiskFeatures.length} 个区域`);
+  } catch (error) {
+    console.warn('area risk load failed', error);
+    state.areaRiskFeatures = [];
+    state.selectedAreaRiskId = '';
+    state.areaRiskLoaded = true;
+    map.getSource(AREA_RISK_SOURCE_ID)?.setData({ type: 'FeatureCollection', features: [] });
+    clearAreaRiskBbox();
+    renderAreaRiskList();
+    status(`区域风险加载失败：${error.message}`);
+  }
+}
+
 function formatFeatureDetail(props) {
   const name = featureTypeNames[props.feature_type] || props.feature_type || '天气系统';
   const lines = [
@@ -1495,22 +2487,22 @@ function clearPointProbeMarker() {
 }
 
 function featureToggleInputs(selector = 'input') {
-  return [...document.querySelectorAll(`#featureToggles ${selector}, #riskFeatureToggles ${selector}`)];
+  return [...document.querySelectorAll(`#featureToggles ${selector}`)];
 }
 
 function selectedFeatureTypes() {
-  return [...document.querySelectorAll('#featureToggles input:checked, #riskFeatureToggles input:checked')]
+  return [...document.querySelectorAll('#featureToggles input:checked')]
     .map((input) => input.value);
 }
 
-function clearWeatherFeatures(message = '未选择风险或天气系统，仅显示地图') {
+function clearWeatherFeatures(message = '未选择天气系统，仅显示地图') {
   state.features = [];
   state.selectedFeatureId = '';
   const featureSource = map?.getSource(FEATURE_SOURCE_ID);
   if (featureSource) featureSource.setData({ type: 'FeatureCollection', features: [] });
   clearPointMarkers();
   if (popup) popup.remove();
-  showObjectDetail('对象详情', '未选择风险或天气系统。');
+  showObjectDetail('对象详情', '未选择天气系统。');
   renderFeatureIndex();
   status(message);
 }
@@ -1529,6 +2521,7 @@ function clearMapOverlays() {
   if (gridSource) gridSource.setData({ type: 'FeatureCollection', features: [] });
   clearContours();
   clearPointProbeMarker();
+  clearAreaRisks('未选择要素，仅显示地图');
   $('mapLegend').hidden = true;
   featureToggleInputs().forEach((input) => {
     input.checked = false;
@@ -1572,16 +2565,25 @@ async function loadNafpFeatures(selected, fh) {
     clearWeatherFeatures(`NAFP 对象未就绪：${selectedPointDataCode()} 未发现起报时次`);
     return;
   }
-  status(`正在加载 ${selected.length} 类 NAFP 风险/天气系统对象...`);
+  if (selectedPointRunIsSynthetic()) {
+    clearWeatherFeatures(syntheticRunStatus('NAFP 天气系统'));
+    return;
+  }
+  status(`正在加载 ${selected.length} 类 NAFP 天气系统对象...`);
   try {
+    await waitForNafpPrecompute(fh);
     const fc = await getEnvelope(buildNafpFeaturesUrl(selected, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
-    state.features = fc.features || [];
+    const displayFc = primaryFeatureCollection(fc);
+    const smoothedFc = smoothFeatureCollectionForDisplay(displayFc);
+    state.features = displayFc.features || [];
     state.selectedFeatureId = '';
-    map.getSource(FEATURE_SOURCE_ID).setData(fc);
+    map.getSource(FEATURE_SOURCE_ID).setData(smoothedFc);
     renderPointMarkers(state.features);
     renderFeatureIndex();
-    if (fc.properties?.summary) $('analysisText').textContent = fc.properties.summary;
-    status(`已加载 ${state.features.length} 个 NAFP 风险/天气系统对象`);
+    if (displayFc.properties?.summary) $('analysisText').textContent = displayFc.properties.summary;
+    const totalFeatures = displayFc.properties?.total_features ?? state.features.length;
+    const displayedFeatures = displayFc.properties?.displayed_features ?? state.features.length;
+    status(`已加载 ${displayedFeatures}/${totalFeatures} 个 NAFP 天气系统对象`);
   } catch (error) {
     console.warn('NAFP feature load failed', error);
     state.features = [];
@@ -1589,7 +2591,7 @@ async function loadNafpFeatures(selected, fh) {
     map.getSource(FEATURE_SOURCE_ID).setData({ type: 'FeatureCollection', features: [] });
     clearPointMarkers();
     renderFeatureIndex();
-    status(`NAFP 风险/天气系统加载失败：${error.message}`);
+    status(`NAFP 天气系统加载失败：${error.message}`);
   }
 }
 
@@ -1606,7 +2608,7 @@ async function loadFeatures() {
     await loadNafpFeatures(selected, fh);
     return;
   }
-  status(`正在加载 ${selected.length} 类风险/天气系统对象...`);
+  status(`正在加载 ${selected.length} 类天气系统对象...`);
 
   const responses = await Promise.all(selected.map(async (type) => {
     try {
@@ -1623,11 +2625,11 @@ async function loadFeatures() {
   map.getSource(FEATURE_SOURCE_ID).setData(fc);
   renderPointMarkers(state.features);
   renderFeatureIndex();
-  status(`已加载 ${state.features.length} 个风险/天气系统对象`);
+  status(`已加载 ${state.features.length} 个天气系统对象`);
 }
 
 async function handleFeatureToggleChange(event) {
-  if (!event.target.matches('#featureToggles input[type="checkbox"], #riskFeatureToggles input[type="checkbox"]')) return;
+  if (!event.target.matches('#featureToggles input[type="checkbox"]')) return;
   await loadFeatures();
 }
 
@@ -1642,12 +2644,6 @@ async function loadAnalysis() {
   }
 }
 
-async function generateDemo() {
-  status('正在生成示例数据...');
-  await api('/api/jobs/generate-demo', { method: 'POST' });
-  status('示例数据已生成，请运行诊断');
-}
-
 async function runDiagnose() {
   status('诊断计算中，请稍候...');
   await api('/api/jobs/diagnose?model=ecmwf&file_path=data/raw/ecmwf_demo.nc&run_id=ecmwf_demo', { method: 'POST' });
@@ -1658,39 +2654,53 @@ async function runDiagnose() {
 }
 
 function wireEvents() {
-  $('btnDemo').addEventListener('click', generateDemo);
   $('btnDiagnose').addEventListener('click', runDiagnose);
   $('btnPointProbe').addEventListener('click', () => {
     setPointProbeActive(!state.pointProbeActive);
   });
   $('btnLoadLayer').addEventListener('click', loadLayer);
-  $('btnLoadFeatures').addEventListener('click', loadFeatures);
+  $('btnLoadAreaRisk').addEventListener('click', () => loadAreaRisks({ fitBounds: true }));
+  $('areaRiskScopeSelect').addEventListener('change', () => {
+    if (state.areaRiskLoaded) loadAreaRisks({ fitBounds: true });
+  });
+  $('areaRiskModeSelect').addEventListener('change', () => {
+    syncAreaRiskModeControls();
+    if (state.areaRiskLoaded) loadAreaRisks({ fitBounds: false });
+  });
+  $('areaRiskTypeSelect').addEventListener('change', () => {
+    if (state.areaRiskLoaded && selectedAreaRiskMode() === 'single') loadAreaRisks({ fitBounds: false });
+  });
   $('featureToggles').addEventListener('change', handleFeatureToggleChange);
-  $('riskFeatureToggles').addEventListener('change', handleFeatureToggleChange);
   $('btnClearOverlays').addEventListener('click', clearMapOverlays);
-  $('btnClearFeatures').addEventListener('click', clearFeatureSelection);
-  $('featureIndexTypeFilter').addEventListener('change', renderFeatureIndex);
-  $('featureIndexQualityFilter').addEventListener('change', renderFeatureIndex);
+  $('basemapSelect').addEventListener('change', applyBaseMap);
   $('layerSourceSelect').addEventListener('change', async () => {
     state.layerSource = selectedLayerSource();
     syncProductRunVisibility();
-    if (shouldUseNafpLayerSource()) syncForecastHoursFromPointRunTime();
+    if (shouldUseNafpLayerSource()) {
+      syncForecastHoursFromPointRunTime();
+      scheduleNafpSituationPrecompute();
+    }
     else await refreshForecastHours();
     await loadLayer();
     await loadFeatures();
+    if (state.areaRiskLoaded) await loadAreaRisks({ fitBounds: false });
   });
   $('pointDataCodeSelect').addEventListener('change', async () => {
     await refreshPointRunTimes();
     if (shouldUseNafpLayerSource()) {
       syncForecastHoursFromPointRunTime();
+      scheduleNafpSituationPrecompute();
       await loadLayer();
+      if (state.areaRiskLoaded) await loadAreaRisks({ fitBounds: false });
     }
   });
   $('pointRunTimeSelect').addEventListener('change', async () => {
     state.pointRunTime = selectedPointRunTime();
     if (shouldUseNafpLayerSource()) {
       syncForecastHoursFromPointRunTime();
+      scheduleNafpSituationPrecompute();
       await loadLayer();
+      if (state.areaRiskLoaded) await loadAreaRisks({ fitBounds: false });
     }
   });
   $('runSelect').addEventListener('change', async () => {
@@ -1698,6 +2708,7 @@ function wireEvents() {
     else await refreshForecastHours();
     await loadLayer();
     await loadFeatures();
+    if (state.areaRiskLoaded) await loadAreaRisks({ fitBounds: false });
   });
   $('fhSelect').addEventListener('change', () => setForecastHour(Number($('fhSelect').value)));
   $('contourToggle').addEventListener('change', loadContours);
@@ -1711,12 +2722,15 @@ function wireEvents() {
 
 async function init() {
   setupFeatureToggles();
+  setupBasemapControl();
+  setupAreaRiskControls();
   setupFeatureIndexControls();
   wireEvents();
   syncProductRunVisibility();
   initializeMap();
   await refreshLayers();
   await refreshPointDataSources();
+  await refreshAreaRiskCatalog();
   await refreshRuns();
 
   if (map) {

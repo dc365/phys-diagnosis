@@ -39,10 +39,13 @@ def test_conclusions_from_features_summarizes_pipeline_risk_objects():
                 "type": "Feature",
                 "geometry": {"type": "Polygon", "coordinates": []},
                 "properties": {
-                    "id": "heavy_rain_risk_001",
-                    "feature_type": "heavy_rain_risk",
+                    "id": "persistent_heavy_rain_risk_001",
+                    "feature_type": "persistent_heavy_rain_risk",
+                    "hazard_type": "persistent_heavy_rain",
+                    "risk_domain": ["precipitation"],
                     "risk_level": "high",
                     "max_value": 0.86,
+                    "source_grid": "risk_persistent_heavy_rain_score",
                     "dominant_factors": [
                         {"label": "700hPa 上升运动", "mean_contribution": 0.17},
                         {"label": "水汽辐合", "mean_contribution": 0.16},
@@ -56,7 +59,8 @@ def test_conclusions_from_features_summarizes_pipeline_risk_objects():
         ]
     )
 
-    assert conclusions[0]["target_type"] == "heavy_rain_risk"
+    assert conclusions[0]["target_type"] == "persistent_heavy_rain_risk"
+    assert conclusions[0]["hazard_type"] == "persistent_heavy_rain"
     assert "高" in conclusions[0]["headline"]
     assert any("700hPa 上升运动" in item for item in conclusions[0]["reasoning"])
     assert any("低层辐合" in item for item in conclusions[0]["reasoning"])

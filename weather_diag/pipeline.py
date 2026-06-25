@@ -23,11 +23,7 @@ from weather_diag.features.moisture_transport import detect_moisture_transport
 from weather_diag.features.trough_ridge import detect_trough_ridge
 from weather_diag.features.front import detect_front_candidates
 from weather_diag.features.risk import (
-    convection_score_details,
-    detect_convection_risk,
     detect_hazard_risk_features,
-    detect_heavy_rain_risk,
-    heavy_rain_score_details,
     multi_hazard_score_details,
 )
 from weather_diag.diagnosis.system_links import attach_feature_supporting_systems
@@ -67,6 +63,25 @@ def _add_var(data_vars: dict, name: str, arr, lat, lon, attrs: dict | None = Non
         data_vars[name] = (("lat", "lon"), np.asarray(arr, dtype=np.float32), attrs or {})
 
 
+def _safe_select_precipitation(sds, fh, window_hours: int | None = None):
+    try:
+        da = sds.select_precipitation_amount(forecast_hour=int(fh), window_hours=window_hours)
+        if window_hours is not None:
+            actual_period = da.attrs.get("precipitation_period_hours")
+            try:
+                actual_period = float(actual_period)
+            except (TypeError, ValueError):
+                actual_period = float(window_hours)
+            # Do not label a 6h or 12h accumulation as 1h/3h short-duration rain.
+            if actual_period > max(float(window_hours) * 1.5, float(window_hours) + 1.0):
+                return None
+        return da.values.astype(float)
+    except Exception:
+        if window_hours is None:
+            return _safe_select(sds, "precipitation", fh)
+        return None
+
+
 def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | None = None) -> Dict[str, Any]:
     ensure_dirs()
     file_path = Path(file_path)
@@ -99,9 +114,14 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
         z500 = _safe_select(sds, "geopotential", fh, 500)
         if z500 is None:
             z500 = _safe_select(sds, "geopotential_height", fh, 500)
+        z700 = _safe_select(sds, "geopotential", fh, 700)
+        if z700 is None:
+            z700 = _safe_select(sds, "geopotential_height", fh, 700)
         t850 = _safe_select(sds, "temperature", fh, 850)
         t700 = _safe_select(sds, "temperature", fh, 700)
         t500 = _safe_select(sds, "temperature", fh, 500)
+        t2m = _safe_select(sds, "t2m", fh)
+        td2m = _safe_select(sds, "d2m", fh)
         u850 = _safe_select(sds, "u_wind", fh, 850)
         v850 = _safe_select(sds, "v_wind", fh, 850)
         u925 = _safe_select(sds, "u_wind", fh, 925)
@@ -112,17 +132,25 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
         v300 = _safe_select(sds, "v_wind", fh, 300)
         u200 = _safe_select(sds, "u_wind", fh, 200)
         v200 = _safe_select(sds, "v_wind", fh, 200)
+        u10 = _safe_select(sds, "u10", fh)
+        v10 = _safe_select(sds, "v10", fh)
         q850 = _safe_select(sds, "specific_humidity", fh, 850)
         rh850 = _safe_select(sds, "relative_humidity", fh, 850)
         rh700 = _safe_select(sds, "relative_humidity", fh, 700)
+        rh500 = _safe_select(sds, "relative_humidity", fh, 500)
         omega700 = _safe_select(sds, "vertical_velocity", fh, 700)
-        precip = _safe_select(sds, "precipitation", fh)
+        precip = _safe_select_precipitation(sds, fh)
+        precip_1h = _safe_select_precipitation(sds, fh, 1)
+        precip_3h = _safe_select_precipitation(sds, fh, 3)
+        precip_6h = _safe_select_precipitation(sds, fh, 6)
+        precip_24h = _safe_select_precipitation(sds, fh, 24)
         cape = _safe_select(sds, "cape", fh)
         cin = _safe_select(sds, "cin", fh)
 
         # Diagnostics
-        wind850_speed = wind_direction850 = div850 = vort500 = vort850 = None
+        wind850_speed = wind500_speed = wind_direction850 = div850 = vort500 = vort850 = None
         moisture_flux850 = moisture_conv850 = temp_adv850 = vort_adv500 = kidx = shear06 = None
+        shear01 = mean_wind_850_500 = None
         div_upper = upper_level = None
 
         if u850 is not None and v850 is not None:
@@ -131,6 +159,7 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             div850 = divergence(u850, v850, lat, lon)
             vort850 = relative_vorticity(u850, v850, lat, lon)
         if u500 is not None and v500 is not None:
+            wind500_speed = wind_speed(u500, v500)
             vort500 = relative_vorticity(u500, v500, lat, lon)
             if vort500 is not None:
                 vort_adv500 = scalar_advection(u500, v500, vort500, lat, lon)
@@ -146,32 +175,26 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
                 kidx = None
         if u850 is not None and v850 is not None and u500 is not None and v500 is not None:
             shear06 = deep_layer_shear(u850, v850, u500, v500)
+            mean_wind_850_500 = wind_speed((u850 + u500) / 2.0, (v850 + v500) / 2.0)
+        if u10 is not None and v10 is not None and u850 is not None and v850 is not None:
+            shear01 = deep_layer_shear(u10, v10, u850, v850)
         if u200 is not None and v200 is not None:
             div_upper = divergence(u200, v200, lat, lon); upper_level = 200
         elif u300 is not None and v300 is not None:
             div_upper = divergence(u300, v300, lat, lon); upper_level = 300
 
-        # Risk scores
-        heavy_rain_details = heavy_rain_score_details({
-            "moisture_flux": moisture_flux850,
-            "moisture_convergence": moisture_conv850,
-            "div850": div850,
-            "omega700": omega700,
-            "k_index": kidx,
-            "cape": cape,
-            "precipitation": precip,
-        }, thresholds) if any(x is not None for x in [moisture_flux850, moisture_conv850, div850, omega700, kidx, cape, precip]) else None
-        hscore = heavy_rain_details["score"] if heavy_rain_details is not None else None
-        convection_details = convection_score_details({
-            "cape": cape,
-            "cin": cin,
-            "k_index": kidx,
-            "shear_0_6km": shear06,
-            "div850": div850,
-            "moisture": q850,
-        }, thresholds) if any(x is not None for x in [cape, cin, kidx, shear06, div850, q850]) else None
-        cscore = convection_details["score"] if convection_details is not None else None
+        # Hazard-specific risk scores.
         multi_hazard_fields = {
+            "q850": q850,
+            "td2m": td2m,
+            "t2m": t2m,
+            "rh850": rh850,
+            "rh700": rh700,
+            "rh500": rh500,
+            "t700": t700,
+            "t500": t500,
+            "z700": z700,
+            "z500": z500,
             "moisture_flux": moisture_flux850,
             "moisture_convergence": moisture_conv850,
             "div850": div850,
@@ -179,11 +202,19 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
             "k_index": kidx,
             "cape": cape,
             "precipitation": precip,
+            "precip_1h": precip_1h,
+            "precip_3h": precip_3h,
+            "precip_6h": precip_6h,
+            "precip_24h": precip_24h,
             "cin": cin,
             "shear_0_6km": shear06,
+            "shear_0_1km": shear01,
+            "wind500": wind500_speed,
+            "mean_wind_850_500": mean_wind_850_500,
+            "pva500": vort_adv500,
+            "upper_divergence": div_upper,
             "dcape": None,
             "srh": None,
-            "shear_0_1km": None,
             "li": None,
         }
         multi_hazard_details = (
@@ -195,8 +226,17 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
         # Save diagnostic variables
         _add_var(data_vars, "mslp", mslp, lat, lon, {"units": "hPa"})
         _add_var(data_vars, "z500", z500, lat, lon, {"units": "gpm"})
+        _add_var(data_vars, "z700", z700, lat, lon, {"units": "gpm"})
+        _add_var(data_vars, "t2m", t2m, lat, lon, {"units": "degC"})
+        _add_var(data_vars, "td2m", td2m, lat, lon, {"units": "degC"})
         _add_var(data_vars, "t850", t850, lat, lon, {"units": "degC"})
+        _add_var(data_vars, "t700", t700, lat, lon, {"units": "degC"})
+        _add_var(data_vars, "t500", t500, lat, lon, {"units": "degC"})
+        _add_var(data_vars, "rh850", rh850, lat, lon, {"units": "%"})
+        _add_var(data_vars, "rh700", rh700, lat, lon, {"units": "%"})
+        _add_var(data_vars, "rh500", rh500, lat, lon, {"units": "%"})
         _add_var(data_vars, "wind850_speed", wind850_speed, lat, lon, {"units": "m/s"})
+        _add_var(data_vars, "wind500_speed", wind500_speed, lat, lon, {"units": "m/s"})
         _add_var(data_vars, "wind850_direction", wind_direction850, lat, lon, {"units": "degree_from"})
         _add_var(data_vars, "div850", div850, lat, lon, {"units": "s^-1"})
         _add_var(data_vars, "vort850", vort850, lat, lon, {"units": "s^-1"})
@@ -208,11 +248,15 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
         _add_var(data_vars, "temp_adv850", temp_adv850, lat, lon, {"units": "K/s"})
         _add_var(data_vars, "k_index", kidx, lat, lon, {"units": "degC"})
         _add_var(data_vars, "shear_0_6km", shear06, lat, lon, {"units": "m/s"})
+        _add_var(data_vars, "shear_0_1km", shear01, lat, lon, {"units": "m/s"})
+        _add_var(data_vars, "mean_wind_850_500", mean_wind_850_500, lat, lon, {"units": "m/s"})
         _add_var(data_vars, "cape", cape, lat, lon, {"units": "J/kg"})
         _add_var(data_vars, "cin", cin, lat, lon, {"units": "J/kg"})
-        _add_var(data_vars, "precipitation", precip, lat, lon, {"units": "mm"})
-        _add_var(data_vars, "heavy_rain_score", hscore, lat, lon, {"units": "score"})
-        _add_var(data_vars, "convection_score", cscore, lat, lon, {"units": "score"})
+        _add_var(data_vars, "precipitation", precip, lat, lon, {"units": "mm", "long_name": "current available precipitation amount"})
+        _add_var(data_vars, "precip_1h", precip_1h, lat, lon, {"units": "mm", "long_name": "1h precipitation amount"})
+        _add_var(data_vars, "precip_3h", precip_3h, lat, lon, {"units": "mm", "long_name": "3h precipitation amount"})
+        _add_var(data_vars, "precip_6h", precip_6h, lat, lon, {"units": "mm", "long_name": "6h precipitation amount"})
+        _add_var(data_vars, "precip_24h", precip_24h, lat, lon, {"units": "mm", "long_name": "24h precipitation amount"})
         if multi_hazard_details is not None:
             for name, score in multi_hazard_details["scores"].items():
                 _add_var(
@@ -262,26 +306,6 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
                     rh850=rh850,
                 )
             )
-        if hscore is not None:
-            features.extend(
-                detect_heavy_rain_risk(
-                    hscore,
-                    lat,
-                    lon,
-                    thresholds,
-                    factor_details=heavy_rain_details["factors"] if heavy_rain_details else None,
-                )
-            )
-        if cscore is not None:
-            features.extend(
-                detect_convection_risk(
-                    cscore,
-                    lat,
-                    lon,
-                    thresholds,
-                    factor_details=convection_details["factors"] if convection_details else None,
-                )
-            )
         if multi_hazard_details is not None:
             for hazard_type, score_grid in [
                 ("persistent_heavy_rain", "risk_persistent_heavy_rain_score"),
@@ -299,6 +323,7 @@ def diagnose_file(file_path: str | Path, *, model: str = "ecmwf", run_id: str | 
                         lon,
                         thresholds,
                         factor_details=multi_hazard_details["factors"].get(score_grid),
+                        risk_metadata=multi_hazard_details.get("metadata", {}).get(score_grid),
                     )
                 )
 

@@ -71,16 +71,6 @@ layers:
     variable: shear_0_6km
     kind: raster
     unit: m/s
-  heavy_rain_score:
-    title: 强降水潜势评分
-    variable: heavy_rain_score
-    kind: raster
-    unit: score
-  convection_score:
-    title: 强对流潜势评分
-    variable: convection_score
-    kind: raster
-    unit: score
   risk_persistent_heavy_rain_score:
     title: 持续性强降水风险评分
     variable: risk_persistent_heavy_rain_score

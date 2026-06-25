@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 
 
-NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC")
+NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC")
 
 
 @dataclass
@@ -91,6 +91,34 @@ def open_nafp_dataset(path: str | Path) -> xr.Dataset:
     return _normalize_coords(xr.open_dataset(path).load())
 
 
+def _numeric_attr(attrs: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        if key not in attrs:
+            continue
+        try:
+            return float(attrs[key])
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _mask_declared_missing(values: np.ndarray, attrs: dict[str, Any]) -> np.ndarray:
+    arr = np.asarray(values, dtype=float).copy()
+    missing = _numeric_attr(attrs, "MissingValue", "missing_value", "_FillValue")
+    if missing is not None and np.isfinite(missing):
+        if missing >= 0:
+            arr[arr >= missing] = np.nan
+        else:
+            arr[arr <= missing] = np.nan
+    fixed = _numeric_attr(attrs, "FixedValue")
+    if fixed is not None and np.isfinite(fixed):
+        if fixed >= 0:
+            arr[arr >= fixed] = np.nan
+        else:
+            arr[arr <= fixed] = np.nan
+    return arr
+
+
 def missing_field(
     element: str,
     level: str | int,
@@ -131,7 +159,10 @@ def load_nafp_field(
     ds = open_nafp_dataset(path)
     lat = ds["lat"].values
     lon = ds["lon"].values
-    values = {name: da.squeeze(drop=True).values.astype(float) for name, da in ds.data_vars.items()}
+    values = {
+        name: _mask_declared_missing(da.squeeze(drop=True).values, {**ds.attrs, **da.attrs})
+        for name, da in ds.data_vars.items()
+    }
     return NafpField(
         element=element,
         level=str(level),

@@ -11,8 +11,6 @@ TARGET_LABELS = {
     "convection_potential": "强对流潜势",
     "dynamic_lift_potential": "动力抬升潜势",
     "precipitation_phase": "雨雪相态",
-    "heavy_rain_risk": "强降水风险区",
-    "convection_risk": "强对流风险区",
 }
 
 
@@ -88,11 +86,11 @@ def _systems_text(items: list[dict[str, Any]], *, limit: int = 4) -> str:
 
 
 def _action_hint(target_type: str, level: str | None) -> str:
-    if target_type in {"heavy_rain_potential", "heavy_rain_risk"}:
+    if target_type == "heavy_rain_potential":
         if level == "high":
             return "建议重点监测雨带落区、短时雨强和中小河流及城市内涝风险，并结合雷达、卫星和自动站实况订正。"
         return "建议继续跟踪低空急流出口、水汽辐合和实况回波发展，防止局地短时强降水漏报。"
-    if target_type in {"convection_potential", "convection_risk"}:
+    if target_type == "convection_potential":
         if level == "high":
             return "建议重点关注触发线附近雷暴发展、阵风大风和短时强降水，并结合雷达回波形态滚动订正。"
         return "建议关注低层触发能否突破 CIN，并结合风切变、CAPE 和实况回波判断强对流发生概率。"
@@ -148,7 +146,7 @@ def conclusions_from_features(features: list[dict[str, Any]]) -> list[dict[str, 
                 hazard_meta = hazard_metadata(str(hazard_type))
             except KeyError:
                 hazard_meta = {}
-        if not hazard_type and target_type not in {"heavy_rain_risk", "convection_risk"}:
+        if not hazard_type:
             continue
         label = str(hazard_meta.get("label") or _target_label(target_type)) if hazard_meta is not None else _target_label(target_type)
         level = str(props.get("risk_level") or "moderate")

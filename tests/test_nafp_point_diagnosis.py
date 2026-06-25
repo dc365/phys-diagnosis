@@ -138,7 +138,7 @@ def test_nafp_point_api_accepts_lat_lon_and_data_code():
     response = client.post(
         "/api/v1/diagnosis/nafp/point",
         json={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
             "lat": 30.21,
@@ -158,4 +158,5 @@ def test_nafp_point_api_accepts_lat_lon_and_data_code():
     cape = evidence_by_entry(convection, "convection.cape")
     assert cape["statistic"] == "point"
     assert cape["threshold"] == 0.0
-    assert "source_path" in cape
+    assert "source_path" not in cape
+    assert "source_paths" not in str(body["data"])

@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 from scipy import ndimage
 
+from weather_diag.config import load_thresholds
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT, NafpField, load_nafp_field, parse_run_time
 from weather_diag.diagnosis.algorithm_rules import (
     load_threshold_matrix,
@@ -14,24 +15,37 @@ from weather_diag.diagnosis.algorithm_rules import (
     threshold_entries_by_id,
 )
 from weather_diag.diagnosis.conclusions import conclusions_from_chains
-from weather_diag.diagnosis.nafp_layers import load_nafp_layer
-from weather_diag.diagnosis.risk_taxonomy import hazard_metadata, risk_grid_for_hazard
-from weather_diag.diagnosis.system_links import attach_chain_supporting_systems
-from weather_diag.diagnostics.grid import component_axis_line, derivatives_lonlat, mask_to_bbox_features
+from weather_diag.diagnosis.nafp_layers import load_nafp_layer, nafp_multi_hazard_score_details
+from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES, hazard_metadata, risk_grid_for_hazard
+from weather_diag.diagnosis.system_links import attach_chain_supporting_systems, supporting_system_links
+from weather_diag.diagnostics.grid import (
+    component_axis_line,
+    derivatives_lonlat,
+    geometry_bounds,
+    mask_to_bbox_features,
+    smooth_polygon_geometry,
+)
 from weather_diag.features.convergence import ranked_mask_items, smooth_field
-from weather_diag.features.front import front_candidate_fields
+from weather_diag.features.front import front_axis_components, front_candidate_fields
+from weather_diag.features.pressure import detect_high_low
 from weather_diag.features.transport_objects import ranked_transport_components
 from weather_diag.features.trough_ridge import trough_ridge_axis_candidates
 
 
 DEFAULT_OPTIONAL_FIELDS = [
+    ("seap", "999", "mslp"),
     ("uv", "500", "uv500"),
     ("uv", "850", "uv850"),
     ("q", "850", "q850"),
     ("rh", "850", "rh850"),
+    ("rh", "700", "rh700"),
+    ("rh", "500", "rh500"),
     ("div", "850", "div850"),
     ("tt", "850", "tt850"),
+    ("tt", "700", "tt700"),
+    ("tt", "500", "tt500"),
     ("ttadv", "850", "ttadv850"),
+    ("gh", "700", "gh700"),
     ("div", "200", "div200"),
     ("div", "300", "div300"),
     ("pv", "300", "pv300"),
@@ -41,20 +55,75 @@ DEFAULT_OPTIONAL_FIELDS = [
     ("cape", "999", "cape"),
     ("cin", "999", "cin"),
     ("tcwv", "999", "tcwv"),
+    ("td2", "999", "td2m"),
     ("rain6", "999", "rain6"),
+    ("rain3", "999", "rain3"),
+    ("rainmax3", "999", "rainmax3"),
+    ("rain24", "999", "rain24"),
     ("shr850-200", "999", "shr850-200"),
+    ("shr6km", "999", "shr6km"),
     ("uv", "925", "uv925"),
-    ("rh", "700", "rh700"),
     ("tt", "925", "tt925"),
     ("li", "999", "li"),
     ("si", "999", "si"),
     ("bli", "999", "bli"),
     ("dcape", "999", "dcape"),
     ("srh", "999", "srh"),
-    ("shr0-1", "999", "shr0-1km"),
+    ("shr1km", "999", "shr0-1km"),
+    ("lcl", "999", "lcl"),
+    ("deg0l", "999", "deg0l"),
     ("t2m", "999", "t2m"),
+    ("10u", "999", "u10"),
+    ("10v", "999", "v10"),
     ("tw0", "999", "tw0_height"),
 ]
+
+
+PRIMARY_SYSTEM_LIMITS = {
+    "subtropical_high": 1,
+    "high": 4,
+    "low": 4,
+    "low_pressure_convergence": 2,
+    "high_pressure_divergence": 2,
+    "trough_candidate": 3,
+    "ridge_candidate": 3,
+    "low_level_jet": 3,
+    "moisture_transport": 3,
+    "moisture_convergence": 3,
+    "low_level_convergence": 3,
+    "upper_divergence": 3,
+    "front_candidate": 3,
+}
+
+
+SYSTEM_DISPLAY_PRIORITY = {
+    "subtropical_high": 10,
+    "low": 20,
+    "high": 21,
+    "low_pressure_convergence": 30,
+    "high_pressure_divergence": 31,
+    "trough_candidate": 40,
+    "ridge_candidate": 41,
+    "front_candidate": 50,
+    "low_level_jet": 60,
+    "moisture_transport": 61,
+    "moisture_convergence": 62,
+    "low_level_convergence": 63,
+    "upper_divergence": 64,
+}
+
+
+DYNAMIC_CONFIDENCE_SYSTEM_TYPES = {
+    "low_pressure_convergence",
+    "high_pressure_divergence",
+    "trough_candidate",
+    "ridge_candidate",
+    "front_candidate",
+    "moisture_transport",
+    "moisture_convergence",
+    "low_level_convergence",
+    "upper_divergence",
+}
 
 
 def field_array(field: NafpField, preferred: str | None = None) -> np.ndarray | None:
@@ -387,17 +456,76 @@ def _relative_vorticity_from_wind(
     return vorticity
 
 
-def _polygon_geometry_from_component(item: dict[str, Any]) -> dict[str, Any]:
+def _polygon_geometry_from_component(
+    item: dict[str, Any],
+    *,
+    smooth_boundary: bool = False,
+    boundary_smooth_km: float = 90.0,
+    boundary_simplify_km: float = 30.0,
+    reference_lat: float | None = None,
+) -> dict[str, Any]:
+    geometry = item["geometry"]
+    if smooth_boundary:
+        if reference_lat is None:
+            reference_lat = float(item.get("centroid", [0.0, 25.0])[1])
+        geometry = smooth_polygon_geometry(
+            geometry,
+            reference_lat=reference_lat,
+            smooth_km=boundary_smooth_km,
+            simplify_km=boundary_simplify_km,
+        )
     return {
         "type": "polygon",
-        "bbox": item["bbox"],
-        "coordinates": item["geometry"]["coordinates"],
-        "geojson_type": item["geometry"]["type"],
+        "bbox": geometry_bounds(geometry),
+        "source_bbox": item.get("bbox"),
+        "coordinates": geometry["coordinates"],
+        "geojson_type": geometry["type"],
+        "boundary_smoothed": bool(smooth_boundary),
+        "boundary_smooth_km": float(boundary_smooth_km) if smooth_boundary else 0.0,
+        "boundary_simplify_km": float(boundary_simplify_km) if smooth_boundary else 0.0,
     }
 
 
 def _line_geometry_from_component(item: dict[str, Any], lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
     return component_axis_line(item, lat, lon)
+
+
+def _component_area_km2(item: dict[str, Any], lat: np.ndarray, lon: np.ndarray) -> float:
+    lat_arr = np.asarray(lat, dtype=float)
+    lon_arr = np.asarray(lon, dtype=float)
+    dy = float(np.nanmedian(np.abs(np.diff(lat_arr)))) * 111.32 if lat_arr.size > 1 else 111.32
+    dx_deg = float(np.nanmedian(np.abs(np.diff(lon_arr)))) if lon_arr.size > 1 else 1.0
+    lat_ref = float(np.nanmedian(lat_arr)) if lat_arr.size else 0.0
+    dx = dx_deg * 111.32 * max(float(np.cos(np.deg2rad(lat_ref))), 0.2)
+    return float(item.get("point_count", 0)) * max(dx, 1.0) * max(dy, 1.0)
+
+
+def _line_length_km(coords: list[list[float]]) -> float:
+    total = 0.0
+    for (lon0, lat0), (lon1, lat1) in zip(coords[:-1], coords[1:]):
+        lat_mid = (float(lat0) + float(lat1)) / 2.0
+        dx = (float(lon1) - float(lon0)) * 111.32 * max(float(np.cos(np.deg2rad(lat_mid))), 0.2)
+        dy = (float(lat1) - float(lat0)) * 111.32
+        total += float(np.hypot(dx, dy))
+    return total
+
+
+def _divergence_absolute_threshold(values: np.ndarray, default_s1: float = 1.0e-5) -> float:
+    valid = np.abs(np.asarray(values, dtype=float)[np.isfinite(values)])
+    if valid.size == 0:
+        return default_s1
+    # Some NAFP diagnostic layers are scaled by 1e5. Use scaled absolute thresholds when values are O(1).
+    return default_s1 * 100000.0 if float(np.nanpercentile(valid, 95)) > 0.01 else default_s1
+
+
+def _apply_binary_morphology(mask: np.ndarray, *, closing_iter: int = 1, opening_iter: int = 0) -> np.ndarray:
+    out = np.asarray(mask, dtype=bool)
+    structure = np.ones((3, 3), dtype=bool)
+    if opening_iter > 0:
+        out = ndimage.binary_opening(out, structure=structure, iterations=opening_iter)
+    if closing_iter > 0:
+        out = ndimage.binary_closing(out, structure=structure, iterations=closing_iter)
+    return out
 
 
 def _fallback_domain_region(field: NafpField) -> dict[str, Any]:
@@ -417,6 +545,222 @@ def _fallback_domain_region(field: NafpField) -> dict[str, Any]:
         ]],
         "geojson_type": "Polygon",
     }
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return default
+    return result if np.isfinite(result) else default
+
+
+def _geometry_extent_metric(system: dict[str, Any]) -> float:
+    geometry = system.get("geometry") or {}
+    geometry_type = geometry.get("type")
+    if geometry_type == "point":
+        pressure_difference = _safe_float(system.get("pressure_difference_hpa"))
+        closed_count = _safe_float(system.get("closed_contour_count"))
+        closed_area = _safe_float(system.get("closed_area_grid_points"))
+        return pressure_difference * 10.0 + closed_count * 5.0 + closed_area * 0.05
+    if geometry_type == "line":
+        return float(len(geometry.get("coordinates") or []))
+    bbox = geometry.get("bbox") or []
+    if len(bbox) == 4:
+        lon_min, lat_min, lon_max, lat_max = [_safe_float(value) for value in bbox]
+        return abs(lon_max - lon_min) * abs(lat_max - lat_min)
+    return 0.0
+
+
+def _connected_point_metric(system: dict[str, Any]) -> float:
+    values = []
+    for item in system.get("evidence") or []:
+        signal = str(item.get("signal") or "")
+        value_text = str(item.get("value") or "")
+        if "connected" in signal or "point_count" in value_text:
+            values.append(_safe_float(item.get("raw_value")))
+    return max(values) if values else 0.0
+
+
+def _system_salience_metrics(system: dict[str, Any]) -> dict[str, float]:
+    evidence_count = len(system.get("evidence") or [])
+    return {
+        "confidence": _clip01(_safe_float(system.get("confidence"), 0.5)),
+        "extent": max(_geometry_extent_metric(system), _connected_point_metric(system)),
+        "support": _clip01(evidence_count / 5.0),
+    }
+
+
+def _annotate_system_display_metadata(systems: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[tuple[int, dict[str, Any], dict[str, float]]]] = {}
+    for original_index, system in enumerate(systems):
+        system_type = str(system.get("type") or system.get("feature_type") or "unknown")
+        grouped.setdefault(system_type, []).append((original_index, system, _system_salience_metrics(system)))
+
+    annotated: list[dict[str, Any]] = []
+    for system_type, entries in grouped.items():
+        max_extent = max((metrics["extent"] for _, _, metrics in entries), default=0.0)
+        scored_entries = []
+        for original_index, system, metrics in entries:
+            extent_score = metrics["extent"] / max_extent if max_extent > 0 else 0.0
+            salience = _clip01(metrics["confidence"] * 0.58 + extent_score * 0.28 + metrics["support"] * 0.14)
+            system["salience_score"] = round(salience, 4)
+            scored_entries.append((original_index, system, metrics["confidence"], metrics["extent"]))
+
+        scored_entries.sort(
+            key=lambda entry: (
+                _safe_float(entry[1].get("salience_score")),
+                entry[2],
+                entry[3],
+                -entry[0],
+            ),
+            reverse=True,
+        )
+        primary_limit = PRIMARY_SYSTEM_LIMITS.get(system_type, 3)
+        for type_rank, (_, system, _, _) in enumerate(scored_entries, start=1):
+            system["type_rank"] = type_rank
+            system["primary"] = type_rank <= primary_limit
+            if system_type in DYNAMIC_CONFIDENCE_SYSTEM_TYPES:
+                system["base_confidence"] = system.get("confidence")
+                salience = _safe_float(system.get("salience_score"), 0.5)
+                confidence = 0.48 + salience * 0.42 - (type_rank - 1) * 0.015
+                system["confidence"] = round(_clip01(max(0.5, min(0.9, confidence))), 2)
+            annotated.append(system)
+
+    annotated.sort(
+        key=lambda system: (
+            0 if system.get("primary") else 1,
+            SYSTEM_DISPLAY_PRIORITY.get(str(system.get("type") or ""), 999),
+            -_safe_float(system.get("salience_score")),
+            int(system.get("type_rank") or 0),
+        )
+    )
+    for display_rank, system in enumerate(annotated, start=1):
+        system["display_rank"] = display_rank
+    return annotated
+
+
+def _point_from_index(lat: np.ndarray, lon: np.ndarray, y: int, x: int, value: float) -> dict[str, float]:
+    return {
+        "lon": round(float(lon[int(x)]), 3),
+        "lat": round(float(lat[int(y)]), 3),
+        "value": round(float(value), 3),
+    }
+
+
+def _subtropical_high_metrics(
+    item: dict[str, Any],
+    gh: np.ndarray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    threshold: float,
+) -> dict[str, Any]:
+    ys, xs = item["indices"]
+    values = gh[ys, xs]
+    max_pos = int(np.nanargmax(values))
+    center_y = int(ys[max_pos])
+    center_x = int(xs[max_pos])
+
+    west_lon = float(np.nanmin(lon[xs]))
+    west_candidates = np.where(np.isclose(lon[xs], west_lon))[0]
+    if west_candidates.size:
+        west_values = values[west_candidates]
+        west_choice = int(west_candidates[int(np.nanargmax(west_values))])
+    else:
+        west_choice = max_pos
+    ridge_y = int(ys[west_choice])
+    ridge_x = int(xs[west_choice])
+
+    lon_span = float(np.nanmax(lon[xs]) - np.nanmin(lon[xs]))
+    lat_span = float(np.nanmax(lat[ys]) - np.nanmin(lat[ys]))
+    if lon_span >= lat_span * 1.4:
+        orientation = "zonal"
+    elif lat_span >= lon_span * 1.4:
+        orientation = "meridional"
+    else:
+        orientation = "compact"
+
+    return {
+        "center": _point_from_index(lat, lon, center_y, center_x, float(gh[center_y, center_x])),
+        "ridge_point": _point_from_index(lat, lon, ridge_y, ridge_x, float(gh[ridge_y, ridge_x])),
+        "north_boundary_lat": round(float(np.nanmax(lat[ys])), 3),
+        "south_boundary_lat": round(float(np.nanmin(lat[ys])), 3),
+        "west_boundary_lon": round(float(np.nanmin(lon[xs])), 3),
+        "east_boundary_lon": round(float(np.nanmax(lon[xs])), 3),
+        "area_grid_points": int(ys.size),
+        "max_height": round(float(np.nanmax(values)), 3),
+        "mean_height": round(float(np.nanmean(values)), 3),
+        "threshold_height": round(float(threshold), 3),
+        "axis_orientation": orientation,
+        "lon_span": round(lon_span, 3),
+        "lat_span": round(lat_span, 3),
+    }
+
+
+def _subtropical_high_evidence(
+    field: NafpField,
+    metrics: dict[str, Any],
+    min_points_rule: dict[str, Any],
+) -> list[dict[str, Any]]:
+    source_paths = [field.source_path]
+    return [
+        _derived_system_evidence(
+            "gh500",
+            "subtropical high connected area extent",
+            f"area_grid_points={metrics['area_grid_points']}, min_points={_rule_float(min_points_rule, 'threshold', 20.0):g}",
+            {
+                "entry_id": "system.subtropical_high.area_extent",
+                "statistic": "area_grid_points",
+                "operator": ">=",
+                "threshold": min_points_rule.get("threshold"),
+                "scale": None,
+                "weight": None,
+                "unit": "grid",
+            },
+            float(metrics["area_grid_points"]),
+            source_paths,
+        ),
+        _derived_system_evidence(
+            "gh500",
+            "subtropical high westward ridge point",
+            f"lon={metrics['ridge_point']['lon']:.3f}, lat={metrics['ridge_point']['lat']:.3f}, height={metrics['ridge_point']['value']:.2f}",
+            {
+                "entry_id": "system.subtropical_high.ridge_point",
+                "statistic": "westmost_high_value_point",
+                "operator": None,
+                "threshold": None,
+                "scale": None,
+                "weight": None,
+                "unit": "degree",
+            },
+            float(metrics["ridge_point"]["lon"]),
+            source_paths,
+        ),
+        _derived_system_evidence(
+            "gh500",
+            "subtropical high northern boundary",
+            f"north_boundary={metrics['north_boundary_lat']:.3f}, south_boundary={metrics['south_boundary_lat']:.3f}",
+            {
+                "entry_id": "system.subtropical_high.north_boundary",
+                "statistic": "north_boundary_lat",
+                "operator": None,
+                "threshold": None,
+                "scale": None,
+                "weight": None,
+                "unit": "degree",
+            },
+            float(metrics["north_boundary_lat"]),
+            source_paths,
+        ),
+    ]
+
+
+def _axis_orientation_label(value: str) -> str:
+    return {
+        "zonal": "纬向带状",
+        "meridional": "经向伸展",
+        "compact": "紧凑型",
+    }.get(value, value)
 
 
 def _front_candidate_systems(
@@ -449,6 +793,7 @@ def _front_candidate_systems(
             "dynamic_support_percentile": _rule_float(rules["system.front_candidate.dynamic_support_percentile"], "threshold", 70.0),
             "min_support_components": int(_rule_float(rules["system.front_candidate.min_support_components"], "threshold", 1.0)),
             "min_area_grid_points": int(_rule_float(min_points_rule, "threshold", 10.0)),
+            "output_geometry": "axis",
         }
     }
     derived = front_candidate_fields(
@@ -477,27 +822,17 @@ def _front_candidate_systems(
     }
 
     source_paths = [tt_field.source_path]
-    if fields["uv850"].exists:
-        source_paths.append(fields["uv850"].source_path)
-    if fields["div850"].exists:
-        source_paths.append(fields["div850"].source_path)
-    if fields["ttadv850"].exists:
-        source_paths.append(fields["ttadv850"].source_path)
-    if fields["rh850"].exists:
-        source_paths.append(fields["rh850"].source_path)
+    for key in ["uv850", "div850", "ttadv850", "rh850"]:
+        if fields[key].exists:
+            source_paths.append(fields[key].source_path)
 
     systems = []
     min_points = int(_rule_float(min_points_rule, "threshold", 10.0))
     max_objects = max(1, int(_rule_float(max_objects_rule, "threshold", 12.0)))
-    front_items = mask_to_bbox_features(derived["mask"], tt_field.lat, tt_field.lon, min_points=min_points)
-    front_items.sort(
-        key=lambda candidate: (
-            candidate["point_count"],
-            float(np.nanmean(derived["score"][candidate["indices"]])) if candidate["point_count"] else 0.0,
-        ),
-        reverse=True,
-    )
-    for idx, item in enumerate(front_items[:max_objects], start=1):
+    components = front_axis_components(derived, tt_field.lat, tt_field.lon, min_points=min_points, max_objects=max_objects)
+    for idx, component in enumerate(components, start=1):
+        item = component["item"]
+        line = component["line"]
         evidence = [
             _system_evidence(
                 "tt850",
@@ -517,8 +852,8 @@ def _front_candidate_systems(
             ),
             _derived_system_evidence(
                 "front_candidate_score",
-                "front candidate connected area",
-                f"point_count={item['point_count']}, min_points={min_points}",
+                "front candidate axis extraction",
+                f"axis_point_count={len(line.get('coordinates') or [])}, source_area_points={item['point_count']}",
                 min_points_rule,
                 float(item["point_count"]),
                 source_paths,
@@ -566,16 +901,22 @@ def _front_candidate_systems(
                 "id": f"system-front-candidate-850-{idx}",
                 "type": "front_candidate",
                 "feature_type": "front_candidate",
-                "name": "850hPa front candidate area",
+                "name": "850hPa front candidate axis",
                 "level": "850",
-                "geometry": _polygon_geometry_from_component(item),
+                "geometry": {
+                    "type": "line",
+                    "coordinates": line.get("coordinates") or [],
+                    "bbox": line.get("bbox"),
+                },
+                "source_area_bbox": item.get("bbox"),
+                "source_area_point_count": item.get("point_count"),
+                "axis_length_km": round(_line_length_km(line.get("coordinates") or []), 1),
                 "confidence": 0.66 if wind850 is not None else 0.58,
-                "diagnosis": "850hPa 温度梯度、风场形变、锋生函数、低层辐合和温度平流综合识别锋面候选区。",
+                "diagnosis": "850hPa 温度梯度、风场形变、锋生函数、低层辐合和温度平流综合识别锋面候选区，并抽取为锋面轴线。",
                 "evidence": evidence,
             }
         )
     return systems
-
 
 def _low_level_jet_systems(
     fields: dict[str, NafpField],
@@ -688,6 +1029,9 @@ def _low_level_jet_systems(
                     "coordinates": component["line"]["coordinates"],
                     "bbox": component["line"]["bbox"],
                 },
+                "axis_method": component.get("axis_method"),
+                "axis_length_km": round(float(component.get("axis_length_km", _line_length_km(component["line"].get("coordinates") or []))), 1),
+                "source_area_km2": round(float(component.get("area_km2", _component_area_km2(item, fields["uv850"].lat, fields["uv850"].lon))), 1),
                 "confidence": round(min(0.9, 0.55 + max(0.0, max_speed - wind_min) / max(wind_min, 1.0) * 0.2), 2),
                 "diagnosis": "850hPa 低空急流：低层风速高值、水汽通量高值和风向一致性共同指示暖湿输送急流轴。",
                 "evidence": evidence,
@@ -745,6 +1089,9 @@ def _moisture_transport_systems(
                     "coordinates": component["line"]["coordinates"],
                     "bbox": component["line"]["bbox"],
                 },
+                "axis_method": component.get("axis_method"),
+                "axis_length_km": round(float(component.get("axis_length_km", _line_length_km(component["line"].get("coordinates") or []))), 1),
+                "source_area_km2": round(float(component.get("area_km2", _component_area_km2(item, fields["q850"].lat, fields["q850"].lon))), 1),
                 "confidence": 0.72 if wind is not None else 0.66,
                 "diagnosis": "850hPa 水汽输送带：水汽通量高值呈连续轴带，风向一致性支持暖湿输送通道。",
                 "evidence": [
@@ -909,9 +1256,12 @@ def _low_level_convergence_systems(
     percentile = _rule_float(div_rule, "threshold", 10.0)
     sigma = _rule_float(smooth_rule, "threshold", 1.0)
     smoothed_div850 = smooth_field(div850, sigma)
-    threshold = float(np.nanpercentile(smoothed_div850, percentile))
+    percentile_threshold = float(np.nanpercentile(smoothed_div850, percentile))
+    absolute_threshold = -_divergence_absolute_threshold(smoothed_div850)
+    threshold = min(percentile_threshold, absolute_threshold)
     min_points = int(_rule_float(min_points_rule, "threshold", 10.0))
     max_objects = max(1, int(_rule_float(max_objects_rule, "threshold", 12.0)))
+    min_area_km2 = max(0.0, min_points * _component_area_km2({"point_count": 1}, fields["div850"].lat, fields["div850"].lon))
     mask = smoothed_div850 <= threshold
     wind850 = _wind_components(fields, "uv850")
     source_paths = [fields["div850"].source_path]
@@ -920,8 +1270,10 @@ def _low_level_convergence_systems(
         dudx, _ = derivatives_lonlat(u850, fields["uv850"].lat, fields["uv850"].lon)
         _, dvdy = derivatives_lonlat(v850, fields["uv850"].lat, fields["uv850"].lon)
         vector_div850 = smooth_field((dudx + dvdy) * 100000.0, sigma)
-        mask &= vector_div850 <= 0
+        vector_abs = _divergence_absolute_threshold(vector_div850)
+        mask &= vector_div850 <= -0.25 * vector_abs
         source_paths.append(fields["uv850"].source_path)
+    mask = _apply_binary_morphology(mask, closing_iter=1, opening_iter=0)
     systems = []
     items = ranked_mask_items(
         mask,
@@ -931,6 +1283,9 @@ def _low_level_convergence_systems(
         max_objects=max_objects,
         primary_value=smoothed_div850,
         descending=False,
+        min_mean_strength=abs(absolute_threshold) * 0.35,
+        min_max_strength=abs(absolute_threshold),
+        min_area_km2=min_area_km2,
     )
     for idx, item in enumerate(items, start=1):
         ys, xs = item["indices"]
@@ -944,21 +1299,27 @@ def _low_level_convergence_systems(
                 "name": "850hPa 低层辐合区",
                 "level": "850",
                 "geometry": _polygon_geometry_from_component(item),
-                "confidence": 0.68 if wind850 is not None else 0.62,
-                "diagnosis": "850hPa 低层辐合区：平滑后散度低值且风场散度符号一致，提示主要低层汇聚抬升区。",
+                "area_km2": round(float(item.get("area_km2", _component_area_km2(item, fields["div850"].lat, fields["div850"].lon))), 1),
+                "mean_strength": round(float(item.get("mean_strength", abs(mean_div))), 6),
+                "max_strength": round(float(item.get("max_strength", abs(np.nanmin(smoothed_div850[ys, xs])))), 6),
+                "threshold_value": threshold,
+                "percentile_threshold": percentile_threshold,
+                "absolute_threshold": absolute_threshold,
+                "confidence": 0.70 if wind850 is not None else 0.63,
+                "diagnosis": "850hPa 低层辐合区：平滑后散度低值同时满足绝对强度与分位约束，并进行形态学和面积过滤以减少弱场误报。",
                 "evidence": [
                     _system_evidence(
                         "div850",
                         fields["div850"],
-                        "smoothed low-level convergence percentile",
-                        f"smoothed_mean={mean_div:.2f}, raw_mean={raw_mean_div:.2f}, p{percentile:g}={threshold:.2f}",
+                        "smoothed low-level convergence absolute and percentile threshold",
+                        f"smoothed_mean={mean_div:.2f}, raw_mean={raw_mean_div:.2f}, threshold={threshold:.2f}, p{percentile:g}={percentile_threshold:.2f}, absolute={absolute_threshold:.2f}",
                         div_rule,
                         mean_div,
                     ),
                     _derived_system_evidence(
                         "div850_smoothed",
-                        "low-level convergence smoothing scale",
-                        f"sigma_grid={sigma:g}",
+                        "low-level convergence smoothing and morphology",
+                        f"sigma_grid={sigma:g}, morphology=closing(1), min_area_km2={min_area_km2:.0f}",
                         smooth_rule,
                         sigma,
                         source_paths,
@@ -966,7 +1327,7 @@ def _low_level_convergence_systems(
                     _derived_system_evidence(
                         "div850",
                         "low-level convergence connected area",
-                        f"point_count={item['point_count']}, min_points={min_points}",
+                        f"point_count={item['point_count']}, area_km2={float(item.get('area_km2', 0.0)):.0f}, min_points={min_points}",
                         min_points_rule,
                         float(item["point_count"]),
                         source_paths,
@@ -983,7 +1344,6 @@ def _low_level_convergence_systems(
             }
         )
     return systems
-
 
 def _upper_divergence_systems(
     fields: dict[str, NafpField],
@@ -1005,9 +1365,24 @@ def _upper_divergence_systems(
         if div is None:
             continue
         smoothed_div = smooth_field(div, sigma)
-        threshold = float(np.nanpercentile(smoothed_div, percentile))
-        mask = smoothed_div >= threshold
-        for item in mask_to_bbox_features(mask, fields[key].lat, fields[key].lon, min_points=min_points):
+        percentile_threshold = float(np.nanpercentile(smoothed_div, percentile))
+        absolute_threshold = _divergence_absolute_threshold(smoothed_div)
+        threshold = max(percentile_threshold, absolute_threshold)
+        min_area_km2 = max(0.0, min_points * _component_area_km2({"point_count": 1}, fields[key].lat, fields[key].lon))
+        mask = _apply_binary_morphology(smoothed_div >= threshold, closing_iter=1, opening_iter=0)
+        items = ranked_mask_items(
+            mask,
+            fields[key].lat,
+            fields[key].lon,
+            min_points=min_points,
+            max_objects=max_objects,
+            primary_value=smoothed_div,
+            descending=True,
+            min_mean_strength=absolute_threshold * 0.35,
+            min_max_strength=absolute_threshold,
+            min_area_km2=min_area_km2,
+        )
+        for item in items:
             ys, xs = item["indices"]
             candidates.append(
                 {
@@ -1018,12 +1393,16 @@ def _upper_divergence_systems(
                     "smoothed_div": smoothed_div,
                     "raw_div": div,
                     "threshold": threshold,
+                    "percentile_threshold": percentile_threshold,
+                    "absolute_threshold": absolute_threshold,
                     "mean_div": float(np.nanmean(smoothed_div[ys, xs])),
                     "raw_mean_div": float(np.nanmean(div[ys, xs])),
                     "point_count": item["point_count"],
+                    "area_km2": float(item.get("area_km2", _component_area_km2(item, fields[key].lat, fields[key].lon))),
+                    "max_strength": float(item.get("max_strength", np.nanmax(smoothed_div[ys, xs]))),
                 }
             )
-    candidates.sort(key=lambda candidate: (candidate["point_count"], candidate["mean_div"]), reverse=True)
+    candidates.sort(key=lambda candidate: (candidate["max_strength"], candidate["area_km2"], candidate["mean_div"]), reverse=True)
     systems = []
     for idx, candidate in enumerate(candidates[:max_objects], start=1):
         key = candidate["key"]
@@ -1041,21 +1420,27 @@ def _upper_divergence_systems(
                 "name": f"{level}hPa 高空辐散区",
                 "level": level,
                 "geometry": _polygon_geometry_from_component(item),
-                "confidence": 0.66,
-                "diagnosis": f"{level}hPa 高空辐散区：平滑后高空正散度高值，有利于下方补偿上升。",
+                "area_km2": round(float(candidate["area_km2"]), 1),
+                "mean_strength": round(float(item.get("mean_strength", mean_div)), 6),
+                "max_strength": round(float(candidate["max_strength"]), 6),
+                "threshold_value": threshold,
+                "percentile_threshold": candidate["percentile_threshold"],
+                "absolute_threshold": candidate["absolute_threshold"],
+                "confidence": 0.68,
+                "diagnosis": f"{level}hPa 高空辐散区：平滑后高空正散度高值同时满足绝对强度与分位约束，有利于下方补偿上升。",
                 "evidence": [
                     _system_evidence(
                         key,
                         field,
-                        "smoothed upper-level divergence percentile",
-                        f"smoothed_mean={mean_div:.2f}, raw_mean={raw_mean_div:.2f}, p{percentile:g}={threshold:.2f}",
+                        "smoothed upper-level divergence absolute and percentile threshold",
+                        f"smoothed_mean={mean_div:.2f}, raw_mean={raw_mean_div:.2f}, threshold={threshold:.2f}, p{percentile:g}={candidate['percentile_threshold']:.2f}, absolute={candidate['absolute_threshold']:.2f}",
                         div_rule,
                         mean_div,
                     ),
                     _derived_system_evidence(
                         f"{key}_smoothed",
-                        "upper-level divergence smoothing scale",
-                        f"sigma_grid={sigma:g}",
+                        "upper-level divergence smoothing and morphology",
+                        f"sigma_grid={sigma:g}, morphology=closing(1)",
                         smooth_rule,
                         sigma,
                         [field.source_path],
@@ -1063,7 +1448,7 @@ def _upper_divergence_systems(
                     _derived_system_evidence(
                         key,
                         "upper-level divergence connected area",
-                        f"point_count={item['point_count']}, min_points={min_points}",
+                        f"point_count={item['point_count']}, area_km2={candidate['area_km2']:.0f}, min_points={min_points}",
                         min_points_rule,
                         float(item["point_count"]),
                         [field.source_path],
@@ -1080,7 +1465,6 @@ def _upper_divergence_systems(
             }
         )
     return systems
-
 
 def _trough_ridge_axis_systems(
     fields: dict[str, NafpField],
@@ -1176,14 +1560,144 @@ def _trough_ridge_axis_systems(
                     "geometry": {
                         "type": "line",
                         "coordinates": candidate["coordinates"],
-                        "bbox": candidate["bbox"],
                     },
-                    "confidence": 0.68 if candidate["method"] == "curvature_component_axis" else 0.56,
+                    "confidence": 0.70 if "curvature" in str(candidate.get("method", "")) else 0.60,
                     "diagnosis": f"500hPa 位势高度距平尾部、等高线曲率和涡度符号支撑共同识别{label}轴线。",
                     "method": candidate["method"],
                     "evidence": evidence,
                 }
             )
+    return systems
+
+
+def _surface_pressure_center_evidence(
+    field: NafpField,
+    props: dict[str, Any],
+) -> list[dict[str, Any]]:
+    center_value = float(props.get("value") or 0.0)
+    closed_count = int(props.get("closed_contour_count") or 0)
+    pressure_difference = float(props.get("pressure_difference_hpa") or 0.0)
+    outer_contour = props.get("outer_closed_contour_hpa")
+    return [
+        {
+            "entry_id": f"system.surface_pressure_center.{props.get('feature_type')}",
+            "field": "mslp",
+            "signal": "surface pressure local extremum",
+            "value": f"center={center_value:.2f} hPa",
+            "statistic": "local_extremum",
+            "operator": "closed_isobar",
+            "threshold": None,
+            "scale": None,
+            "raw_value": round(center_value, 6),
+            "normalized_score": None,
+            "weight": None,
+            "contribution": None,
+            "source_path": field.source_path,
+            "unit": "hPa",
+        },
+        {
+            "entry_id": "system.surface_pressure_center.closed_contours",
+            "field": "mslp",
+            "signal": "closed sea-level pressure contours",
+            "value": f"closed_contours={closed_count}, outer={outer_contour} hPa",
+            "statistic": "closed_contour_count",
+            "operator": ">=",
+            "threshold": None,
+            "scale": None,
+            "raw_value": float(closed_count),
+            "normalized_score": None,
+            "weight": None,
+            "contribution": None,
+            "source_path": field.source_path,
+            "unit": "count",
+        },
+        {
+            "entry_id": "system.surface_pressure_center.closed_area",
+            "field": "mslp",
+            "signal": "outer closed contour area",
+            "value": f"closed_area_km2={float(props.get('closed_area_km2') or 0.0):.0f}",
+            "statistic": "closed_area_km2",
+            "operator": ">=",
+            "threshold": None,
+            "scale": None,
+            "raw_value": float(props.get("closed_area_km2") or 0.0),
+            "normalized_score": None,
+            "weight": None,
+            "contribution": None,
+            "source_path": field.source_path,
+            "unit": "km2",
+        },
+        {
+            "entry_id": "system.surface_pressure_center.pressure_difference",
+            "field": "mslp",
+            "signal": "center to outer closed contour pressure difference",
+            "value": f"pressure_difference={pressure_difference:.2f} hPa",
+            "statistic": "pressure_difference_hpa",
+            "operator": ">=",
+            "threshold": None,
+            "scale": None,
+            "raw_value": round(pressure_difference, 6),
+            "normalized_score": None,
+            "weight": None,
+            "contribution": None,
+            "source_path": field.source_path,
+            "unit": "hPa",
+        },
+    ]
+
+
+def _surface_pressure_center_systems(
+    fields: dict[str, NafpField],
+    diagnostics: dict[str, Any],
+) -> list[dict[str, Any]]:
+    field = fields.get("mslp")
+    if field is None:
+        return []
+    mslp = field_array(field, "seap")
+    if mslp is None or not np.isfinite(mslp).any():
+        return []
+    diagnostics["mslp"] = {**finite_stats(mslp), "source_path": field.source_path}
+
+    systems: list[dict[str, Any]] = []
+    type_counts: dict[str, int] = {}
+    for feature in detect_high_low(mslp, field.lat, field.lon, load_thresholds()):
+        props = feature.get("properties") or {}
+        feature_type = str(props.get("feature_type") or "")
+        if feature_type not in {"high", "low"}:
+            continue
+        coordinates = feature.get("geometry", {}).get("coordinates") or []
+        if len(coordinates) < 2:
+            continue
+        lon, lat = float(coordinates[0]), float(coordinates[1])
+        type_counts[feature_type] = type_counts.get(feature_type, 0) + 1
+        rank = type_counts[feature_type]
+        name = "海平面高压中心" if feature_type == "high" else "海平面低压中心"
+        extremum_name = "高值" if feature_type == "high" else "低值"
+        systems.append(
+            {
+                "id": f"system-surface-pressure-{feature_type}-{rank:03d}",
+                "type": feature_type,
+                "feature_type": feature_type,
+                "name": name,
+                "label": props.get("label"),
+                "level": "mslp",
+                "geometry": {
+                    "type": "point",
+                    "coordinates": [lon, lat],
+                    "bbox": [lon, lat, lon, lat],
+                },
+                "value": props.get("value"),
+                "unit": props.get("unit") or "hPa",
+                "confidence": props.get("confidence"),
+                "closed_contour_count": props.get("closed_contour_count"),
+                "outer_closed_contour_hpa": props.get("outer_closed_contour_hpa"),
+                "pressure_difference_hpa": props.get("pressure_difference_hpa"),
+                "closed_area_grid_points": props.get("closed_area_grid_points"),
+                "closed_area_km2": props.get("closed_area_km2"),
+                "diagnosis": f"{name}由海平面气压局地{extremum_name}和闭合等压线共同识别，并使用物理距离/面积阈值过滤小尺度伪中心。",
+                "evidence": _surface_pressure_center_evidence(field, props),
+            }
+        )
     return systems
 
 
@@ -1322,26 +1836,43 @@ def diagnose_systems(
         subtropical_features = mask_to_bbox_features(subtropical_mask, lat, lon, min_points=min_points)
         subtropical_feature = subtropical_features[0] if subtropical_features else None
     if subtropical_feature:
+        subtropical_metrics = _subtropical_high_metrics(subtropical_feature, gh, lat, lon, threshold)
+        threshold_evidence = _system_evidence(
+            "gh500",
+            gh_field,
+            "height threshold area",
+            f"max={gh_max:.2f}, threshold={threshold:g}, min_points={min_points}",
+            height_rule,
+            gh_max,
+        )
         systems.append(
             {
                 "id": "system-subtropical-high-500",
                 "type": "subtropical_high",
                 "feature_type": "subtropical_high",
-                "name": "500hPa subtropical high area",
+                "name": "500hPa 副热带高压",
                 "level": "500",
-                "geometry": _polygon_geometry_from_component(subtropical_feature),
-                "confidence": 0.78,
-                "diagnosis": f"500hPa height field has a contiguous area above {threshold:g}.",
+                "boundary_smoothed": True,
+                "boundary_smooth_km": 90.0,
+                "boundary_simplify_km": 30.0,
+                "geometry": _polygon_geometry_from_component(
+                    subtropical_feature,
+                    smooth_boundary=True,
+                    boundary_smooth_km=90.0,
+                    boundary_simplify_km=30.0,
+                ),
+                "confidence": round(min(0.9, 0.72 + max(0.0, subtropical_metrics["mean_height"] - threshold) / max(threshold, 1.0) * 4.0), 2),
+                "diagnosis": (
+                    f"500hPa {threshold:g} 高度区连续成片，西伸脊点位于 "
+                    f"{subtropical_metrics['ridge_point']['lon']:.1f}E/{subtropical_metrics['ridge_point']['lat']:.1f}N，"
+                    f"北界约 {subtropical_metrics['north_boundary_lat']:.1f}N，"
+                    f"主体呈{_axis_orientation_label(subtropical_metrics['axis_orientation'])}分布。"
+                ),
                 "evidence": [
-                    _system_evidence(
-                        "gh500",
-                        gh_field,
-                        "height threshold area",
-                        f"max={gh_max:.2f}, threshold={threshold:g}, min_points={min_points}",
-                        height_rule,
-                        gh_max,
-                    )
+                    threshold_evidence,
+                    *_subtropical_high_evidence(gh_field, subtropical_metrics, min_points_rule),
                 ],
+                **subtropical_metrics,
             }
         )
 
@@ -1350,54 +1881,16 @@ def diagnose_systems(
     diagnostics["gh500_anomaly"] = finite_stats(anomaly)
     vorticity500 = _relative_vorticity_from_wind(fields, diagnostics, "uv500", "vorticity500")
     moisture_flux, flux_divergence = _moisture_flux_from_fields(fields, diagnostics)
+    systems.extend(_surface_pressure_center_systems(fields, diagnostics))
     systems.extend(_pressure_center_systems(fields, anomaly, rules))
     systems.extend(_trough_ridge_axis_systems(fields, anomaly, rules, vorticity500=vorticity500))
-    trough_rule = rules["system.trough_candidate.anomaly_percentile"]
-    ridge_rule = rules["system.ridge_candidate.anomaly_percentile"]
-    trough_percentile = _rule_float(trough_rule, "threshold", 8.0)
-    ridge_percentile = _rule_float(ridge_rule, "threshold", 92.0)
-    trough_value = float(np.nanpercentile(anomaly, trough_percentile))
-    ridge_value = float(np.nanpercentile(anomaly, ridge_percentile))
-    component_min_points = int(_rule_float(rules["system.trough_ridge.min_points"], "threshold", 24.0))
-    for system_type, rule, mask, confidence, threshold_value in [
-        ("trough_candidate", trough_rule, anomaly <= trough_value, 0.52, trough_value),
-        ("ridge_candidate", ridge_rule, anomaly >= ridge_value, 0.52, ridge_value),
-    ]:
-        if not _rule_enabled(rule):
-            continue
-        component = largest_component(mask, min_points=component_min_points)
-        component_features = mask_to_bbox_features(component, lat, lon, min_points=component_min_points)
-        if component_features:
-            component_feature = component_features[0]
-            systems.append(
-                {
-                    "id": f"system-{system_type}-500",
-                    "type": system_type,
-                    "feature_type": system_type,
-                    "name": f"500hPa {system_type.replace('_', ' ')}",
-                    "level": "500",
-                    "geometry": _polygon_geometry_from_component(component_feature),
-                    "confidence": confidence,
-                    "diagnosis": "500hPa height anomaly identifies a candidate synoptic feature.",
-                    "evidence": [
-                        _system_evidence(
-                            "gh500",
-                            gh_field,
-                            "height anomaly",
-                            f"threshold={threshold_value:.2f}, min_points={component_min_points}",
-                            rule,
-                            threshold_value,
-                        )
-                    ],
-                }
-            )
     systems.extend(_low_level_jet_systems(fields, diagnostics, rules, moisture_flux))
     systems.extend(_moisture_transport_systems(fields, rules, moisture_flux))
     systems.extend(_moisture_convergence_systems(fields, rules, moisture_flux, flux_divergence))
     systems.extend(_low_level_convergence_systems(fields, rules))
     systems.extend(_upper_divergence_systems(fields, rules))
     systems.extend(_front_candidate_systems(fields, diagnostics, rules))
-    return systems
+    return _annotate_system_display_metadata(systems)
 
 
 def _risk_region_from_arrays(
@@ -1838,6 +2331,8 @@ def _phase_chain(
 
 
 SYSTEM_SUMMARY_LABELS = {
+    "high": "海平面高压中心",
+    "low": "海平面低压中心",
     "subtropical_high": "副高588区",
     "low_pressure_convergence": "低压辐合区",
     "high_pressure_divergence": "高压辐散区",
@@ -1859,9 +2354,12 @@ CHAIN_SUMMARY_LABELS = {
 }
 
 LEVEL_SUMMARY_LABELS = {
+    "very_high": "很高",
     "high": "高",
     "moderate": "中等",
+    "medium": "中等",
     "low": "低",
+    "very_low": "很低",
 }
 
 
@@ -1876,6 +2374,15 @@ NAFP_RISK_CHAIN_HAZARDS = {
         "rotating_storm_or_supercell",
         "severe_convection_composite",
     ],
+}
+
+RISK_SUPPORT_TARGET_TYPES = {
+    "persistent_heavy_rain": "heavy_rain_potential",
+    "short_duration_heavy_rain": "convection_potential",
+    "thunderstorm_gale": "convection_potential",
+    "hail": "convection_potential",
+    "rotating_storm_or_supercell": "convection_potential",
+    "severe_convection_composite": "convection_potential",
 }
 
 
@@ -1962,6 +2469,182 @@ def _score_grid_statistic(
     }
 
 
+def _layer_domain_region(layer: dict[str, Any]) -> dict[str, Any]:
+    lat = np.asarray(layer["lat"], dtype=float)
+    lon = np.asarray(layer["lon"], dtype=float)
+    lon_min = float(np.nanmin(lon))
+    lon_max = float(np.nanmax(lon))
+    lat_min = float(np.nanmin(lat))
+    lat_max = float(np.nanmax(lat))
+    return {
+        "type": "polygon",
+        "bbox": [lon_min, lat_min, lon_max, lat_max],
+        "coordinates": [[
+            [lon_min, lat_min],
+            [lon_max, lat_min],
+            [lon_max, lat_max],
+            [lon_min, lat_max],
+            [lon_min, lat_min],
+        ]],
+        "geojson_type": "Polygon",
+    }
+
+
+def _risk_region_from_grid(
+    layer: dict[str, Any],
+    hazard_type: str,
+    thresholds: dict[str, Any],
+) -> tuple[dict[str, Any], tuple[np.ndarray, np.ndarray] | None]:
+    arr = _prepared_score_grid(layer)
+    if arr is None or not np.isfinite(arr).any():
+        return _layer_domain_region(layer), None
+
+    metadata = hazard_metadata(hazard_type)
+    cfg = thresholds.get(metadata["feature_type"], {})
+    score_threshold = float(cfg.get("score_threshold", 0.6))
+    min_points = max(1, int(cfg.get("min_area_grid_points", 8)))
+    max_value = float(np.nanmax(arr))
+    threshold = score_threshold if max_value >= score_threshold else max_value
+    components = mask_to_bbox_features(arr >= threshold, layer["lat"], layer["lon"], min_points=min_points)
+    if not components and min_points > 1:
+        components = mask_to_bbox_features(arr >= threshold, layer["lat"], layer["lon"], min_points=1)
+    if not components:
+        components = mask_to_bbox_features(arr >= max_value, layer["lat"], layer["lon"], min_points=1)
+    if not components:
+        return _layer_domain_region(layer), None
+    components.sort(
+        key=lambda item: (
+            float(np.nanmax(arr[item["indices"]])),
+            float(np.nanmean(arr[item["indices"]])),
+            item["point_count"],
+        ),
+        reverse=True,
+    )
+    item = components[0]
+    return _polygon_geometry_from_component(item), item["indices"]
+
+
+def _risk_factor_dominance(
+    factor_details: dict[str, Any] | None,
+    indices: tuple[np.ndarray, np.ndarray] | None,
+    *,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    if not factor_details or indices is None:
+        return []
+    ys, xs = indices
+    out = []
+    for factor, detail in factor_details.items():
+        contribution_grid = detail.get("contribution")
+        if contribution_grid is None:
+            continue
+        contribution = np.asarray(contribution_grid, dtype=float)[ys, xs]
+        if contribution.size == 0 or not np.isfinite(contribution).any():
+            continue
+        mean_contribution = float(np.nanmean(contribution))
+        if mean_contribution <= 0:
+            continue
+        score_grid = detail.get("score", contribution_grid)
+        score = np.asarray(score_grid, dtype=float)[ys, xs]
+        out.append(
+            {
+                "factor": factor,
+                "field": detail.get("field", factor),
+                "label": detail.get("label", factor),
+                "weight": float(detail.get("weight", 0.0)),
+                "mean_score": round(float(np.nanmean(score)), 3),
+                "mean_contribution": round(mean_contribution, 3),
+            }
+        )
+    out.sort(key=lambda item: item["mean_contribution"], reverse=True)
+    return out[:limit]
+
+
+def risk_diagnoses_from_grids(
+    *,
+    root: str | Path,
+    run_time: str | datetime,
+    forecast_hour: int,
+    systems: list[dict[str, Any]] | None = None,
+    threshold_matrix: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    layer_cache: dict[str, dict[str, Any]] = {}
+    thresholds = load_thresholds()
+    rt = parse_run_time(run_time).isoformat()
+    try:
+        details, _lat, _lon, source_paths = nafp_multi_hazard_score_details(Path(root), rt, int(forecast_hour))
+    except (FileNotFoundError, KeyError, ValueError):
+        return []
+    diagnoses = []
+    for hazard_type in HAZARD_TYPES:
+        metadata = hazard_metadata(hazard_type)
+        source_grid = risk_grid_for_hazard(hazard_type)
+        try:
+            layer = load_nafp_layer(source_grid, root=root, run_time=rt, forecast_hour=int(forecast_hour))
+        except Exception as exc:
+            diagnoses.append(
+                {
+                    "risk_id": f"risk-{hazard_type}",
+                    "hazard_type": hazard_type,
+                    "risk_domain": metadata["risk_domain"],
+                    "label": metadata["label"],
+                    "mechanism_tags": metadata["mechanism_tags"],
+                    "source_grid": source_grid,
+                    "score": 0.0,
+                    "risk_level": "low",
+                    "level": "low",
+                    "score_source": "source_grid",
+                    "score_error": str(exc),
+                    "source_chain_ids": [],
+                    "dominant_evidence": [],
+                    "source_paths": source_paths,
+                }
+            )
+            continue
+        layer_cache[source_grid] = layer
+        region, indices = _risk_region_from_grid(layer, hazard_type, thresholds)
+        score_info = _score_grid_statistic(
+            source_grid,
+            root=root,
+            run_time=rt,
+            forecast_hour=forecast_hour,
+            region=region,
+            layer_cache=layer_cache,
+        ) or {"score": 0.0, "score_source": "source_grid"}
+        score = float(score_info.get("score") or 0.0)
+        level = score_level(score, threshold_matrix or load_threshold_matrix())
+        factors = (details.get("factors") or {}).get(source_grid, {})
+        quality = (details.get("quality") or {}).get(source_grid, {})
+        item = {
+            "risk_id": f"risk-{hazard_type}",
+            "hazard_type": hazard_type,
+            "risk_domain": metadata["risk_domain"],
+            "label": metadata["label"],
+            "mechanism_tags": metadata["mechanism_tags"],
+            "source_grid": source_grid,
+            "feature_type": metadata["feature_type"],
+            "risk_level": level,
+            "level": level,
+            "score": score,
+            "source_chain_ids": [],
+            "region": region,
+            "region_source": "source_grid",
+            "dominant_evidence": _risk_factor_dominance(factors, indices),
+            "input_completeness": quality.get("input_completeness"),
+            "missing_critical_factors": list(quality.get("missing_critical_factors") or []),
+            "score_cap_applied": bool(quality.get("score_cap_applied", False)),
+            "score_cap_value": quality.get("score_cap_value"),
+            "source_paths": layer.get("source_paths") or source_paths,
+        }
+        item.update(score_info)
+        support_target = RISK_SUPPORT_TARGET_TYPES.get(hazard_type, "convection_potential")
+        links = supporting_system_links(region, systems or [], target_type=support_target) if region else []
+        if links:
+            item["supporting_systems"] = links
+        diagnoses.append(item)
+    return diagnoses
+
+
 def risk_diagnoses_from_chains(
     evidence_chains: list[dict[str, Any]],
     *,
@@ -2017,7 +2700,12 @@ def risk_diagnoses_from_chains(
     return diagnoses
 
 
-def build_summary(systems: list[dict[str, Any]], evidence_chains: list[dict[str, Any]], missing: list[dict[str, Any]]) -> str:
+def build_summary(
+    systems: list[dict[str, Any]],
+    evidence_chains: list[dict[str, Any]],
+    risk_diagnoses: list[dict[str, Any]],
+    missing: list[dict[str, Any]],
+) -> str:
     parts = []
     if systems:
         counts: dict[str, int] = {}
@@ -2030,10 +2718,17 @@ def build_summary(systems: list[dict[str, Any]], evidence_chains: list[dict[str,
         )
     else:
         parts.append("天气形势暂未识别到稳定的大尺度系统。")
-    for chain in evidence_chains:
-        target = _summary_label(CHAIN_SUMMARY_LABELS, chain.get("target_type"))
-        level = _summary_label(LEVEL_SUMMARY_LABELS, chain.get("level"))
-        parts.append(f"{target}为{level}，评分 {chain['score']:.2f}。")
+    if risk_diagnoses:
+        risk_text = "、".join(
+            f"{risk.get('label') or risk.get('hazard_type')}为{_summary_label(LEVEL_SUMMARY_LABELS, risk.get('risk_level') or risk.get('level'))}，评分 {float(risk.get('score') or 0.0):.2f}"
+            for risk in risk_diagnoses
+        )
+        parts.append(f"风险诊断：{risk_text}。")
+    else:
+        for chain in evidence_chains:
+            target = _summary_label(CHAIN_SUMMARY_LABELS, chain.get("target_type"))
+            level = _summary_label(LEVEL_SUMMARY_LABELS, chain.get("level"))
+            parts.append(f"{target}为{level}，评分 {chain['score']:.2f}。")
     if missing:
         parts.append(f"缺少 {len(missing)} 个可选证据场，已在 missing_fields 中列出。")
     return "".join(parts)
@@ -2058,11 +2753,11 @@ def diagnose_nafp_situation(
     evidence_chains = diagnose_evidence_chains(fields, diagnostics, threshold_matrix, rules)
     evidence_chains = attach_chain_supporting_systems(evidence_chains, systems)
     diagnosis_conclusions = conclusions_from_chains(evidence_chains)
-    risk_diagnoses = risk_diagnoses_from_chains(
-        evidence_chains,
+    risk_diagnoses = risk_diagnoses_from_grids(
         root=root,
         run_time=rt,
         forecast_hour=forecast_hour,
+        systems=systems,
         threshold_matrix=threshold_matrix,
     )
     valid_time = rt + timedelta(hours=int(forecast_hour))
@@ -2089,5 +2784,5 @@ def diagnose_nafp_situation(
         "diagnosis_conclusions": diagnosis_conclusions,
         "risk_diagnoses": risk_diagnoses,
         "missing_fields": missing,
-        "summary": build_summary(systems, evidence_chains, missing),
+        "summary": build_summary(systems, evidence_chains, risk_diagnoses, missing),
     }

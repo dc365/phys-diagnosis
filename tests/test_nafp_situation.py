@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
-
 import numpy as np
 from fastapi.testclient import TestClient
 
@@ -85,6 +83,73 @@ def test_nafp_situation_weather_systems_include_feature_type():
         assert system["feature_type"] == system["type"]
 
 
+def test_nafp_situation_subtropical_high_reports_ridge_metrics():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    system = next(system for system in result["systems"] if system["type"] == "subtropical_high")
+
+    assert system["geometry"]["type"] == "polygon"
+    assert system["ridge_point"]["lon"] <= system["center"]["lon"]
+    assert system["north_boundary_lat"] >= system["south_boundary_lat"]
+    assert system["area_grid_points"] >= 20
+    assert system["max_height"] >= system["mean_height"] >= system["threshold_height"]
+    assert system["axis_orientation"] in {"zonal", "meridional", "compact"}
+    assert "西伸脊点" in system["diagnosis"]
+    assert {
+        "system.subtropical_high.area_extent",
+        "system.subtropical_high.ridge_point",
+        "system.subtropical_high.north_boundary",
+    } <= {item["entry_id"] for item in system["evidence"]}
+
+
+def test_nafp_situation_weather_systems_include_primary_display_metadata():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    systems = result["systems"]
+    assert systems
+    assert [system["display_rank"] for system in systems] == list(range(1, len(systems) + 1))
+    for system in systems:
+        assert isinstance(system["primary"], bool)
+        assert 0.0 <= system["salience_score"] <= 1.0
+
+    primary_systems = [system for system in systems if system["primary"]]
+    assert primary_systems
+    assert len(primary_systems) < len(systems)
+    assert len(primary_systems) <= 40
+
+    primary_counts: dict[str, int] = {}
+    for system in primary_systems:
+        primary_counts[system["type"]] = primary_counts.get(system["type"], 0) + 1
+    assert primary_counts["subtropical_high"] <= 1
+    assert primary_counts["high"] <= 5
+    assert primary_counts["low"] <= 5
+    assert primary_counts["front_candidate"] <= 4
+    assert primary_counts["moisture_transport"] <= 4
+
+
+def test_nafp_situation_ranked_weather_system_confidence_reflects_salience():
+    result = diagnose_nafp_situation(
+        root=NAFP_SAMPLE_ROOT,
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    moisture_transports = [
+        system for system in result["systems"] if system["type"] == "moisture_transport"
+    ]
+    assert len(moisture_transports) >= 2
+    assert len({system["confidence"] for system in moisture_transports}) > 1
+    assert moisture_transports[0]["confidence"] >= moisture_transports[-1]["confidence"]
+
+
 def test_nafp_situation_summary_uses_chinese_operational_labels():
     result = diagnose_nafp_situation(
         root=NAFP_SAMPLE_ROOT,
@@ -98,7 +163,9 @@ def test_nafp_situation_summary_uses_chinese_operational_labels():
     assert "副高588区" in summary
     assert "低压辐合区" in summary
     assert "高压辐散区" in summary
-    assert "强降水潜势" in summary
+    assert "持续性强降水" in summary
+    assert "短时强降水" in summary
+    assert "强降水潜势" not in summary
 
 
 def test_nafp_situation_system_geometries_are_shapes_not_bboxes():
@@ -190,12 +257,17 @@ def test_nafp_situation_detects_trough_ridge_axis_lines_with_threshold_audit():
 
     assert trough_lines
     assert ridge_lines
+    assert all(
+        system["geometry"]["type"] == "line"
+        for system in result["systems"]
+        if system["type"] in {"trough_candidate", "ridge_candidate"}
+    )
     trough = trough_lines[0]
     ridge = ridge_lines[0]
     assert len(trough["geometry"]["coordinates"]) >= 4
     assert len(ridge["geometry"]["coordinates"]) >= 4
-    assert trough["geometry"]["bbox"]
-    assert ridge["geometry"]["bbox"]
+    assert "bbox" not in trough["geometry"]
+    assert "bbox" not in ridge["geometry"]
     assert "轴线" in trough["diagnosis"]
     assert "轴线" in ridge["diagnosis"]
 
@@ -403,18 +475,28 @@ def test_nafp_situation_returns_multi_hazard_risk_diagnoses():
     )
 
     diagnoses = {item["hazard_type"]: item for item in result["risk_diagnoses"]}
-    assert {"persistent_heavy_rain", "short_duration_heavy_rain"} <= set(diagnoses)
+    assert set(diagnoses) == {
+        "persistent_heavy_rain",
+        "short_duration_heavy_rain",
+        "thunderstorm_gale",
+        "hail",
+        "rotating_storm_or_supercell",
+        "severe_convection_composite",
+    }
 
-    heavy_chain = chain_by_type(result, "heavy_rain_potential")
     persistent = diagnoses["persistent_heavy_rain"]
     assert persistent["risk_id"] == "risk-persistent_heavy_rain"
     assert persistent["risk_domain"] == ["precipitation"]
     assert persistent["label"] == "持续性强降水"
     assert persistent["risk_level"]
     assert "score_statistic" in persistent
-    assert persistent["source_chain_ids"] == ["heavy_rain_potential"]
-    assert persistent["region"] == heavy_chain["region"]
-    assert persistent["supporting_systems"] == heavy_chain["linked_systems"]
+    assert persistent["source_grid"] == "risk_persistent_heavy_rain_score"
+    assert persistent["score_source"] == "source_grid"
+    assert persistent["region_source"] == "source_grid"
+    assert persistent["source_chain_ids"] == []
+    assert persistent["region"]["type"] == "polygon"
+    assert persistent["region"]["bbox"]
+    assert "dominant_evidence" in persistent
 
     short_duration = diagnoses["short_duration_heavy_rain"]
     assert short_duration["risk_id"] == "risk-short_duration_heavy_rain"
@@ -422,7 +504,15 @@ def test_nafp_situation_returns_multi_hazard_risk_diagnoses():
     assert short_duration["label"] == "短时强降水"
     assert short_duration["risk_level"]
     assert "score_statistic" in short_duration
-    assert short_duration["source_chain_ids"] == ["heavy_rain_potential"]
+    assert short_duration["source_grid"] == "risk_short_duration_heavy_rain_score"
+    assert short_duration["score_source"] == "source_grid"
+    assert short_duration["region_source"] == "source_grid"
+    assert short_duration["source_chain_ids"] == []
+
+    hail = diagnoses["hail"]
+    assert hail["source_grid"] == "risk_hail_score"
+    assert hail["risk_domain"] == ["severe_convection"]
+    assert hail["score_source"] == "source_grid"
 
 
 def test_nafp_situation_risk_score_uses_hazard_source_grid_region_statistic():
@@ -441,14 +531,14 @@ def test_nafp_situation_risk_score_uses_hazard_source_grid_region_statistic():
         forecast_hour=result["forecast_hour"],
     )
     expected = bbox_layer_max(layer, short_duration["region"]["bbox"])
-    heavy_chain = chain_by_type(result, "heavy_rain_potential")
 
     assert short_duration["source_grid"] == "risk_short_duration_heavy_rain_score"
     assert short_duration["score"] == expected
     assert short_duration["score_statistic"] == "bbox_max"
     assert short_duration["risk_level"] == short_duration["level"]
     assert short_duration["risk_level"]
-    assert short_duration["score"] != heavy_chain["score"]
+    assert short_duration["source_chain_ids"] == []
+    assert short_duration["region_source"] == "source_grid"
 
 
 def test_nafp_situation_returns_diagnosis_conclusions():
@@ -469,9 +559,8 @@ def test_nafp_situation_returns_diagnosis_conclusions():
     assert heavy["action_hint"]
 
 
-def test_threshold_matrix_changes_nafp_evidence_chain_score():
+def test_threshold_matrix_keeps_legacy_evidence_rules_internal_only():
     client = TestClient(app)
-    original_bytes = THRESHOLD_MATRIX_PATH.read_bytes() if THRESHOLD_MATRIX_PATH.exists() else None
     base = diagnose_nafp_situation(
         root=NAFP_SAMPLE_ROOT,
         run_time="2026-06-17T20:00:00",
@@ -480,46 +569,10 @@ def test_threshold_matrix_changes_nafp_evidence_chain_score():
     base_chain = chain_by_type(base, "heavy_rain_potential")
     base_q850 = evidence_by_entry(base_chain, "heavy_rain.q850")
     matrix = client.get("/api/v1/admin/algorithms/threshold-matrix").json()["data"]
-    edited = deepcopy(matrix)
-    for entry in edited["entries"]:
-        if entry["entry_id"] == "heavy_rain.q850":
-            entry["weight"] = 0.0
-            break
 
-    try:
-        response = client.put(
-            "/api/v1/admin/algorithms/threshold-matrix",
-            json={
-                "algorithm_id": edited["algorithm_id"],
-                "updated_by": "test",
-                "remark": "test q850 weight sensitivity",
-                "entries": edited["entries"],
-                "level_thresholds": edited["level_thresholds"],
-            },
-        )
-        assert response.status_code == 200
-
-        changed = diagnose_nafp_situation(
-            root=NAFP_SAMPLE_ROOT,
-            run_time="2026-06-17T20:00:00",
-            forecast_hour=24,
-        )
-        changed_chain = chain_by_type(changed, "heavy_rain_potential")
-        changed_q850 = evidence_by_entry(changed_chain, "heavy_rain.q850")
-
-        assert base_q850["contribution"] > 0
-        assert changed_q850["weight"] == 0.0
-        assert changed_q850["contribution"] == 0.0
-        expected_score = round(
-            sum(item["contribution"] for item in base_chain["evidence"] if item["entry_id"] != "heavy_rain.q850"),
-            3,
-        )
-        assert changed_chain["score"] == expected_score
-    finally:
-        if original_bytes is None:
-            THRESHOLD_MATRIX_PATH.unlink(missing_ok=True)
-        else:
-            THRESHOLD_MATRIX_PATH.write_bytes(original_bytes)
+    assert base_q850["weight"] > 0
+    assert base_q850["contribution"] > 0
+    assert "heavy_rain.q850" not in {entry["entry_id"] for entry in matrix["entries"]}
 
 
 def test_diagnose_nafp_situation_reports_missing_optional_fields(tmp_path):
@@ -559,6 +612,9 @@ def test_nafp_situation_api_returns_public_envelope():
     assert body["msg"] == "ok"
     assert body["data"]["diagnostics"]["gh500"]["max"] > 580
     assert body["data"]["evidence_chains"]
+    assert "source_path" not in str(body["data"])
+    assert "source_paths" not in str(body["data"])
+    assert "root" not in body["data"]
 
 
 def test_nafp_situation_api_accepts_configured_data_code():
@@ -567,7 +623,7 @@ def test_nafp_situation_api_accepts_configured_data_code():
     response = client.post(
         "/api/v1/diagnosis/nafp/situation",
         json={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
         },
@@ -578,6 +634,8 @@ def test_nafp_situation_api_accepts_configured_data_code():
     assert body["code"] == 0
     assert body["data"]["diagnostics"]["gh500"]["max"] > 580
     assert body["data"]["evidence_chains"]
+    assert "source_path" not in str(body["data"])
+    assert "source_paths" not in str(body["data"])
 
 
 def test_nafp_situation_api_rejects_invalid_root():

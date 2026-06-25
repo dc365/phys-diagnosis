@@ -7,7 +7,7 @@ def test_root_serves_management_dashboard():
     response = TestClient(app).get("/")
 
     assert response.status_code == 200
-    assert "可视化管理后台" in response.text
+    assert "天气形势分析与物理量诊断工作台" in response.text
 
 
 def test_map_view_remains_available():

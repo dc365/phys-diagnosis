@@ -76,16 +76,20 @@ Request:
 
 ```json
 {
-  "data_code": "NAFP_ECTHIN_NEW_NC",
+  "data_code": "NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24
 }
 ```
 
 `data_code` comes from backend data-source configuration. The current default
-is `NAFP_ECTHIN_NEW_NC`; future datasets such as `NAFP_GFS_NC` can be added in
+is `NAFP_ECTHIN_NC`; future datasets such as `NAFP_GFS_NC` can be added in
 the backend config without changing the admin UI. `root` is still accepted as a
 compatibility/debug field, but clients should prefer `data_code`.
+
+Responses strip local data paths such as `root`, `source_path`,
+`source_paths`, `stored_path`, and `file_path`; use stable business identifiers
+such as `data_code`, `source_grid`, `run_time`, and `forecast_hour` instead.
 
 The response `data` contains `run_time`, `forecast_hour`, `valid_time`,
 `domain`, `systems`, `diagnostics`, `evidence_chains`,
@@ -112,8 +116,7 @@ contains `system_id`, `type`, `name`, `relation`, `distance_degrees`,
 `systems` may include `subtropical_high`, `low_pressure_convergence`,
 `high_pressure_divergence`, `trough_candidate`, `ridge_candidate`, and
 `front_candidate`. Evidence items include threshold matrix audit fields such as
-`entry_id`, `statistic`, `operator`, `threshold`, `raw_value`, and
-`source_path`/`source_paths`.
+`entry_id`, `statistic`, `operator`, `threshold`, and `raw_value`.
 
 Weather-system geometry may be `bbox`, `polygon`, or `line`. The `line` type is
 used for 500hPa trough/ridge axis candidates and includes `coordinates` plus a
@@ -123,15 +126,67 @@ Batch Request:
 
 ```json
 {
-  "data_code": "NAFP_ECTHIN_NEW_NC",
+  "data_code": "NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hours": [0, 3, 6, 9, 12, 24]
 }
 ```
 
 `situations` runs the same NAFP situation diagnosis for multiple forecast hours
-in one request. The response contains `result_count`, `failed_count`, `results`,
-and `failed`; one missing forecast-hour file does not fail the whole batch.
+in one request. The response contains `result_count`, `failed_count`,
+`situation_evolution`, `subtropical_high_trend`, `results`, and `failed`; one
+missing forecast-hour file does not fail the whole batch.
+
+`subtropical_high_trend` summarizes the subtropical-high evolution across
+successful forecast hours. It compares the first and last complete subtropical
+high samples by western ridge-point longitude, northern boundary latitude, area,
+and mean height. When fewer than two complete samples are available,
+`available=false` and `trend_summary` explains that the sample is insufficient.
+
+```json
+{
+  "system_type": "subtropical_high",
+  "available": true,
+  "baseline_forecast_hour": 0,
+  "target_forecast_hour": 24,
+  "west_extension": {"direction": "westward", "label": "西伸", "delta_lon": -9.0},
+  "north_shift": {"direction": "southward", "label": "南落", "delta_lat": -0.75},
+  "area_change": {"direction": "shrinking", "label": "缩小", "delta_grid_points": -1991, "delta_percent": -9.96},
+  "intensity_change": {"direction": "weakening", "label": "减弱", "delta_mean_height": -0.529},
+  "trend_summary": "副高从 +0h 到 +24h 西伸、南落，面积缩小，强度减弱。"
+}
+```
+
+`situation_evolution` is the batch-level weather-situation evolution panel. It
+keeps `subtropical_high_trend` as the first item, then adds line-system trends
+for `trough_candidate`, `ridge_candidate`, `low_level_jet`, and
+`moisture_transport`. Line-system items compare the first and last complete
+samples by primary line-object count, mean line center, mean axis length, and
+mean confidence.
+
+```json
+{
+  "available": true,
+  "baseline_forecast_hour": 0,
+  "target_forecast_hour": 24,
+  "trend_summary": "天气形势演变：副高从 +0h 到 +24h 西伸、南落，面积缩小，强度减弱；槽线从 +0h 到 +24h 西移、南落，对象持平，轴线长度少变，平均置信度少变。",
+  "items": [
+    {"system_type": "subtropical_high", "label": "副高", "geometry_role": "polygon"},
+    {
+      "system_type": "low_level_jet",
+      "label": "低空急流",
+      "geometry_role": "line",
+      "position_change": {
+        "east_west": {"direction": "westward", "label": "西移", "delta_lon": -2.205},
+        "north_south": {"direction": "southward", "label": "南落", "delta_lat": -1.696}
+      },
+      "count_change": {"direction": "stable", "label": "持平", "delta_count": 0},
+      "length_change": {"direction": "shortening", "label": "缩短", "delta_degrees": -5.268},
+      "confidence_change": {"direction": "weakening", "label": "减弱", "delta_confidence": -0.06}
+    }
+  ]
+}
+```
 
 ## Public v1 NAFP Point Diagnosis
 
@@ -141,7 +196,7 @@ Request:
 
 ```json
 {
-  "data_code": "NAFP_ECTHIN_NEW_NC",
+  "data_code": "NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24,
   "lat": 30.21,
@@ -180,14 +235,13 @@ code:
 
 ```json
 {
-  "default_code": "NAFP_ECTHIN_NEW_NC",
+  "default_code": "NAFP_ECTHIN_NC",
   "items": [
     {
-      "code": "NAFP_ECTHIN_NEW_NC",
-      "name": "NAFP_ECTHIN_NEW_NC",
+      "code": "NAFP_ECTHIN_NC",
+      "name": "NAFP_ECTHIN_NC",
       "model": "EC",
       "format": "nc",
-      "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
       "forecast_hour_range": {"start": 0, "end": 240, "step": 3},
       "forecast_hours": [0, 3, 6, 9],
       "enabled": true,

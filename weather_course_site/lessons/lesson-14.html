@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 14 课：数值模式释用入门｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-14.html" data-lesson-id="lesson-14">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 14 课：数值模式释用入门</h1>
+          <p class="subtitle">模式不是答案，而是未来天气的一组证据。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会不直接照搬模式降水图，而是用物理量判断模式预报是否可信。</p>
+<h2>1. 什么是数值模式释用</h2>
+<p>数值模式给出未来天气的计算结果；释用就是解释和应用这些结果。</p>
+<blockquote>
+<p><strong>模式输出的是“可能的未来”；释用做的是“判断哪个未来更可信”。</strong></p>
+</blockquote>
+<h2>2. 为什么不能直接相信模式</h2>
+<p>模式会受初始场、分辨率、物理过程参数化、对流触发、地形和边界层处理等影响。强对流、局地暴雨、阵风锋等小尺度天气尤其容易偏。</p>
+<h2>3. 释用核心：物理一致性</h2>
+<p>模式报暴雨，要看它背后的链条是否完整：</p>
+<pre><code class="language-text">500hPa 槽/副高边缘
++ 850hPa 水汽输送
++ 水汽辐合
++ 700hPa 上升
++ 地面切变线/低压/地形触发
++ 湿层和热力条件
+= 暴雨预报更可信
+</code></pre>
+<h2>4. 看模式 6 步法</h2>
+<ol>
+<li>看 500hPa 大尺度背景。</li>
+<li>看 850/925hPa 低层风和水汽。</li>
+<li>看水汽通量散度、低层辐合和切变线。</li>
+<li>看 700hPa 垂直速度、涡度平流、高空散度。</li>
+<li>看 CAPE、CIN、风切变、DCAPE 等强对流条件。</li>
+<li>最后看模式降水结果，并判断是否与前面条件一致。</li>
+</ol>
+<h2>5. 不要只看累计降水图</h2>
+<p>要看逐小时、3小时、6小时和24小时降水动画。强降水判断要看开始时间、最强时段、雨带移动和是否持续。</p>
+<h2>6. 多模式对比</h2>
+<table>
+<thead>
+<tr>
+  <th>看点</th>
+  <th>意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>多模式一致</td>
+  <td>可信度提高</td>
+</tr>
+<tr>
+  <td>模式分歧大</td>
+  <td>不确定性高</td>
+</tr>
+<tr>
+  <td>连续起报稳定</td>
+  <td>可信度提高</td>
+</tr>
+<tr>
+  <td>每次起报摆动</td>
+  <td>需要谨慎</td>
+</tr>
+</tbody>
+</table>
+<h2>7. 集合预报</h2>
+<p>确定性模式给一个具体结果；集合预报给一组可能结果，用于判断概率和不确定性。中期预报、台风路径、极端降水风险都应重视集合信息。</p>
+<h2>8. 实况订正</h2>
+<p>模式释用不是一次性看图，而是“模式—实况—订正”的循环。用雷达、卫星、自动站、探空和闪电不断修正降水落区、触发时间和强度。</p>
+<h2>9. 常见偏差来源</h2>
+<table>
+<thead>
+<tr>
+  <th>偏差</th>
+  <th>可能原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>雨带偏北/南</td>
+  <td>副高、低空急流、冷空气位置偏差</td>
+</tr>
+<tr>
+  <td>降水偏强/弱</td>
+  <td>水汽、对流参数化、云微物理偏差</td>
+</tr>
+<tr>
+  <td>触发偏早/晚</td>
+  <td>边界层、辐合线、CIN 处理偏差</td>
+</tr>
+<tr>
+  <td>温度偏差</td>
+  <td>云量、降水、地表、边界层混合偏差</td>
+</tr>
+</tbody>
+</table>
+<h2>本课一句话</h2>
+<blockquote>
+<p>数值模式释用，就是把模式预报图转化成天气学判断：看模式报了什么，更要看它为什么这么报、可信不可信、哪里可能偏、如何结合实况修正。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-13.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-15.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

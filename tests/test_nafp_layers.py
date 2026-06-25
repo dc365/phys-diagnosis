@@ -19,7 +19,7 @@ def envelope(body: dict) -> dict:
 def test_load_nafp_layer_reads_configured_height_field():
     layer = load_nafp_layer(
         "z500",
-        data_code="NAFP_ECTHIN_NEW_NC",
+        data_code="NAFP_ECTHIN_NC",
         run_time="2026-06-17T20:00:00",
         forecast_hour=24,
     )
@@ -34,26 +34,21 @@ def test_load_nafp_layer_reads_configured_height_field():
     assert layer["source_paths"][0].endswith("/gh/500/2026/06/17/20/26061720.024")
 
 
-def test_load_nafp_layer_derives_heavy_rain_score_from_raw_fields():
-    layer = load_nafp_layer(
-        "heavy_rain_score",
-        data_code="NAFP_ECTHIN_NEW_NC",
-        run_time="2026-06-17T20:00:00",
-        forecast_hour=24,
-    )
-
-    assert layer["title"] == "强降水潜势评分"
-    assert layer["unit"] == "score"
-    assert layer["values"].shape == (241, 361)
-    assert 0.0 <= float(layer["min"]) <= float(layer["max"]) <= 1.0
-    assert any("/q/850/" in path for path in layer["source_paths"])
-    assert any("/uv/850/" in path for path in layer["source_paths"])
+def test_nafp_layers_do_not_expose_legacy_two_class_risk_scores():
+    for layer_id in ["heavy_rain_score", "convection_score"]:
+        with pytest.raises(KeyError):
+            load_nafp_layer(
+                layer_id,
+                data_code="NAFP_ECTHIN_NC",
+                run_time="2026-06-17T20:00:00",
+                forecast_hour=24,
+            )
 
 
 def test_nafp_layers_include_multi_hazard_risk_scores():
     layer = load_nafp_layer(
         "risk_short_duration_heavy_rain_score",
-        data_code="NAFP_ECTHIN_NEW_NC",
+        data_code="NAFP_ECTHIN_NC",
         run_time="2026-06-17T20:00:00",
         forecast_hour=24,
     )
@@ -62,12 +57,17 @@ def test_nafp_layers_include_multi_hazard_risk_scores():
     assert layer["unit"] == "0-1"
     assert layer["values"].shape == (241, 361)
     assert 0.0 <= float(layer["min"]) <= float(layer["max"]) <= 1.0
-    assert any("/q/850/" in path or "/uv/850/" in path for path in layer["source_paths"])
+    assert any("/q/850/" in path for path in layer["source_paths"])
+    assert any("/uv/850/" in path for path in layer["source_paths"])
+    assert any("/tcwv/999/" in path for path in layer["source_paths"])
+    assert any("/rain3/999/" in path or "/rainmax3/999/" in path for path in layer["source_paths"])
+    assert any("/rh/700/" in path for path in layer["source_paths"])
+    assert any("/rh/500/" in path for path in layer["source_paths"])
 
     response = client.get(
         "/api/v1/diagnosis/nafp/layers/risk_short_duration_heavy_rain_score/metadata",
         params={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
         },
@@ -79,11 +79,29 @@ def test_nafp_layers_include_multi_hazard_risk_scores():
     assert data["unit"] == "0-1"
 
 
+def test_nafp_severe_hazard_layers_use_real_convection_environment_fields():
+    layer = load_nafp_layer(
+        "risk_hail_score",
+        data_code="NAFP_ECTHIN_NC",
+        run_time="2026-06-17T20:00:00",
+        forecast_hour=24,
+    )
+
+    assert layer["values"].shape == (241, 361)
+    assert 0.0 <= float(layer["min"]) <= float(layer["max"]) <= 1.0
+    assert any("/tt/500/" in path for path in layer["source_paths"])
+    assert any("/tt/700/" in path for path in layer["source_paths"])
+    assert any("/gh/700/" in path for path in layer["source_paths"])
+    assert any("/gh/500/" in path for path in layer["source_paths"])
+    assert any("/deg0l/999/" in path for path in layer["source_paths"])
+    assert any("/lcl/999/" in path for path in layer["source_paths"])
+
+
 def test_nafp_layers_do_not_expose_precipitation_composite_risk_grid():
     with pytest.raises(KeyError):
         load_nafp_layer(
             "risk_precipitation_composite_score",
-            data_code="NAFP_ECTHIN_NEW_NC",
+            data_code="NAFP_ECTHIN_NC",
             run_time="2026-06-17T20:00:00",
             forecast_hour=24,
         )
@@ -93,7 +111,7 @@ def test_nafp_layer_metadata_endpoint_returns_enveloped_bounds():
     response = client.get(
         "/api/v1/diagnosis/nafp/layers/z500/metadata",
         params={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
         },
@@ -102,7 +120,7 @@ def test_nafp_layer_metadata_endpoint_returns_enveloped_bounds():
     assert response.status_code == 200
     data = envelope(response.json())
     assert data["layer_id"] == "z500"
-    assert data["data_code"] == "NAFP_ECTHIN_NEW_NC"
+    assert data["data_code"] == "NAFP_ECTHIN_NC"
     assert data["run_time"] == "2026-06-17T20:00:00"
     assert data["forecast_hour"] == 24
     assert data["lat_min"] == 0.0
@@ -115,7 +133,7 @@ def test_nafp_layer_grid_endpoint_returns_sampled_geojson():
     response = client.get(
         "/api/v1/diagnosis/nafp/layers/t850/grid",
         params={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
             "max_cells": 500,
@@ -135,7 +153,7 @@ def test_nafp_layer_contours_endpoint_labels_values():
     response = client.get(
         "/api/v1/diagnosis/nafp/layers/mslp/contours",
         params={
-            "data_code": "NAFP_ECTHIN_NEW_NC",
+            "data_code": "NAFP_ECTHIN_NC",
             "run_time": "2026-06-17T20:00:00",
             "forecast_hour": 24,
             "max_segments": 300,

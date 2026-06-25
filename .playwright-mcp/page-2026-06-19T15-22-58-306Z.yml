@@ -1,0 +1,697 @@
+- generic [ref=e1]:
+  - link "跳转到主内容" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - complementary "主导航" [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: WD
+        - generic [ref=e7]:
+          - heading "天气诊断后台" [level=1] [ref=e8]
+          - paragraph [ref=e9]: NAFP EC 值班研判台
+      - navigation [ref=e10]:
+        - link "诊断工作台 运行与研判" [ref=e11] [cursor=pointer]:
+          - /url: "#diagnosis-workbench"
+          - strong [ref=e12]: 诊断工作台
+          - generic [ref=e13]: 运行与研判
+        - link "诊断回放 批量校验" [ref=e14] [cursor=pointer]:
+          - /url: "#diagnosis-replay"
+          - strong [ref=e15]: 诊断回放
+          - generic [ref=e16]: 批量校验
+        - link "算法治理 算法 / 阈值 / 规则" [ref=e17] [cursor=pointer]:
+          - /url: "#algorithm-governance"
+          - strong [ref=e18]: 算法治理
+          - generic [ref=e19]: 算法 / 阈值 / 规则
+        - link "数据字段 物理量与缺测" [ref=e20] [cursor=pointer]:
+          - /url: "#data-fields"
+          - strong [ref=e21]: 数据字段
+          - generic [ref=e22]: 物理量与缺测
+        - link "服务状态 运行记录" [ref=e23] [cursor=pointer]:
+          - /url: "#service-status"
+          - strong [ref=e24]: 服务状态
+          - generic [ref=e25]: 运行记录
+      - link "打开 GIS 地图" [ref=e26] [cursor=pointer]:
+        - /url: /map
+    - main [ref=e27]:
+      - region "算法资产、阈值和规则说明" [ref=e599]:
+        - generic [ref=e601]:
+          - generic [ref=e602]: 算法治理
+          - heading "算法资产、阈值和规则说明" [level=2] [ref=e603]
+          - paragraph [ref=e604]: 围绕一个默认阈值矩阵管理算法，不做多版本干扰。
+        - generic [ref=e605]:
+          - tablist "算法治理" [ref=e606]:
+            - tab "算法库" [ref=e607] [cursor=pointer]
+            - tab "阈值矩阵" [ref=e608] [cursor=pointer]
+            - tab "规则说明" [active] [selected] [ref=e609] [cursor=pointer]
+          - region "规则说明" [ref=e1163]:
+            - generic [ref=e1164]:
+              - generic [ref=e1165]:
+                - generic [ref=e1166]:
+                  - generic [ref=e1167]: 诊断依据
+                  - heading "规则说明" [level=3] [ref=e1168]
+                - generic [ref=e1169]: "14"
+              - generic [ref=e1170]:
+                - article [ref=e1171]:
+                  - generic [ref=e1172]:
+                    - generic [ref=e1173]:
+                      - generic [ref=e1174]: 天气系统
+                      - heading "500hPa 副热带高压" [level=4] [ref=e1175]
+                    - generic [ref=e1176]: subtropical_high_500
+                  - paragraph [ref=e1177]: 识别 500hPa 高度场中达到业务高度阈值且空间连续的副热带高压主体。
+                  - generic [ref=e1178]:
+                    - generic [ref=e1179]:
+                      - strong [ref=e1180]: 判据
+                      - list [ref=e1181]:
+                        - listitem [ref=e1182]: 500hPa 位势高度使用 dagpm 或 gpm 双单位适配；最大值小于 1000 时按 dagpm 判读，否则按 gpm 判读。
+                        - listitem [ref=e1183]: 连续区域满足高度阈值后，再要求连通格点数达到最小面积门槛。
+                        - listitem [ref=e1184]: 输出对象可信度固定为 0.78，证据中保留最大高度、阈值和最小格点数。
+                    - generic [ref=e1185]:
+                      - strong [ref=e1186]: 算法
+                      - list [ref=e1187]:
+                        - listitem [ref=e1188]: mask = gh500 >= threshold
+                        - listitem [ref=e1189]: largest_component(mask, min_points) 选取满足面积约束的最大连续区
+                        - listitem [ref=e1190]: bbox_for_mask 输出空间范围，作为形势对象 geometry
+                  - generic [ref=e1192]:
+                    - text: gh500
+                    - emphasis [ref=e1193]: 500hPa 位势高度基础场
+                  - generic "阈值条目" [ref=e1194]:
+                    - generic "system.subtropical_high.gh500_dam" [ref=e1195]:
+                      - strong [ref=e1196]: 500hPa 位势高度连续区
+                      - emphasis [ref=e1197]: "gh500: >= 588 dagpm"
+                    - generic "system.subtropical_high.gh500_gpm" [ref=e1198]:
+                      - strong [ref=e1199]: 500hPa 位势高度连续区
+                      - emphasis [ref=e1200]: "gh500: >= 5880 gpm"
+                    - generic "system.subtropical_high.min_points" [ref=e1201]:
+                      - strong [ref=e1202]: 连续区最小格点数
+                      - emphasis [ref=e1203]: "gh500: >= 20 grid"
+                  - group [ref=e1204]:
+                    - generic "输出与证据契约" [ref=e1205] [cursor=pointer]
+                - article [ref=e1206]:
+                  - generic [ref=e1207]:
+                    - generic [ref=e1208]:
+                      - generic [ref=e1209]: 天气系统
+                      - heading "500hPa 槽脊候选" [level=4] [ref=e1210]
+                    - generic [ref=e1211]: trough_ridge_500
+                  - paragraph [ref=e1212]: 从 500hPa 位势高度纬向距平中提取槽线、脊线及槽脊候选区。
+                  - generic [ref=e1213]:
+                    - generic [ref=e1214]:
+                      - strong [ref=e1215]: 判据
+                      - list [ref=e1216]:
+                        - listitem [ref=e1217]: 先按纬向平均移除背景场，得到 gh500_anomaly。
+                        - listitem [ref=e1218]: 槽区使用低值分位，脊区使用高值分位；轴线算法逐纬度取最强负距平或正距平点。
+                        - listitem [ref=e1219]: 轴线候选要求连续纬向点数达到门槛，并按最大输出条数截断。
+                    - generic [ref=e1220]:
+                      - strong [ref=e1221]: 算法
+                      - list [ref=e1222]:
+                        - listitem [ref=e1223]: gh500_anomaly = gh500 - mean(gh500, axis=longitude)
+                        - listitem [ref=e1224]: trough_area = anomaly <= p8，ridge_area = anomaly >= p92
+                        - listitem [ref=e1225]: axis percentile 使用尾部分位；槽线取逐纬度最小距平点，脊线取最大距平点，再按经向跳变分组
+                  - generic [ref=e1227]:
+                    - text: gh500
+                    - emphasis [ref=e1228]: 500hPa 位势高度，用于计算纬向距平
+                  - generic "阈值条目" [ref=e1229]:
+                    - generic "system.trough_candidate.anomaly_percentile" [ref=e1230]:
+                      - strong [ref=e1231]: 槽线候选距平低值分位数
+                      - emphasis [ref=e1232]: "gh500_anomaly: <= 8 %"
+                    - generic "system.ridge_candidate.anomaly_percentile" [ref=e1233]:
+                      - strong [ref=e1234]: 脊线候选距平高值分位数
+                      - emphasis [ref=e1235]: "gh500_anomaly: >= 92 %"
+                    - generic "system.trough_ridge.min_points" [ref=e1236]:
+                      - strong [ref=e1237]: 槽脊候选连续区最小格点数
+                      - emphasis [ref=e1238]: "gh500_anomaly: >= 24 grid"
+                    - generic "system.trough_ridge.axis_anomaly_percentile" [ref=e1239]:
+                      - strong [ref=e1240]: 槽脊轴线距平尾部分位
+                      - emphasis [ref=e1241]: "gh500_anomaly: tail_percentile 20 %"
+                    - generic "system.trough_ridge.min_points_per_line" [ref=e1242]:
+                      - strong [ref=e1243]: 槽脊轴线最小连续纬向点数
+                      - emphasis [ref=e1244]: "gh500_anomaly: >= 4 point"
+                    - generic "system.trough_ridge.max_lines" [ref=e1245]:
+                      - strong [ref=e1246]: 槽脊轴线最大输出条数
+                      - emphasis [ref=e1247]: "gh500_anomaly: <= 8 line"
+                  - group [ref=e1248]:
+                    - generic "输出与证据契约" [ref=e1249] [cursor=pointer]
+                - article [ref=e1250]:
+                  - generic [ref=e1251]:
+                    - generic [ref=e1252]:
+                      - generic [ref=e1253]: 天气系统
+                      - heading "低压辐合候选" [level=4] [ref=e1254]
+                    - generic [ref=e1255]: low_pressure_convergence_500
+                  - paragraph [ref=e1256]: 识别 500hPa 高度负距平中心与 850hPa 低层辐合叠加的低压性影响区。
+                  - generic [ref=e1257]:
+                    - generic [ref=e1258]:
+                      - strong [ref=e1259]: 判据
+                      - list [ref=e1260]:
+                        - listitem [ref=e1261]: 低压候选先由 gh500 纬向距平低值区约束，避免把背景高度梯度误判为中心。
+                        - listitem [ref=e1262]: 低层散度 div850 取低端分位，负散度越明显表示越强的低层辐合。
+                        - listitem [ref=e1263]: 高度负距平和低层辐合同时满足后，再用连通格点数和最大输出个数控制结果规模。
+                    - generic [ref=e1264]:
+                      - strong [ref=e1265]: 算法
+                      - list [ref=e1266]:
+                        - listitem [ref=e1267]: gh500_anomaly = gh500 - mean(gh500, axis=longitude)
+                        - listitem [ref=e1268]: low_mask = gh500_anomaly <= p20 且 div850 <= p10
+                        - listitem [ref=e1269]: 连通区按格点数排序，输出前 max_centers 个低压辐合候选
+                  - generic [ref=e1270]:
+                    - generic [ref=e1271]:
+                      - text: gh500
+                      - emphasis [ref=e1272]: 500hPa 位势高度，用于计算高度距平中心
+                    - generic [ref=e1273]:
+                      - text: div850
+                      - emphasis [ref=e1274]: 850hPa 散度，负值作为低层辐合证据
+                  - generic "阈值条目" [ref=e1275]:
+                    - generic "system.low_pressure.gh500_anomaly_percentile" [ref=e1276]:
+                      - strong [ref=e1277]: 低压候选高度负距平分位
+                      - emphasis [ref=e1278]: "gh500_anomaly: <= 20 %"
+                    - generic "system.low_pressure.div850_convergence_percentile" [ref=e1279]:
+                      - strong [ref=e1280]: 低压候选低层辐合分位
+                      - emphasis [ref=e1281]: "div850: <= 10 %"
+                    - generic "system.pressure_center.min_points" [ref=e1282]:
+                      - strong [ref=e1283]: 低压/高压候选连续区最小格点数
+                      - emphasis [ref=e1284]: "pressure_center_mask: >= 12 grid"
+                    - generic "system.pressure_center.max_centers" [ref=e1285]:
+                      - strong [ref=e1286]: 低压/高压候选最大输出个数
+                      - emphasis [ref=e1287]: "pressure_center_mask: <= 6 center"
+                  - group [ref=e1288]:
+                    - generic "输出与证据契约" [ref=e1289] [cursor=pointer]
+                - article [ref=e1290]:
+                  - generic [ref=e1291]:
+                    - generic [ref=e1292]:
+                      - generic [ref=e1293]: 天气系统
+                      - heading "高压辐散候选" [level=4] [ref=e1294]
+                    - generic [ref=e1295]: high_pressure_divergence_500
+                  - paragraph [ref=e1296]: 识别 500hPa 高度正距平中心与 850hPa 低层辐散叠加的高压性影响区。
+                  - generic [ref=e1297]:
+                    - generic [ref=e1298]:
+                      - strong [ref=e1299]: 判据
+                      - list [ref=e1300]:
+                        - listitem [ref=e1301]: 高压候选由 gh500 纬向距平高值区约束，突出相对周边偏高的高度中心。
+                        - listitem [ref=e1302]: 低层散度 div850 取高端分位，正散度越明显表示越强的低层辐散。
+                        - listitem [ref=e1303]: 高度正距平和低层辐散同时满足后，再用连通格点数和最大输出个数控制结果规模。
+                    - generic [ref=e1304]:
+                      - strong [ref=e1305]: 算法
+                      - list [ref=e1306]:
+                        - listitem [ref=e1307]: gh500_anomaly = gh500 - mean(gh500, axis=longitude)
+                        - listitem [ref=e1308]: high_mask = gh500_anomaly >= p80 且 div850 >= p90
+                        - listitem [ref=e1309]: 连通区按格点数排序，输出前 max_centers 个高压辐散候选
+                  - generic [ref=e1310]:
+                    - generic [ref=e1311]:
+                      - text: gh500
+                      - emphasis [ref=e1312]: 500hPa 位势高度，用于计算高度距平中心
+                    - generic [ref=e1313]:
+                      - text: div850
+                      - emphasis [ref=e1314]: 850hPa 散度，正值作为低层辐散证据
+                  - generic "阈值条目" [ref=e1315]:
+                    - generic "system.high_pressure.gh500_anomaly_percentile" [ref=e1316]:
+                      - strong [ref=e1317]: 高压候选高度正距平分位
+                      - emphasis [ref=e1318]: "gh500_anomaly: >= 80 %"
+                    - generic "system.high_pressure.div850_divergence_percentile" [ref=e1319]:
+                      - strong [ref=e1320]: 高压候选低层辐散分位
+                      - emphasis [ref=e1321]: "div850: >= 90 %"
+                    - generic "system.pressure_center.min_points" [ref=e1322]:
+                      - strong [ref=e1323]: 低压/高压候选连续区最小格点数
+                      - emphasis [ref=e1324]: "pressure_center_mask: >= 12 grid"
+                    - generic "system.pressure_center.max_centers" [ref=e1325]:
+                      - strong [ref=e1326]: 低压/高压候选最大输出个数
+                      - emphasis [ref=e1327]: "pressure_center_mask: <= 6 center"
+                  - group [ref=e1328]:
+                    - generic "输出与证据契约" [ref=e1329] [cursor=pointer]
+                - article [ref=e1330]:
+                  - generic [ref=e1331]:
+                    - generic [ref=e1332]:
+                      - generic [ref=e1333]: 天气系统
+                      - heading "850hPa 锋面候选" [level=4] [ref=e1334]
+                    - generic [ref=e1335]: front_candidate_850
+                  - paragraph [ref=e1336]: 用低层温度梯度、辐合和温度平流构造锋面候选综合评分，输出需人工订正的候选区。
+                  - generic [ref=e1337]:
+                    - generic [ref=e1338]:
+                      - strong [ref=e1339]: 判据
+                      - list [ref=e1340]:
+                        - listitem [ref=e1341]: 850hPa 温度梯度是主判据，低层辐合和温度平流作为辅助增强项。
+                        - listitem [ref=e1342]: 综合评分与温度梯度必须同时达到各自分位阈值。
+                        - listitem [ref=e1343]: 候选区必须达到最小连续格点数，输出可信度固定为 0.58。
+                    - generic [ref=e1344]:
+                      - strong [ref=e1345]: 算法
+                      - list [ref=e1346]:
+                        - listitem [ref=e1347]: grad_score = normalize01(|∇T850|, p5, p98)
+                        - listitem [ref=e1348]: front_score = 0.60*grad_score + 0.25*norm(max(-div850,0)) + 0.15*norm(|ttadv850|)
+                        - listitem [ref=e1349]: mask = front_score >= score_p82 且 |∇T850| >= gradient_p80
+                  - generic [ref=e1350]:
+                    - generic [ref=e1351]:
+                      - text: tt850
+                      - emphasis [ref=e1352]: 850hPa 温度，计算水平梯度
+                    - generic [ref=e1353]:
+                      - text: div850
+                      - emphasis [ref=e1354]: 低层辐合，负散度增强锋面评分
+                    - generic [ref=e1355]:
+                      - text: ttadv850
+                      - emphasis [ref=e1356]: 温度平流绝对值，补充温度梯度变化信号
+                  - generic "阈值条目" [ref=e1357]:
+                    - generic "system.front_candidate.tt850_gradient_percentile" [ref=e1358]:
+                      - strong [ref=e1359]: 850hPa 温度梯度高值分位
+                      - emphasis [ref=e1360]: "tt850: >= 80 %"
+                    - generic "system.front_candidate.score_percentile" [ref=e1361]:
+                      - strong [ref=e1362]: 锋面候选综合评分高值分位
+                      - emphasis [ref=e1363]: "front_candidate_score: >= 82 %"
+                    - generic "system.front_candidate.min_points" [ref=e1364]:
+                      - strong [ref=e1365]: 锋面候选连续区最小格点数
+                      - emphasis [ref=e1366]: "front_candidate_score: >= 10 grid"
+                  - group [ref=e1367]:
+                    - generic "输出与证据契约" [ref=e1368] [cursor=pointer]
+                - article [ref=e1369]:
+                  - generic [ref=e1370]:
+                    - generic [ref=e1371]:
+                      - generic [ref=e1372]: 天气系统
+                      - heading "850hPa 低空急流候选" [level=4] [ref=e1373]
+                    - generic [ref=e1374]: low_level_jet_850
+                  - paragraph [ref=e1375]: 识别低层风速高值带，并用水汽通量约束其是否可作为暖湿输送通道。
+                  - generic [ref=e1376]:
+                    - generic [ref=e1377]:
+                      - strong [ref=e1378]: 判据
+                      - list [ref=e1379]:
+                        - listitem [ref=e1380]: 低空急流优先看 850hPa 风速高值，业务上常与暴雨水汽输送和低层辐合配合使用。
+                        - listitem [ref=e1381]: 当 q850 可用时，要求风速高值与 moisture_flux850 高值重叠，避免把干急流误判为水汽通道。
+                        - listitem [ref=e1382]: 候选区按连通格点数过滤，并以轴线形式输出。
+                    - generic [ref=e1383]:
+                      - strong [ref=e1384]: 算法
+                      - list [ref=e1385]:
+                        - listitem [ref=e1386]: uv850_speed = sqrt(u850^2 + v850^2)
+                        - listitem [ref=e1387]: moisture_flux850 = uv850_speed * q850
+                        - listitem [ref=e1388]: mask = uv850_speed >= wind_speed_min 且 moisture_flux850 >= p70
+                  - generic [ref=e1389]:
+                    - generic [ref=e1390]:
+                      - text: uv850
+                      - emphasis [ref=e1391]: 850hPa 风速
+                    - generic [ref=e1392]:
+                      - text: q850
+                      - emphasis [ref=e1393]: 与风速合成 moisture_flux850
+                  - generic "阈值条目" [ref=e1394]:
+                    - generic "system.low_level_jet.wind_speed_min" [ref=e1395]:
+                      - strong [ref=e1396]: 850hPa 风速下限
+                      - emphasis [ref=e1397]: "uv850_speed: >= 10 m/s"
+                    - generic "system.low_level_jet.moisture_flux_percentile" [ref=e1398]:
+                      - strong [ref=e1399]: 低空急流水汽通量高值分位
+                      - emphasis [ref=e1400]: "moisture_flux850: >= 70 %"
+                    - generic "system.low_level_jet.min_points" [ref=e1401]:
+                      - strong [ref=e1402]: 低空急流候选连续区最小格点数
+                      - emphasis [ref=e1403]: "uv850_speed: >= 8 grid"
+                  - group [ref=e1404]:
+                    - generic "输出与证据契约" [ref=e1405] [cursor=pointer]
+                - article [ref=e1406]:
+                  - generic [ref=e1407]:
+                    - generic [ref=e1408]:
+                      - generic [ref=e1409]: 天气系统
+                      - heading "850hPa 水汽输送带候选" [level=4] [ref=e1410]
+                    - generic [ref=e1411]: moisture_transport_850
+                  - paragraph [ref=e1412]: 从 850hPa 风速与比湿合成的水汽通量中识别暖湿输送带。
+                  - generic [ref=e1413]:
+                    - generic [ref=e1414]:
+                      - strong [ref=e1415]: 判据
+                      - list [ref=e1416]:
+                        - listitem [ref=e1417]: 水汽输送用 moisture_flux850 表征，近似为低层风速与 q850 的乘积。
+                        - listitem [ref=e1418]: 高值分位区代表水汽输送主通道，需后续结合辐合、上升运动判断是否转化为降水。
+                    - generic [ref=e1419]:
+                      - strong [ref=e1420]: 算法
+                      - list [ref=e1421]:
+                        - listitem [ref=e1422]: moisture_flux850 = uv850_speed * q850
+                        - listitem [ref=e1423]: mask = moisture_flux850 >= p75
+                        - listitem [ref=e1424]: 连通高值带以 line 几何输出
+                  - generic [ref=e1425]:
+                    - generic [ref=e1426]:
+                      - text: uv850
+                      - emphasis [ref=e1427]: 850hPa 风速
+                    - generic [ref=e1428]:
+                      - text: q850
+                      - emphasis [ref=e1429]: 低层比湿
+                  - generic "阈值条目" [ref=e1430]:
+                    - generic "system.moisture_transport.flux_percentile" [ref=e1431]:
+                      - strong [ref=e1432]: 850hPa 水汽通量高值分位
+                      - emphasis [ref=e1433]: "moisture_flux850: >= 75 %"
+                    - generic "system.moisture_transport.min_points" [ref=e1434]:
+                      - strong [ref=e1435]: 水汽输送带连续区最小格点数
+                      - emphasis [ref=e1436]: "moisture_flux850: >= 10 grid"
+                  - group [ref=e1437]:
+                    - generic "输出与证据契约" [ref=e1438] [cursor=pointer]
+                - article [ref=e1439]:
+                  - generic [ref=e1440]:
+                    - generic [ref=e1441]:
+                      - generic [ref=e1442]: 天气系统
+                      - heading "850hPa 水汽辐合区候选" [level=4] [ref=e1443]
+                    - generic [ref=e1444]: moisture_convergence_850
+                  - paragraph [ref=e1445]: 用水汽通量散度低值区识别水汽堆积和暴雨维持区。
+                  - generic [ref=e1446]:
+                    - generic [ref=e1447]:
+                      - strong [ref=e1448]: 判据
+                      - list [ref=e1449]:
+                        - listitem [ref=e1450]: 水汽通量散度 ∇·(qV) 为负时表示水汽辐合。
+                        - listitem [ref=e1451]: 算法同时要求水汽通量本身达到中高分位，避免弱水汽背景下的伪辐合。
+                    - generic [ref=e1452]:
+                      - strong [ref=e1453]: 算法
+                      - list [ref=e1454]:
+                        - listitem [ref=e1455]: moisture_flux_divergence850 = d(q*u)/dx + d(q*v)/dy
+                        - listitem [ref=e1456]: mask = moisture_flux_divergence850 <= p10 且 moisture_flux850 >= p55
+                        - listitem [ref=e1457]: 连通区以 polygon 几何输出
+                  - generic [ref=e1458]:
+                    - generic [ref=e1459]:
+                      - text: uv850
+                      - emphasis [ref=e1460]: 850hPa 风矢量
+                    - generic [ref=e1461]:
+                      - text: q850
+                      - emphasis [ref=e1462]: 低层比湿
+                  - generic "阈值条目" [ref=e1463]:
+                    - generic "system.moisture_convergence.flux_divergence_percentile" [ref=e1464]:
+                      - strong [ref=e1465]: 水汽通量散度低值分位
+                      - emphasis [ref=e1466]: "moisture_flux_divergence850: <= 10 %"
+                    - generic "system.moisture_convergence.moisture_flux_percentile" [ref=e1467]:
+                      - strong [ref=e1468]: 水汽辐合区通量配合分位
+                      - emphasis [ref=e1469]: "moisture_flux850: >= 55 %"
+                    - generic "system.moisture_convergence.min_points" [ref=e1470]:
+                      - strong [ref=e1471]: 水汽辐合候选连续区最小格点数
+                      - emphasis [ref=e1472]: "moisture_flux_divergence850: >= 10 grid"
+                  - group [ref=e1473]:
+                    - generic "输出与证据契约" [ref=e1474] [cursor=pointer]
+                - article [ref=e1475]:
+                  - generic [ref=e1476]:
+                    - generic [ref=e1477]:
+                      - generic [ref=e1478]: 天气系统
+                      - heading "850hPa 低层辐合区" [level=4] [ref=e1479]
+                    - generic [ref=e1480]: low_level_convergence_850
+                  - paragraph [ref=e1481]: 用 850hPa 散度低值区识别有利触发和抬升的低层辐合带。
+                  - generic [ref=e1482]:
+                    - generic [ref=e1483]:
+                      - strong [ref=e1484]: 判据
+                      - list [ref=e1485]:
+                        - listitem [ref=e1486]: 散度为负表示空气汇聚；低层辐合常与锋面、切变线、低压和地形抬升共同触发降水。
+                    - generic [ref=e1487]:
+                      - strong [ref=e1488]: 算法
+                      - list [ref=e1489]:
+                        - listitem [ref=e1490]: mask = div850 <= p10
+                        - listitem [ref=e1491]: 连通区按最小格点数过滤后输出
+                  - generic [ref=e1493]:
+                    - text: div850
+                    - emphasis [ref=e1494]: 850hPa 散度
+                  - generic "阈值条目" [ref=e1495]:
+                    - generic "system.low_level_convergence.div850_percentile" [ref=e1496]:
+                      - strong [ref=e1497]: 850hPa 散度低值分位
+                      - emphasis [ref=e1498]: "div850: <= 10 %"
+                    - generic "system.low_level_convergence.min_points" [ref=e1499]:
+                      - strong [ref=e1500]: 低层辐合区连续区最小格点数
+                      - emphasis [ref=e1501]: "div850: >= 10 grid"
+                  - group [ref=e1502]:
+                    - generic "输出与证据契约" [ref=e1503] [cursor=pointer]
+                - article [ref=e1504]:
+                  - generic [ref=e1505]:
+                    - generic [ref=e1506]:
+                      - generic [ref=e1507]: 天气系统
+                      - heading "高空辐散区" [level=4] [ref=e1508]
+                    - generic [ref=e1509]: upper_divergence
+                  - paragraph [ref=e1510]: 识别 200/300hPa 散度高值区，作为高空抽吸和动力抬升配合证据。
+                  - generic [ref=e1511]:
+                    - generic [ref=e1512]:
+                      - strong [ref=e1513]: 判据
+                      - list [ref=e1514]:
+                        - listitem [ref=e1515]: 高空正散度表示空气在高层散开，有利于下方空气补偿上升。
+                        - listitem [ref=e1516]: 优先使用 200hPa，缺测时可使用 300hPa。
+                    - generic [ref=e1517]:
+                      - strong [ref=e1518]: 算法
+                      - list [ref=e1519]:
+                        - listitem [ref=e1520]: mask = div_upper >= p90
+                        - listitem [ref=e1521]: 按最小连通格点数过滤输出
+                  - generic [ref=e1523]:
+                    - text: div200/div300
+                    - emphasis [ref=e1524]: 高空散度
+                  - generic "阈值条目" [ref=e1525]:
+                    - generic "system.upper_divergence.divergence_percentile" [ref=e1526]:
+                      - strong [ref=e1527]: 高空散度高值分位
+                      - emphasis [ref=e1528]: "div200/div300: >= 90 %"
+                    - generic "system.upper_divergence.min_points" [ref=e1529]:
+                      - strong [ref=e1530]: 高空辐散区连续区最小格点数
+                      - emphasis [ref=e1531]: "div200/div300: >= 10 grid"
+                  - group [ref=e1532]:
+                    - generic "输出与证据契约" [ref=e1533] [cursor=pointer]
+                - article [ref=e1534]:
+                  - generic [ref=e1535]:
+                    - generic [ref=e1536]:
+                      - generic [ref=e1537]: 证据链
+                      - heading "强降水潜势" [level=4] [ref=e1538]
+                    - generic [ref=e1539]: heavy_rain_potential
+                  - paragraph [ref=e1540]: 汇总水汽、输送、辐合、抬升、不稳定和模式降水信号，给出强降水潜势等级与风险区域。
+                  - generic [ref=e1541]:
+                    - generic [ref=e1542]:
+                      - strong [ref=e1543]: 判据
+                      - list [ref=e1544]:
+                        - listitem [ref=e1545]: 每个证据项按阈值矩阵的 operator、threshold、scale 归一化，并乘以 weight 形成贡献值。
+                        - listitem [ref=e1546]: 水汽和输送刻画供给，div850 与 w700 刻画触发和上升，kindex/CAPE 刻画不稳定，rain6 提供模式降水响应。
+                        - listitem [ref=e1547]: 风险区域由 q850、moisture_flux850、-div850、rain6 的归一化合成风险场分位提取。
+                    - generic [ref=e1548]:
+                      - strong [ref=e1549]: 算法
+                      - list [ref=e1550]:
+                        - listitem [ref=e1551]: score = sum(normalized_score(rule, statistic(field)) * weight)
+                        - listitem [ref=e1552]: level = score_level(score, matrix.level_thresholds)
+                        - listitem [ref=e1553]: risk_region = largest_component(composite_risk >= p85, min_points=16)
+                  - generic [ref=e1554]:
+                    - generic [ref=e1555]:
+                      - text: q850
+                      - emphasis [ref=e1556]: 低层水汽 p75
+                    - generic [ref=e1557]:
+                      - text: tcwv
+                      - emphasis [ref=e1558]: 整层可降水量 p75
+                    - generic [ref=e1559]:
+                      - text: uv850
+                      - emphasis [ref=e1560]: 与 q850 组合为 moisture_flux850 p90
+                    - generic [ref=e1561]:
+                      - text: div850
+                      - emphasis [ref=e1562]: 低层辐合 p10，负值越强越有利
+                    - generic [ref=e1563]:
+                      - text: w700
+                      - emphasis [ref=e1564]: 700hPa 上升运动 p10
+                    - generic [ref=e1565]:
+                      - text: kindex
+                      - emphasis [ref=e1566]: 对流不稳定 p75
+                    - generic [ref=e1567]:
+                      - text: cape
+                      - emphasis [ref=e1568]: CAPE 支持 p75
+                    - generic [ref=e1569]:
+                      - text: rain6
+                      - emphasis [ref=e1570]: 模式 6 小时降水 p90
+                  - generic "阈值条目" [ref=e1571]:
+                    - generic "heavy_rain.q850" [ref=e1572]:
+                      - strong [ref=e1573]: 低层水汽
+                      - emphasis [ref=e1574]: "q850: ramp 8 g/kg · w=0.18"
+                    - generic "heavy_rain.tcwv" [ref=e1575]:
+                      - strong [ref=e1576]: 整层可降水量
+                      - emphasis [ref=e1577]: "tcwv: ramp 30 mm · w=0.12"
+                    - generic "heavy_rain.moisture_flux850" [ref=e1578]:
+                      - strong [ref=e1579]: 低层水汽输送
+                      - emphasis [ref=e1580]: "moisture_flux850: ratio 0 · w=0.18"
+                    - generic "heavy_rain.div850" [ref=e1581]:
+                      - strong [ref=e1582]: 低层辐合
+                      - emphasis [ref=e1583]: "div850: negative_ratio 0 10^-5/s · w=0.16"
+                    - generic "heavy_rain.w700" [ref=e1584]:
+                      - strong [ref=e1585]: 700hPa 上升运动
+                      - emphasis [ref=e1586]: "w700: negative_ratio 0 · w=0.16"
+                    - generic "heavy_rain.kindex" [ref=e1587]:
+                      - strong [ref=e1588]: 对流不稳定
+                      - emphasis [ref=e1589]: "kindex: ramp 25 degC · w=0.1"
+                    - generic "heavy_rain.cape" [ref=e1590]:
+                      - strong [ref=e1591]: CAPE 支持
+                      - emphasis [ref=e1592]: "cape: ratio 0 J/kg · w=0.08"
+                    - generic "heavy_rain.rain6" [ref=e1593]:
+                      - strong [ref=e1594]: 模式 6 小时降水
+                      - emphasis [ref=e1595]: "rain6: ratio 0 mm · w=0.12"
+                    - generic "region.risk.percentile" [ref=e1596]:
+                      - strong [ref=e1597]: 证据链风险区域分位阈值
+                      - emphasis [ref=e1598]: "composite_risk: >= 85 %"
+                    - generic "region.risk.min_points" [ref=e1599]:
+                      - strong [ref=e1600]: 风险区域最小格点数
+                      - emphasis [ref=e1601]: "composite_risk: >= 16 grid"
+                  - group [ref=e1602]:
+                    - generic "输出与证据契约" [ref=e1603] [cursor=pointer]
+                - article [ref=e1604]:
+                  - generic [ref=e1605]:
+                    - generic [ref=e1606]:
+                      - generic [ref=e1607]: 证据链
+                      - heading "强对流潜势" [level=4] [ref=e1608]
+                    - generic [ref=e1609]: convection_potential
+                  - paragraph [ref=e1610]: 综合不稳定能量、抑制能量、低层触发、垂直风切变与高空动力支持，输出强对流潜势等级。
+                  - generic [ref=e1611]:
+                    - generic [ref=e1612]:
+                      - strong [ref=e1613]: 判据
+                      - list [ref=e1614]:
+                        - listitem [ref=e1615]: CAPE、K 指数、水汽和风切变提供环境条件，CIN 采用 inverse_abs_ratio 判断抑制不强。
+                        - listitem [ref=e1616]: 低层辐合、高空辐散、PV 与 PV 平流用于增强触发和动力抬升证据。
+                        - listitem [ref=e1617]: 风险区域由 cape、shr850-200、q850、-div850 的归一化合成风险场分位提取。
+                    - generic [ref=e1618]:
+                      - strong [ref=e1619]: 算法
+                      - list [ref=e1620]:
+                        - listitem [ref=e1621]: score = sum(normalized_score(rule, statistic(field)) * weight)
+                        - listitem [ref=e1622]: upper_divergence 优先取 div200，缺测时回退 div300
+                        - listitem [ref=e1623]: level = score_level(score, matrix.level_thresholds)
+                  - generic [ref=e1624]:
+                    - generic [ref=e1625]:
+                      - text: cape
+                      - emphasis [ref=e1626]: 不稳定能量 p75
+                    - generic [ref=e1627]:
+                      - text: cin
+                      - emphasis [ref=e1628]: 抑制能量 p50
+                    - generic [ref=e1629]:
+                      - text: kindex
+                      - emphasis [ref=e1630]: 热力不稳定 p75
+                    - generic [ref=e1631]:
+                      - text: shr850-200
+                      - emphasis [ref=e1632]: 深层垂直风切变 p75
+                    - generic [ref=e1633]:
+                      - text: q850
+                      - emphasis [ref=e1634]: 低层水汽 p75
+                    - generic [ref=e1635]:
+                      - text: div850
+                      - emphasis [ref=e1636]: 低层触发 p10
+                    - generic [ref=e1637]:
+                      - text: div200/div300
+                      - emphasis [ref=e1638]: 高空辐散 p90，优先使用 div200
+                    - generic [ref=e1639]:
+                      - text: pv300
+                      - emphasis [ref=e1640]: 高空 PV 支持 p90
+                    - generic [ref=e1641]:
+                      - text: pvadv300
+                      - emphasis [ref=e1642]: PV 平流绝对值 p90
+                  - generic "阈值条目" [ref=e1643]:
+                    - generic "convection.cape" [ref=e1644]:
+                      - strong [ref=e1645]: 不稳定能量
+                      - emphasis [ref=e1646]: "cape: ratio 0 J/kg · w=0.22"
+                    - generic "convection.cin" [ref=e1647]:
+                      - strong [ref=e1648]: 抑制能量不强
+                      - emphasis [ref=e1649]: "cin: inverse_abs_ratio 200 J/kg · w=0.08"
+                    - generic "convection.kindex" [ref=e1650]:
+                      - strong [ref=e1651]: 热力不稳定
+                      - emphasis [ref=e1652]: "kindex: ramp 25 degC · w=0.12"
+                    - generic "convection.shr850_200" [ref=e1653]:
+                      - strong [ref=e1654]: 深层垂直风切变
+                      - emphasis [ref=e1655]: "shr850-200: ratio 0 m/s · w=0.16"
+                    - generic "convection.q850" [ref=e1656]:
+                      - strong [ref=e1657]: 低层水汽
+                      - emphasis [ref=e1658]: "q850: ramp 8 g/kg · w=0.12"
+                    - generic "convection.div850" [ref=e1659]:
+                      - strong [ref=e1660]: 低层触发
+                      - emphasis [ref=e1661]: "div850: negative_ratio 0 10^-5/s · w=0.1"
+                    - generic "convection.upper_divergence" [ref=e1662]:
+                      - strong [ref=e1663]: 高空辐散
+                      - emphasis [ref=e1664]: "div200/div300: ratio 0 10^-5/s · w=0.1"
+                    - generic "convection.pv300" [ref=e1665]:
+                      - strong [ref=e1666]: 高空 PV 支持
+                      - emphasis [ref=e1667]: "pv300: ratio 0 PVU · w=0.05"
+                    - generic "convection.pvadv300" [ref=e1668]:
+                      - strong [ref=e1669]: PV 平流支持
+                      - emphasis [ref=e1670]: "pvadv300: ratio 0 · w=0.05"
+                    - generic "region.risk.percentile" [ref=e1671]:
+                      - strong [ref=e1672]: 证据链风险区域分位阈值
+                      - emphasis [ref=e1673]: "composite_risk: >= 85 %"
+                    - generic "region.risk.min_points" [ref=e1674]:
+                      - strong [ref=e1675]: 风险区域最小格点数
+                      - emphasis [ref=e1676]: "composite_risk: >= 16 grid"
+                  - group [ref=e1677]:
+                    - generic "输出与证据契约" [ref=e1678] [cursor=pointer]
+                - article [ref=e1679]:
+                  - generic [ref=e1680]:
+                    - generic [ref=e1681]:
+                      - generic [ref=e1682]: 证据链
+                      - heading "动力抬升潜势" [level=4] [ref=e1683]
+                    - generic [ref=e1684]: dynamic_lift_potential
+                  - paragraph [ref=e1685]: 综合低层辐合、垂直运动、涡度和高空辐散，判断大尺度动力抬升配合程度。
+                  - generic [ref=e1686]:
+                    - generic [ref=e1687]:
+                      - strong [ref=e1688]: 判据
+                      - list [ref=e1689]:
+                        - listitem [ref=e1690]: 低层辐合与高空辐散构成上下配合，700hPa 负垂直速度表示上升运动。
+                        - listitem [ref=e1691]: 500hPa 正涡度和 PV 平流可反映槽前动力抬升或高空扰动支持。
+                        - listitem [ref=e1692]: 该链更强调动力条件，不替代水汽和热力判断。
+                    - generic [ref=e1693]:
+                      - strong [ref=e1694]: 算法
+                      - list [ref=e1695]:
+                        - listitem [ref=e1696]: vorticity500 = dv500/dx - du500/dy
+                        - listitem [ref=e1697]: score = sum(normalized_score(rule, statistic(field)) * weight)
+                        - listitem [ref=e1698]: level = score_level(score, matrix.level_thresholds)
+                  - generic [ref=e1699]:
+                    - generic [ref=e1700]:
+                      - text: w700
+                      - emphasis [ref=e1701]: 700hPa 垂直速度 p10
+                    - generic [ref=e1702]:
+                      - text: uv500
+                      - emphasis [ref=e1703]: 计算 500hPa 相对涡度 p90
+                    - generic [ref=e1704]:
+                      - text: div850
+                      - emphasis [ref=e1705]: 低层辐合 p10
+                    - generic [ref=e1706]:
+                      - text: div200/div300
+                      - emphasis [ref=e1707]: 高空辐散 p90
+                    - generic [ref=e1708]:
+                      - text: pvadv300
+                      - emphasis [ref=e1709]: 高空 PV 平流绝对值 p90
+                  - generic "阈值条目" [ref=e1710]:
+                    - generic "dynamic_lift.w700" [ref=e1711]:
+                      - strong [ref=e1712]: 700hPa 上升运动
+                      - emphasis [ref=e1713]: "w700: negative_ratio 0 · w=0.24"
+                    - generic "dynamic_lift.vorticity500" [ref=e1714]:
+                      - strong [ref=e1715]: 500hPa 正涡度
+                      - emphasis [ref=e1716]: "vorticity500: ratio 0 10^-5/s · w=0.2"
+                    - generic "dynamic_lift.div850" [ref=e1717]:
+                      - strong [ref=e1718]: 低层辐合
+                      - emphasis [ref=e1719]: "div850: negative_ratio 0 10^-5/s · w=0.2"
+                    - generic "dynamic_lift.upper_divergence" [ref=e1720]:
+                      - strong [ref=e1721]: 高空辐散
+                      - emphasis [ref=e1722]: "div200/div300: ratio 0 10^-5/s · w=0.2"
+                    - generic "dynamic_lift.pvadv300" [ref=e1723]:
+                      - strong [ref=e1724]: 高空 PV 平流
+                      - emphasis [ref=e1725]: "pvadv300: ratio 0 · w=0.16"
+                    - generic "region.risk.percentile" [ref=e1726]:
+                      - strong [ref=e1727]: 证据链风险区域分位阈值
+                      - emphasis [ref=e1728]: "composite_risk: >= 85 %"
+                    - generic "region.risk.min_points" [ref=e1729]:
+                      - strong [ref=e1730]: 风险区域最小格点数
+                      - emphasis [ref=e1731]: "composite_risk: >= 16 grid"
+                  - group [ref=e1732]:
+                    - generic "输出与证据契约" [ref=e1733] [cursor=pointer]
+                - article [ref=e1734]:
+                  - generic [ref=e1735]:
+                    - generic [ref=e1736]:
+                      - generic [ref=e1737]: 证据链
+                      - heading "雨雪相态初判" [level=4] [ref=e1738]
+                    - generic [ref=e1739]: precipitation_phase
+                  - paragraph [ref=e1740]: 用近地面和低层温度结构给出雨、雪、混合相态或冻雨的初步判断。
+                  - generic [ref=e1741]:
+                    - generic [ref=e1742]:
+                      - strong [ref=e1743]: 判据
+                      - list [ref=e1744]:
+                        - listitem [ref=e1745]: 相态首先受近地面温度、925/850hPa 暖层和湿球 0℃ 层控制。
+                        - listitem [ref=e1746]: 当前为格点模式资料的初判，缺少完整探空廓线时需要预报员结合整层温湿结构订正。
+                    - generic [ref=e1747]:
+                      - strong [ref=e1748]: 算法
+                      - list [ref=e1749]:
+                        - listitem [ref=e1750]: 温度统一转换为摄氏度后取区域 p50
+                        - listitem [ref=e1751]: 低层均低于 0℃ 倾向雪；近地面接近 0℃ 且低层有暖层倾向混合或冻雨
+                        - listitem [ref=e1752]: phase_type 输出 rain / mixed / snow / freezing_rain / unknown
+                  - generic [ref=e1753]:
+                    - generic [ref=e1754]:
+                      - text: t2m
+                      - emphasis [ref=e1755]: 2m 温度 p50
+                    - generic [ref=e1756]:
+                      - text: tt850
+                      - emphasis [ref=e1757]: 850hPa 温度 p50
+                    - generic [ref=e1758]:
+                      - text: tt925
+                      - emphasis [ref=e1759]: 925hPa 温度 p50
+                    - generic [ref=e1760]:
+                      - text: tw0_height
+                      - emphasis [ref=e1761]: 湿球 0℃ 层高度 p50
+                  - generic "阈值条目" [ref=e1762]:
+                    - generic "phase.t2m" [ref=e1763]:
+                      - strong [ref=e1764]: 2m 气温
+                      - emphasis [ref=e1765]: "t2m: <= 2 degC · w=0.25"
+                    - generic "phase.tt850" [ref=e1766]:
+                      - strong [ref=e1767]: 850hPa 温度
+                      - emphasis [ref=e1768]: "tt850: <= 0 degC · w=0.25"
+                    - generic "phase.tt925" [ref=e1769]:
+                      - strong [ref=e1770]: 925hPa 温度
+                      - emphasis [ref=e1771]: "tt925: <= 1 degC · w=0.25"
+                    - generic "phase.tw0_height" [ref=e1772]:
+                      - strong [ref=e1773]: 湿球 0℃ 层高度
+                      - emphasis [ref=e1774]: "tw0_height: <= 600 m · w=0.25"
+                  - group [ref=e1775]:
+                    - generic "输出与证据契约" [ref=e1776] [cursor=pointer]

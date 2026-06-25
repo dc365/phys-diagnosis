@@ -28,7 +28,7 @@ def _line(coords, feature_type: str, feature_id: str):
 
 
 def test_attach_feature_supporting_systems_links_risk_area_to_relevant_overlap_systems():
-    risk = _polygon([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]], "heavy_rain_risk", "risk-1")
+    risk = _polygon([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]], "persistent_heavy_rain_risk", "risk-1")
     moisture = _polygon([[1, 1], [4, 1], [4, 4], [1, 4], [1, 1]], "moisture_convergence", "moisture-1")
     moisture_2 = _polygon([[0.5, 0.5], [2, 0.5], [2, 2], [0.5, 2], [0.5, 0.5]], "moisture_convergence", "moisture-2")
     jet = _line([[-1, 1.5], [2, 1.5], [5, 1.5]], "low_level_jet", "jet-1")

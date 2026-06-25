@@ -47,6 +47,8 @@ def detect_moisture_transport(
                     "rank": component["rank"],
                     "point_count": component["point_count"],
                     "axis_length": component["axis_length"],
+                    "axis_length_km": round(component.get("axis_length_km", 0.0), 1),
+                    "axis_method": component.get("axis_method"),
                     "max_value": component["max_value"],
                     "mean_value": component["mean_value"],
                     "flux_threshold": threshold,
@@ -55,6 +57,7 @@ def detect_moisture_transport(
                     "evidence": [
                         f"850hPa 水汽通量超过第 {p:.0f} 百分位阈值",
                         "水汽通量高值呈连续输送带",
+                        "风矢量流线追踪得到输送轴" if component.get("axis_method") == "streamline_axis" else "高值区几何主轴作为输送轴",
                         "风向一致性支持水汽沿轴向输送" if component["direction_coherence"] is not None else "未提供风矢量一致性检验",
                     ],
                 },

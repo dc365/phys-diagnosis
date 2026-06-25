@@ -1,191 +1,199 @@
 from __future__ import annotations
 
 import numpy as np
-from weather_diag.diagnostics.grid import mask_to_bbox_features, normalize01
+from weather_diag.diagnostics.grid import mask_to_bbox_features
+from weather_diag.features.risk_scoring import (
+    score_hail,
+    score_persistent_heavy_rain,
+    score_severe_convection_composite,
+    score_short_duration_heavy_rain,
+    score_thunderstorm_gale,
+    score_rotating_storm_supercell,
+)
 from weather_diag.io.geojson import polygon_feature
 
 
-def _w(weights, key, default=0.0):
-    return float(weights.get(key, default))
-
-
-def _positive(field: np.ndarray) -> np.ndarray:
-    return np.maximum(field, 0.0)
-
-
-def _negative(field: np.ndarray) -> np.ndarray:
-    return np.maximum(-field, 0.0)
-
-
-def _weak_inhibition(field: np.ndarray) -> np.ndarray:
-    cin_abs = np.abs(field)
-    return 1.0 - normalize01(cin_abs, 5, 95)
-
-
-def _identity_score(field: np.ndarray) -> np.ndarray:
-    return normalize01(field, 10, 98)
-
-
-def _positive_score(field: np.ndarray) -> np.ndarray:
-    return normalize01(_positive(field), 10, 98)
-
-
-def _negative_score(field: np.ndarray) -> np.ndarray:
-    return normalize01(_negative(field), 10, 98)
-
-
-def _score_details(
-    fields: dict,
-    weights: dict,
-    specs: list[dict],
-) -> dict:
-    sample = next(v for v in fields.values() if v is not None)
-    score = np.zeros_like(sample, dtype=float)
-    factors = {}
-    available_weight = 0.0
-    for spec in specs:
-        field = fields.get(spec["field"])
-        if field is None:
-            continue
-        weight = _w(weights, spec["factor"])
-        factor_score = spec["score"](np.asarray(field, dtype=float))
-        contribution = weight * factor_score
-        score += contribution
-        available_weight += weight
-        factors[spec["factor"]] = {
-            "field": spec["field"],
-            "label": spec["label"],
-            "weight": weight,
-            "score": factor_score,
-            "contribution": contribution,
-        }
-    return {
-        "score": np.clip(score, 0, 1),
-        "factors": factors,
-        "available_weight": round(float(available_weight), 6),
-    }
-
-
-HEAVY_RAIN_SPECS = [
-    {"factor": "moisture_flux", "field": "moisture_flux", "label": "水汽通量", "score": _identity_score},
-    {"factor": "moisture_convergence", "field": "moisture_convergence", "label": "水汽辐合", "score": _positive_score},
-    {"factor": "low_level_convergence", "field": "div850", "label": "低层辐合", "score": _negative_score},
-    {"factor": "upward_motion", "field": "omega700", "label": "700hPa 上升运动", "score": _negative_score},
-    {"factor": "k_index", "field": "k_index", "label": "K 指数", "score": _identity_score},
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "precipitation", "field": "precipitation", "label": "模式降水", "score": _identity_score},
-]
-
-
-CONVECTION_SPECS = [
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "cin", "field": "cin", "label": "CIN 较弱", "score": _weak_inhibition},
-    {"factor": "k_index", "field": "k_index", "label": "K 指数", "score": _identity_score},
-    {"factor": "shear_0_6km", "field": "shear_0_6km", "label": "0-6km 风切变", "score": _identity_score},
-    {"factor": "low_level_convergence", "field": "div850", "label": "低层辐合触发", "score": _negative_score},
-    {"factor": "moisture", "field": "moisture", "label": "低层水汽", "score": _identity_score},
-]
-
-
-PERSISTENT_HEAVY_RAIN_SPECS = [
-    {"factor": "moisture_flux", "field": "moisture_flux", "label": "水汽通量", "score": _identity_score},
-    {"factor": "moisture_convergence", "field": "moisture_convergence", "label": "水汽辐合", "score": _positive_score},
-    {"factor": "low_level_convergence", "field": "div850", "label": "低层辐合", "score": _negative_score},
-    {"factor": "upward_motion", "field": "omega700", "label": "700hPa 上升运动", "score": _negative_score},
-    {"factor": "precipitation", "field": "precipitation", "label": "模式降水", "score": _identity_score},
-]
-
-
-SHORT_DURATION_HEAVY_RAIN_SPECS = [
-    {"factor": "moisture_flux", "field": "moisture_flux", "label": "水汽通量", "score": _identity_score},
-    {"factor": "moisture_convergence", "field": "moisture_convergence", "label": "水汽辐合", "score": _positive_score},
-    {"factor": "low_level_convergence", "field": "div850", "label": "低层辐合触发", "score": _negative_score},
-    {"factor": "k_index", "field": "k_index", "label": "K 指数", "score": _identity_score},
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "precipitation", "field": "precipitation", "label": "模式降水", "score": _identity_score},
-]
-
-
-THUNDERSTORM_GALE_SPECS = [
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "dcape", "field": "dcape", "label": "DCAPE", "score": _identity_score},
-    {"factor": "shear_0_6km", "field": "shear_0_6km", "label": "0-6km 风切变", "score": _identity_score},
-    {"factor": "low_level_convergence", "field": "div850", "label": "低层触发", "score": _negative_score},
-]
-
-
-HAIL_SPECS = [
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "shear_0_6km", "field": "shear_0_6km", "label": "0-6km 风切变", "score": _identity_score},
-    {"factor": "li", "field": "li", "label": "抬升指数", "score": _negative_score},
-]
-
-
-ROTATING_STORM_SPECS = [
-    {"factor": "cape", "field": "cape", "label": "CAPE", "score": _identity_score},
-    {"factor": "shear_0_6km", "field": "shear_0_6km", "label": "0-6km 风切变", "score": _identity_score},
-    {"factor": "srh", "field": "srh", "label": "SRH", "score": _identity_score},
-    {"factor": "shear_0_1km", "field": "shear_0_1km", "label": "0-1km 风切变", "score": _identity_score},
-]
-
-
-def heavy_rain_score_details(fields: dict, thresholds: dict) -> dict:
-    weights = thresholds.get("heavy_rain_risk", {}).get("weights", {})
-    return _score_details(fields, weights, HEAVY_RAIN_SPECS)
-
-
-def heavy_rain_score(fields: dict, thresholds: dict) -> np.ndarray:
-    return heavy_rain_score_details(fields, thresholds)["score"]
-
-
-def convection_score_details(fields: dict, thresholds: dict) -> dict:
-    weights = thresholds.get("convection_risk", {}).get("weights", {})
-    return _score_details(fields, weights, CONVECTION_SPECS)
-
-
-def convection_score(fields: dict, thresholds: dict) -> np.ndarray:
-    return convection_score_details(fields, thresholds)["score"]
-
-
 def multi_hazard_score_details(fields: dict, thresholds: dict) -> dict:
-    specs = {
-        "risk_persistent_heavy_rain_score": ("persistent_heavy_rain_risk", PERSISTENT_HEAVY_RAIN_SPECS),
-        "risk_short_duration_heavy_rain_score": ("short_duration_heavy_rain_risk", SHORT_DURATION_HEAVY_RAIN_SPECS),
-        "risk_thunderstorm_gale_score": ("thunderstorm_gale_risk", THUNDERSTORM_GALE_SPECS),
-        "risk_hail_score": ("hail_risk", HAIL_SPECS),
-        "risk_rotating_storm_score": ("rotating_storm_risk", ROTATING_STORM_SPECS),
+    hazard_outputs = {
+        "risk_persistent_heavy_rain_score": score_persistent_heavy_rain(fields, thresholds),
+        "risk_short_duration_heavy_rain_score": score_short_duration_heavy_rain(fields, thresholds),
+        "risk_thunderstorm_gale_score": score_thunderstorm_gale(fields, thresholds),
+        "risk_hail_score": score_hail(fields, thresholds),
+        "risk_rotating_storm_score": score_rotating_storm_supercell(fields, thresholds),
     }
     scores = {}
     factors = {}
     available_weights = {}
-    for grid_name, (cfg_name, cfg_specs) in specs.items():
-        weights = thresholds.get(cfg_name, {}).get("weights", {})
-        details = _score_details(fields, weights, cfg_specs)
-        configured_weight = sum(_w(weights, spec["factor"]) for spec in cfg_specs)
-        if configured_weight > 0:
-            contributions = [detail["contribution"] for detail in details["factors"].values()]
-            if contributions:
-                raw_score = np.sum(np.stack(contributions), axis=0)
-            else:
-                raw_score = details["score"]
-            scores[grid_name] = np.clip(raw_score / configured_weight, 0, 1)
-        else:
-            scores[grid_name] = details["score"]
-        factors[grid_name] = details["factors"]
-        available_weights[grid_name] = details["available_weight"]
+    metadata = {}
+    for grid_name, output in hazard_outputs.items():
+        scores[grid_name] = np.clip(np.asarray(output["score_grid"], dtype=float) / 100.0, 0.0, 1.0)
+        factors[grid_name] = _factor_details_01(output["factor_scores"])
+        available_weights[grid_name] = round(float(np.nanmax(output["confidence_grid"])), 6)
+        metadata[grid_name] = _hazard_output_metadata_01(output)
 
-    scores["risk_severe_convection_composite_score"] = np.nanmax(
-        np.stack(
-            [
-                scores["risk_short_duration_heavy_rain_score"],
-                scores["risk_thunderstorm_gale_score"],
-                scores["risk_hail_score"],
-                scores["risk_rotating_storm_score"],
-            ]
-        ),
-        axis=0,
+    composite_100 = score_severe_convection_composite(
+        hazard_outputs["risk_short_duration_heavy_rain_score"]["score_grid"],
+        hazard_outputs["risk_thunderstorm_gale_score"]["score_grid"],
+        hazard_outputs["risk_hail_score"]["score_grid"],
+        hazard_outputs["risk_rotating_storm_score"]["score_grid"],
     )
-    return {"scores": scores, "factors": factors, "available_weights": available_weights}
+    scores["risk_severe_convection_composite_score"] = np.clip(composite_100 / 100.0, 0.0, 1.0)
+    factors["risk_severe_convection_composite_score"] = {
+        "short_duration_heavy_rain": {
+            "field": "risk_short_duration_heavy_rain_score",
+            "label": "短时强降水",
+            "weight": 0.25,
+            "score": scores["risk_short_duration_heavy_rain_score"],
+            "contribution": scores["risk_short_duration_heavy_rain_score"] * 0.25,
+        },
+        "thunderstorm_gale": {
+            "field": "risk_thunderstorm_gale_score",
+            "label": "雷暴大风/下击暴流",
+            "weight": 0.25,
+            "score": scores["risk_thunderstorm_gale_score"],
+            "contribution": scores["risk_thunderstorm_gale_score"] * 0.25,
+        },
+        "hail": {
+            "field": "risk_hail_score",
+            "label": "冰雹",
+            "weight": 0.25,
+            "score": scores["risk_hail_score"],
+            "contribution": scores["risk_hail_score"] * 0.25,
+        },
+        "rotating_storm": {
+            "field": "risk_rotating_storm_score",
+            "label": "旋转风暴/超级单体潜势",
+            "weight": 0.25,
+            "score": scores["risk_rotating_storm_score"],
+            "contribution": scores["risk_rotating_storm_score"] * 0.25,
+        },
+    }
+    available_weights["risk_severe_convection_composite_score"] = float(
+        np.nanmax(
+            np.stack(
+                [
+                    np.asarray(hazard_outputs["risk_short_duration_heavy_rain_score"]["confidence_grid"], dtype=float),
+                    np.asarray(hazard_outputs["risk_thunderstorm_gale_score"]["confidence_grid"], dtype=float),
+                    np.asarray(hazard_outputs["risk_hail_score"]["confidence_grid"], dtype=float),
+                    np.asarray(hazard_outputs["risk_rotating_storm_score"]["confidence_grid"], dtype=float),
+                ]
+            )
+        )
+    )
+    metadata["risk_severe_convection_composite_score"] = _composite_metadata(
+        [
+            metadata["risk_short_duration_heavy_rain_score"],
+            metadata["risk_thunderstorm_gale_score"],
+            metadata["risk_hail_score"],
+            metadata["risk_rotating_storm_score"],
+        ]
+    )
+    quality = {
+        key: {
+            "input_completeness": value.get("input_completeness"),
+            "missing_critical_factors": value.get("missing_critical_factors", []),
+            "available_critical_factors": value.get("available_critical_factors", []),
+            "score_cap_applied": value.get("score_cap_applied", False),
+            "score_cap_value": float(np.nanmean(value.get("score_cap_grid", 1.0))) if np.asarray(value.get("score_cap_grid", 1.0)).size else 1.0,
+        }
+        for key, value in metadata.items()
+    }
+    return {"scores": scores, "factors": factors, "available_weights": available_weights, "metadata": metadata, "quality": quality}
+
+
+
+def _hazard_output_metadata_01(output: dict) -> dict:
+    completeness = np.asarray(output.get("input_completeness_grid", 1.0), dtype=float)
+    cap_grid = np.asarray(output.get("score_cap_grid", 100.0), dtype=float) / 100.0
+    cap_applied = np.asarray(output.get("score_cap_applied_grid", False), dtype=bool)
+    return {
+        "input_completeness_grid": completeness,
+        "input_completeness": float(np.nanmean(completeness)) if completeness.size else 1.0,
+        "missing_critical_factors": list(output.get("missing_critical_factors", [])),
+        "available_critical_factors": list(output.get("available_critical_factors", [])),
+        "score_cap_grid": cap_grid,
+        "score_cap_applied_grid": cap_applied,
+        "score_cap_applied": bool(output.get("score_cap_applied", False)),
+    }
+
+
+def _composite_metadata(items: list[dict]) -> dict:
+    completeness_arrays = [np.asarray(item.get("input_completeness_grid", 1.0), dtype=float) for item in items]
+    cap_arrays = [np.asarray(item.get("score_cap_grid", 1.0), dtype=float) for item in items]
+    applied_arrays = [np.asarray(item.get("score_cap_applied_grid", False), dtype=bool) for item in items]
+    completeness = np.nanmax(np.stack(completeness_arrays), axis=0) if completeness_arrays else np.array(1.0)
+    cap_grid = np.nanmax(np.stack(cap_arrays), axis=0) if cap_arrays else np.array(1.0)
+    applied = np.any(np.stack(applied_arrays), axis=0) if applied_arrays else np.array(False)
+    missing: list[str] = []
+    available: list[str] = []
+    for item in items:
+        for name in item.get("missing_critical_factors", []):
+            if name not in missing:
+                missing.append(name)
+        for name in item.get("available_critical_factors", []):
+            if name not in available:
+                available.append(name)
+    return {
+        "input_completeness_grid": completeness,
+        "input_completeness": float(np.nanmean(completeness)) if completeness.size else 1.0,
+        "missing_critical_factors": missing,
+        "available_critical_factors": available,
+        "score_cap_grid": cap_grid,
+        "score_cap_applied_grid": applied,
+        "score_cap_applied": bool(np.any(applied)),
+    }
+
+
+def _factor_details_01(factor_scores: dict | None) -> dict:
+    if not factor_scores:
+        return {}
+    out = {}
+    for factor, detail in factor_scores.items():
+        score = np.asarray(detail.get("score", 0.0), dtype=float) / 100.0
+        contribution = np.asarray(detail.get("contribution", 0.0), dtype=float) / 100.0
+        out[factor] = {
+            "field": detail.get("field", factor),
+            "label": detail.get("label", factor),
+            "weight": float(detail.get("weight", 0.0)),
+            "score": score,
+            "contribution": contribution,
+        }
+    return out
+
+
+def _quality_detail_01(output: dict) -> dict:
+    quality = dict(output.get("quality") or {})
+    if "input_completeness" not in quality and "input_completeness" in output:
+        quality["input_completeness"] = float(output.get("input_completeness") or 0.0)
+    if "missing_critical_factors" not in quality:
+        quality["missing_critical_factors"] = list(output.get("missing_critical_factors") or [])
+    if "available_critical_factors" not in quality:
+        quality["available_critical_factors"] = list(output.get("available_critical_factors") or [])
+    if "score_cap_applied" not in quality:
+        quality["score_cap_applied"] = bool(output.get("score_cap_applied"))
+    if "score_cap_value" not in quality:
+        quality["score_cap_value"] = output.get("score_cap_value")
+    grid = output.get("input_completeness_grid")
+    if grid is not None:
+        quality["input_completeness_grid"] = np.clip(np.asarray(grid, dtype=float), 0.0, 1.0)
+    return quality
+
+
+def _combine_quality_details(*items: dict | None) -> dict:
+    valid = [item for item in items if item]
+    if not valid:
+        return {}
+    completeness = min(float(item.get("input_completeness", 1.0)) for item in valid)
+    missing = sorted({factor for item in valid for factor in item.get("missing_critical_factors", [])})
+    available = sorted({factor for item in valid for factor in item.get("available_critical_factors", [])})
+    caps = [float(item["score_cap_value"]) for item in valid if item.get("score_cap_value") is not None]
+    return {
+        "input_completeness": completeness,
+        "missing_critical_factors": missing,
+        "available_critical_factors": available,
+        "score_cap_applied": any(bool(item.get("score_cap_applied")) for item in valid),
+        "score_cap_value": min(caps) if caps else None,
+    }
 
 
 def _factor_dominance(
@@ -217,6 +225,34 @@ def _factor_dominance(
     return out[:limit]
 
 
+
+def _risk_metadata_for_component(metadata: dict | None, ys: np.ndarray, xs: np.ndarray) -> dict:
+    if not metadata:
+        return {
+            "input_completeness": 1.0,
+            "missing_critical_factors": [],
+            "score_cap_applied": False,
+            "score_cap": 1.0,
+        }
+    completeness_grid = np.asarray(metadata.get("input_completeness_grid", metadata.get("input_completeness", 1.0)), dtype=float)
+    score_cap_grid = np.asarray(metadata.get("score_cap_grid", 1.0), dtype=float)
+    cap_applied_grid = np.asarray(metadata.get("score_cap_applied_grid", False), dtype=bool)
+    def _take_mean(arr, default):
+        if arr.shape == ():
+            return float(arr)
+        return float(np.nanmean(arr[ys, xs])) if arr.size else float(default)
+    def _take_any(arr):
+        if arr.shape == ():
+            return bool(arr)
+        return bool(np.any(arr[ys, xs])) if arr.size else False
+    return {
+        "input_completeness": round(_take_mean(completeness_grid, metadata.get("input_completeness", 1.0)), 3),
+        "missing_critical_factors": list(metadata.get("missing_critical_factors", [])),
+        "score_cap_applied": _take_any(cap_applied_grid) or bool(metadata.get("score_cap_applied", False)),
+        "score_cap": round(_take_mean(score_cap_grid, 1.0), 3),
+    }
+
+
 def _ranked_risk_features(
     score: np.ndarray,
     lat,
@@ -227,6 +263,7 @@ def _ranked_risk_features(
     cfg: dict,
     factor_details: dict | None,
     base_evidence: str,
+    risk_metadata: dict | None = None,
 ) -> list[dict]:
     threshold = float(cfg.get("score_threshold", 0.6))
     high_threshold = float(cfg.get("high_score_threshold", max(0.72, threshold + 0.1)))
@@ -253,6 +290,7 @@ def _ranked_risk_features(
         core_points = int(np.count_nonzero(values >= high_threshold))
         risk_level = "high" if core_points > 0 else "moderate"
         dominant = _factor_dominance(factor_details, ys, xs)
+        metadata_summary = _risk_metadata_for_component(risk_metadata, ys, xs)
         evidence = [
             base_evidence,
             f"综合评分最大值 {max_value:.2f}，平均值 {mean_value:.2f}",
@@ -263,6 +301,10 @@ def _ranked_risk_features(
             evidence.append(f"外围区达到 {threshold:.2f} 中等潜势阈值，未形成高潜势核心")
         if dominant:
             evidence.append("主导因子：" + "、".join(f"{item['label']} {item['mean_contribution']:.2f}" for item in dominant))
+        if metadata_summary["missing_critical_factors"]:
+            evidence.append("缺失关键因子：" + "、".join(metadata_summary["missing_critical_factors"]))
+        if metadata_summary["score_cap_applied"]:
+            evidence.append("因关键因子不完整，已对风险评分进行上限约束")
 
         props = {
             "id": f"{feature_type}_{rank:03d}",
@@ -281,52 +323,14 @@ def _ranked_risk_features(
             "score_threshold": threshold,
             "high_score_threshold": high_threshold,
             "dominant_factors": dominant,
+            "input_completeness": metadata_summary["input_completeness"],
+            "missing_critical_factors": metadata_summary["missing_critical_factors"],
+            "score_cap_applied": metadata_summary["score_cap_applied"],
+            "score_cap": metadata_summary["score_cap"],
             "evidence": evidence,
         }
         features.append(polygon_feature(item["geometry"], props))
     return features
-
-
-def detect_heavy_rain_risk(
-    score: np.ndarray,
-    lat,
-    lon,
-    thresholds: dict,
-    *,
-    factor_details: dict | None = None,
-) -> list[dict]:
-    cfg = thresholds.get("heavy_rain_risk", {})
-    return _ranked_risk_features(
-        score,
-        lat,
-        lon,
-        feature_type="heavy_rain_risk",
-        title="强降水潜势区",
-        cfg=cfg,
-        factor_details=factor_details,
-        base_evidence="水汽输送、水汽辐合、低层辐合、上升运动和热力条件综合评分较高",
-    )
-
-
-def detect_convection_risk(
-    score: np.ndarray,
-    lat,
-    lon,
-    thresholds: dict,
-    *,
-    factor_details: dict | None = None,
-) -> list[dict]:
-    cfg = thresholds.get("convection_risk", {})
-    return _ranked_risk_features(
-        score,
-        lat,
-        lon,
-        feature_type="convection_risk",
-        title="强对流潜势区",
-        cfg=cfg,
-        factor_details=factor_details,
-        base_evidence="CAPE、CIN、风切变、低层水汽、低层触发条件综合评分较高",
-    )
 
 
 def detect_hazard_risk_features(
@@ -337,6 +341,7 @@ def detect_hazard_risk_features(
     thresholds: dict,
     *,
     factor_details: dict | None = None,
+    risk_metadata: dict | None = None,
 ) -> list[dict]:
     from weather_diag.diagnosis.risk_taxonomy import hazard_metadata
 
@@ -351,6 +356,7 @@ def detect_hazard_risk_features(
         cfg=cfg,
         factor_details=factor_details,
         base_evidence=meta["label"] + "综合评分较高",
+        risk_metadata=risk_metadata,
     )
     for feature in features:
         props = feature.setdefault("properties", {})

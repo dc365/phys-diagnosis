@@ -15,7 +15,7 @@ from backend.app.api.v1.diagnosis import router as public_diagnosis_router
 from backend.app.api.v1.files import router as public_files_router
 from backend.app.api.v1.jobs import router as public_jobs_router
 from backend.app.api.v1.runs import router as public_runs_router
-from backend.app.responses import ApiError, api_error_handler, validation_error_handler
+from backend.app.responses import ApiError, api_error_handler, strip_private_paths, validation_error_handler
 from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 from weather_diag.data.reader import inspect_netcdf
@@ -70,7 +70,7 @@ def favicon():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "data_dir": str(DATA_DIR)}
+    return {"status": "ok"}
 
 
 @app.get("/api/models")
@@ -112,8 +112,8 @@ def layers():
 
 @app.post("/api/jobs/generate-demo")
 def generate_demo():
-    path = create_demo_ecmwf_netcdf(RAW_DIR / "ecmwf_demo.nc")
-    return {"status": "ok", "file_path": str(path), "hint": "Now call /api/jobs/diagnose with run_id=ecmwf_demo"}
+    create_demo_ecmwf_netcdf(RAW_DIR / "ecmwf_demo.nc")
+    return {"status": "ok", "hint": "Now call /api/jobs/diagnose with run_id=ecmwf_demo"}
 
 
 @app.post("/api/jobs/diagnose")
@@ -128,7 +128,7 @@ def diagnose(model: str = "ecmwf", file_path: str = "data/raw/ecmwf_demo.nc", ru
         raise HTTPException(404, f"NetCDF file not found: {file_path}")
     try:
         result = diagnose_file(p, model=model, run_id=run_id)
-        return result
+        return strip_private_paths(result)
     except Exception as e:
         raise HTTPException(500, f"diagnose failed: {e}")
 
@@ -142,7 +142,7 @@ def inspect(path: str):
             p = project_root / p
     if not p.exists():
         raise HTTPException(404, f"file not found: {path}")
-    return inspect_netcdf(p)
+    return strip_private_paths(inspect_netcdf(p))
 
 
 @app.get("/api/layers/{layer_id}/metadata")
@@ -250,7 +250,7 @@ def features(run_id: str, forecast_hour: int, type: Optional[str] = Query(defaul
     fc = load_features(run_id, forecast_hour)
     if type:
         fc["features"] = [f for f in fc.get("features", []) if f.get("properties", {}).get("feature_type") == type]
-    return fc
+    return strip_private_paths(fc)
 
 
 @app.get("/api/features/{feature_id}")
@@ -258,22 +258,23 @@ def feature_detail(feature_id: str, run_id: str, forecast_hour: int):
     fc = load_features(run_id, forecast_hour)
     for f in fc.get("features", []):
         if f.get("properties", {}).get("id") == feature_id:
-            return f
+            return strip_private_paths(f)
     raise HTTPException(404, f"feature not found: {feature_id}")
 
 
 @app.get("/api/analysis/situation")
 def situation(run_id: str, forecast_hour: int, region: str = "default"):
-    return load_analysis(run_id, forecast_hour)
+    return strip_private_paths(load_analysis(run_id, forecast_hour))
 
 
 @app.get("/api/analysis/heavy-rain")
 def heavy_rain(run_id: str, forecast_hour: int):
     analysis = load_analysis(run_id, forecast_hour)
+    counts = analysis.get("feature_counts", {})
     return {
         "summary": analysis.get("summary"),
-        "heavy_rain_risk_count": analysis.get("feature_counts", {}).get("heavy_rain_risk", 0),
-        "detail": analysis.get("detail"),
+        "precipitation_risk_count": counts.get("persistent_heavy_rain_risk", 0) + counts.get("short_duration_heavy_rain_risk", 0),
+        "detail": strip_private_paths(analysis.get("detail")),
         "disclaimer": analysis.get("disclaimer"),
     }
 
@@ -281,9 +282,16 @@ def heavy_rain(run_id: str, forecast_hour: int):
 @app.get("/api/analysis/convection")
 def convection(run_id: str, forecast_hour: int):
     analysis = load_analysis(run_id, forecast_hour)
+    counts = analysis.get("feature_counts", {})
     return {
         "summary": analysis.get("summary"),
-        "convection_risk_count": analysis.get("feature_counts", {}).get("convection_risk", 0),
-        "detail": analysis.get("detail"),
+        "severe_convection_risk_count": (
+            counts.get("short_duration_heavy_rain_risk", 0)
+            + counts.get("thunderstorm_gale_risk", 0)
+            + counts.get("hail_risk", 0)
+            + counts.get("rotating_storm_risk", 0)
+            + counts.get("severe_convection_composite_risk", 0)
+        ),
+        "detail": strip_private_paths(analysis.get("detail")),
         "disclaimer": analysis.get("disclaimer"),
     }

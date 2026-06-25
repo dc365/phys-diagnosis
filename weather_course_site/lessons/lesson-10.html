@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 10 课：垂直风切变｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-10.html" data-lesson-id="lesson-10">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 10 课：垂直风切变</h1>
+          <p class="subtitle">风切变决定雷暴能不能组织、维持和旋转。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>掌握垂直风切变的概念、分层意义以及它和 CAPE 的配合关系。</p>
+<h2>1. 垂直风切变是什么</h2>
+<p>垂直风切变就是风随高度发生变化，包括风速变化和风向变化。</p>
+<pre><code class="language-text">地面：东南风 3 m/s
+850hPa：南风 12 m/s
+500hPa：西南风 25 m/s
+200hPa：西风 35 m/s
+</code></pre>
+<h2>2. 为什么风切变重要</h2>
+<p>风切变合适时，雷暴云体倾斜，上升气流和降水下沉区分开，雷暴更容易维持。风切变弱时，降水容易落回上升气流区，雷暴短命。</p>
+<div class="sketch">
+<pre>
+弱切变：上升气流 ↑ 与降水 ↓ 重叠 → 雷暴容易自己浇灭
+强切变：云体倾斜，上升区和降水区分离 → 更能维持和组织
+</pre>
+</div>
+
+<h2>3. 0–6 km 风切变</h2>
+<p>主要看雷暴整体组织能力。较强的 0–6 km 风切变有利于多单体、线状对流、飑线、超级单体、冰雹和雷暴大风。</p>
+<h2>4. 0–1 km 风切变</h2>
+<p>主要看低层旋转、近地面风暴结构和龙卷潜势。需要和 SRH、LCL、低层水汽、风暴结构一起看。</p>
+<h2>5. SRH</h2>
+<p>SRH 是风暴相对螺旋度，描述环境风相对于风暴运动时低层旋转条件。SRH 高不等于一定龙卷，但说明旋转风暴条件更有利。</p>
+<h2>6. CAPE 和风切变配合</h2>
+<table>
+<thead>
+<tr>
+  <th>CAPE</th>
+  <th>风切变</th>
+  <th>可能类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>大</td>
+  <td>弱</td>
+  <td>脉冲型雷暴，短时强但短命</td>
+</tr>
+<tr>
+  <td>中等到大</td>
+  <td>较强</td>
+  <td>多单体、飑线、超级单体风险升高</td>
+</tr>
+<tr>
+  <td>小</td>
+  <td>强</td>
+  <td>有组织条件但燃料不足</td>
+</tr>
+<tr>
+  <td>大且 CIN 大</td>
+  <td>强</td>
+  <td>等触发，触发后可能快速爆发</td>
+</tr>
+</tbody>
+</table>
+<h2>7. 短时强降水与风切变</h2>
+<p>短时强降水不一定要求风切变很强。弱风环境下单体移动慢，也可能造成“原地倒水”；中等切变下若单体反复经过同一地区，可能产生列车效应。</p>
+<h2>本课一句话</h2>
+<blockquote>
+<p>CAPE 决定对流能不能强，风切变决定对流能不能组织、持久、成线、旋转和发展成更危险的强对流系统。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-09.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-11.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

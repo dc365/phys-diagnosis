@@ -6,15 +6,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from weather_diag.config import load_yaml
+from weather_diag.config import PROJECT_ROOT, load_yaml
 
 
 FALLBACK_NAFP_SOURCE = {
-    "code": "NAFP_ECTHIN_NEW_NC",
-    "name": "NAFP_ECTHIN_NEW_NC",
+    "code": "NAFP_ECTHIN_NC",
+    "label": "ECTHIN",
+    "name": "NAFP_ECTHIN_NC",
     "model": "EC",
     "format": "nc",
-    "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+    "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC",
     "forecast_hour_start": 0,
     "forecast_hour_end": 240,
     "forecast_hour_step": 3,
@@ -31,7 +32,11 @@ NAFP_FORECAST_FILE_RE = re.compile(r"^(?P<stamp>\d{8})\.(?P<forecast_hour>\d{3})
 
 
 def _expand_root(value: str) -> str:
-    return str(Path(os.path.expandvars(os.path.expanduser(value))))
+    expanded = os.path.expandvars(os.path.expanduser(value))
+    path = Path(expanded)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return str(path.resolve())
 
 
 def _forecast_hour_range(raw: dict[str, Any]) -> dict[str, int]:
@@ -57,6 +62,13 @@ def _normalize_source(raw: dict[str, Any]) -> dict[str, Any]:
     hour_range = _forecast_hour_range(raw)
     return {
         "code": code,
+        "label": str(
+            raw.get("label")
+            or raw.get("display_name")
+            or raw.get("mode_name")
+            or raw.get("name")
+            or code
+        ),
         "name": str(raw.get("name") or code),
         "model": str(raw.get("model") or ""),
         "format": str(raw.get("format") or ""),

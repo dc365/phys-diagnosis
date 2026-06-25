@@ -50,6 +50,8 @@ def detect_low_level_jet(
             "rank": component["rank"],
             "point_count": component["point_count"],
             "axis_length": component["axis_length"],
+            "axis_length_km": round(component.get("axis_length_km", 0.0), 1),
+            "axis_method": component.get("axis_method"),
             "max_wind_ms": round(max_ws, 2),
             "mean_wind_ms": round(component["mean_value"], 2),
             "direction_coherence": None if component["direction_coherence"] is None else round(component["direction_coherence"], 3),
@@ -57,6 +59,7 @@ def detect_low_level_jet(
             "evidence": [
                 f"850hPa 风速达到 {max_ws:.1f} m/s",
                 "风速高值呈连续轴带分布",
+                "风矢量流线追踪得到低空急流轴" if component.get("axis_method") == "streamline_axis" else "风速高值区几何主轴作为低空急流轴",
                 "风向一致性满足低空急流轴判断" if component["direction_coherence"] is not None else "未提供风矢量一致性检验",
             ],
         }

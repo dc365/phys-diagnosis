@@ -1,0 +1,3780 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>睿云物理量业务平台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23143d66'/%3E%3Cpath d='M12 42c7-13 15-18 23-15 5 2 8 1 17-8' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M15 48h34' stroke='%23087f77' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #f5f4ed;
+      --paper: #faf9f5;
+      --ink: #141413;
+      --muted: #6b6a64;
+      --line: #e8e6dc;
+      --soft: #f1efe7;
+      --soft-2: #f7f5ee;
+      --blue: #1b365d;
+      --blue-2: #1b365d;
+      --teal: #2d5a8a;
+      --green: #4d5a3a;
+      --amber: #8a5e20;
+      --rose: #8b3f4d;
+      --violet: #4a4860;
+      --shadow: 0 8px 24px rgba(80, 78, 73, 0.08);
+      --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC",
+        "Songti SC", "STSong", Georgia, serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;
+      font-family: var(--sans);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 1180px;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      letter-spacing: 0.1px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px 18px;
+      background: #faf9f5;
+      border-right: 1px solid var(--line);
+      overflow: auto;
+    }
+
+    .brand {
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 23px;
+      line-height: 1.22;
+    }
+
+    .brand p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toc {
+      display: grid;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .toc a {
+      display: block;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #3d3d3a;
+      background: #faf9f5;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .toc a:hover,
+    .toc a.active {
+      border-color: #d0dce9;
+      background: #eef2f7;
+      color: var(--blue);
+    }
+
+    .owner-box {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #f7f5ee;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .owner-box b {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink);
+    }
+
+    .main {
+      padding: 24px 28px 42px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) 420px;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .hero-copy,
+    .visual-board,
+    .panel,
+    .metric-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-copy {
+      padding: 24px;
+    }
+
+    .hero-copy h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 32px;
+      line-height: 1.18;
+    }
+
+    .hero-copy .lead {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #f7f5ee;
+      color: #3d3d3a;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tag.blue {
+      border-color: #d0dce9;
+      background: #eef2f7;
+      color: var(--blue-2);
+    }
+
+    .tag.teal {
+      border-color: #d0dce9;
+      background: #eef2f7;
+      color: var(--blue-2);
+    }
+
+    .tag.green {
+      border-color: #ded9c6;
+      background: #f1efe7;
+      color: #4d5a3a;
+    }
+
+    .tag.amber {
+      border-color: #ded9c6;
+      background: #fbf3dd;
+      color: var(--amber);
+    }
+
+    .visual-board {
+      position: relative;
+      min-height: 280px;
+      padding: 18px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, #faf9f5, #f7f5ee),
+        repeating-linear-gradient(0deg, transparent, transparent 35px, #e8e6dc 36px);
+    }
+
+    .visual-title {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .flow-node {
+      min-height: 45px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #faf9f5;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .flow-node small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .flow-node.core {
+      border-color: #d0dce9;
+      background: #eef2f7;
+      color: var(--blue-2);
+    }
+
+    .flow-node.warn {
+      border-color: #ded9c6;
+      background: #fbf3dd;
+      color: var(--amber);
+    }
+
+    .flow-line {
+      min-height: 45px;
+      border-left: 3px solid var(--blue);
+      padding-left: 13px;
+      color: #3d3d3a;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .section {
+      margin-top: 18px;
+      scroll-margin-top: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0 0 12px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      border-left: 4px solid var(--blue);
+      padding-left: 12px;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 24px;
+    }
+
+    .section-title p {
+      max-width: 680px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 52px;
+      padding: 12px 14px;
+      background: var(--soft-2);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    .panel-header span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-align: right;
+    }
+
+    .panel-body {
+      padding: 14px;
+    }
+
+    .metric-card {
+      min-height: 124px;
+      padding: 14px;
+    }
+
+    .metric-card b {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-top: 6px;
+      color: var(--blue);
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 25px;
+      line-height: 1.16;
+    }
+
+    .metric-card span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 9px;
+      vertical-align: top;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      color: #3d3d3a;
+      background: #f7f5ee;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f1efe7;
+      color: #3d3d3a;
+    }
+
+    .pill.required {
+      background: #eef2f7;
+      color: var(--blue-2);
+    }
+
+    .pill.optional {
+      background: #f1efe7;
+      color: #246224;
+    }
+
+    .pill.risk {
+      background: #fbf3dd;
+      color: #865100;
+    }
+
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #eef2f7;
+      color: #3d3d3a;
+      font-size: 14px;
+    }
+
+    .callout b {
+      color: var(--blue-2);
+    }
+
+    .callout.teal {
+      border-left-color: var(--blue);
+      background: #eef2f7;
+    }
+
+    .callout.amber {
+      border-left-color: var(--amber);
+      background: #fbf3dd;
+    }
+
+    .diagnosis-preview {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) 360px;
+      gap: 14px;
+      align-items: start;
+      margin-top: 12px;
+    }
+
+    .output-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .trend-box {
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #eef2f7;
+    }
+
+    .trend-box h4 {
+      margin: 0 0 6px;
+      color: var(--blue-2);
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 18px;
+    }
+
+    .trend-box p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .diagnosis-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .list-block {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #faf9f5;
+    }
+
+    .list-block h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .list-block ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .list-block li + li {
+      margin-top: 5px;
+    }
+
+    .step-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .step-list li {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #faf9f5;
+    }
+
+    .step-no {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--blue-2);
+      color: #faf9f5;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .step-list b {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .step-list span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    pre {
+      max-height: 430px;
+      margin: 0;
+      overflow: auto;
+      border-radius: 8px;
+      padding: 14px;
+      background: #30302e;
+      color: #f7f5ee;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre;
+    }
+
+    .canvas-wrap {
+      height: 300px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #faf9f5;
+      overflow: hidden;
+    }
+
+    .skewt-image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #ffffff;
+    }
+
+    .profiler-panel {
+      grid-column: 1 / -1;
+    }
+
+    .profiler-wrap {
+      height: 560px;
+    }
+
+    .station-selector {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .station-button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 6px 12px;
+      background: #faf9f5;
+      color: #3d3d3a;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .station-button:hover,
+    .station-button.active {
+      border-color: #d0dce9;
+      background: #eef2f7;
+      color: var(--blue-2);
+    }
+
+    .station-meta {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .module-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 14px;
+      align-items: stretch;
+      margin-bottom: 14px;
+    }
+
+    .module-summary {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #faf9f5;
+      box-shadow: var(--shadow);
+    }
+
+    .module-summary h3 {
+      margin: 0 0 8px;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 21px;
+    }
+
+    .module-summary p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .module-summary .tag-row {
+      margin-top: 14px;
+    }
+
+    .audit-box {
+      padding: 14px;
+      border: 1px solid #ded9c6;
+      border-radius: 8px;
+      background: #fbf3dd;
+      box-shadow: var(--shadow);
+    }
+
+    .audit-box h4 {
+      margin: 0 0 8px;
+      color: var(--amber);
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    .audit-box ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #5a4a2d;
+      font-size: 13px;
+    }
+
+    .audit-box li + li {
+      margin-top: 5px;
+    }
+
+    .data-flow {
+      display: grid;
+      grid-template-columns: 1fr 34px 1fr 34px 1fr;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .data-flow .box {
+      min-height: 112px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #faf9f5;
+    }
+
+    .data-flow h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .data-flow p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue-2);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .live-data {
+      margin: 0 0 14px;
+      border: 1px solid #d0dce9;
+      border-radius: 8px;
+      background: #f7f9fb;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .live-data .live-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #dce6ef;
+      background: #eef2f7;
+    }
+
+    .live-data h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 17px;
+      color: var(--blue-2);
+    }
+
+    .live-data .live-status {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-align: right;
+    }
+
+    .live-body {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .live-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .live-metric {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #faf9f5;
+    }
+
+    .live-metric b {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .live-metric strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--blue-2);
+      font-size: 17px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .live-metric span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .live-table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #faf9f5;
+    }
+
+    .api-console {
+      display: grid;
+      grid-template-columns: minmax(420px, 0.9fr) minmax(0, 1.1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .field-row label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .text-input,
+    .api-editor {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #faf9f5;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .text-input {
+      min-height: 38px;
+      padding: 7px 10px;
+    }
+
+    .api-editor {
+      min-height: 360px;
+      padding: 12px;
+      resize: vertical;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .api-summary-viewer {
+      min-height: 360px;
+    }
+
+    .api-summary-viewer .diagnosis-preview {
+      margin-top: 0;
+      grid-template-columns: minmax(0, 1.1fr) 330px;
+    }
+
+    .api-summary-viewer .grid.two {
+      gap: 10px;
+    }
+
+    .summary-empty {
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #eef2f7;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary-error {
+      border-left-color: var(--rose);
+      background: #fbf0f2;
+      color: #7b3340;
+      white-space: pre-wrap;
+    }
+
+    .api-meta-list {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .api-meta-list div {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 7px;
+    }
+
+    .api-meta-list div:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .api-meta-list dt {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .api-meta-list dd {
+      margin: 0;
+      color: #3d3d3a;
+      overflow-wrap: anywhere;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .action-button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 7px 12px;
+      background: #faf9f5;
+      color: #3d3d3a;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .action-button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #faf9f5;
+    }
+
+    .action-button.secondary {
+      border-color: #d8c5ad;
+      background: #fbf3dd;
+      color: var(--amber);
+    }
+
+    .status-line {
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .status-line.ok {
+      color: #246224;
+    }
+
+    .status-line.warn {
+      color: var(--amber);
+    }
+
+    .status-line.err {
+      color: #8b3f4d;
+    }
+
+    .response-tabs {
+      display: inline-flex;
+      gap: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 3px;
+      background: var(--soft);
+    }
+
+    .response-tabs button {
+      min-height: 28px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 9px;
+    }
+
+    .response-tabs button.active {
+      background: #faf9f5;
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgba(80, 78, 73, 0.08);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .check-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #faf9f5;
+    }
+
+    .check-item b {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .check-item span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .phase {
+      min-height: 155px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #faf9f5;
+    }
+
+    .phase b {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--blue-2);
+      font-family: var(--serif);
+      font-weight: 500;
+    }
+
+    .phase ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .phase li + li {
+      margin-top: 4px;
+    }
+
+    .footer {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    @media (max-width: 1240px) {
+      body {
+        min-width: 980px;
+      }
+
+      .layout {
+        grid-template-columns: 240px minmax(0, 1fr);
+      }
+
+      .hero,
+      .module-header {
+        grid-template-columns: 1fr;
+      }
+
+      .four,
+      .three {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .timeline {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .diagnosis-preview {
+        grid-template-columns: 1fr;
+      }
+
+      .live-grid,
+      .api-console {
+        grid-template-columns: 1fr;
+      }
+
+      .field-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <p class="eyebrow">睿云物理量业务平台</p>
+        <h1>数值预报 + 实况探空 + 风廓线</h1>
+        <p>面向短临 0-6h，按“先定势、再定点、再修正”的业务流程组织环境诊断。</p>
+      </div>
+      <nav class="toc" aria-label="页面目录">
+        <a href="#overview">1. 原型总览</a>
+        <a href="#nwp">2. 数值预报物理量模块</a>
+        <a href="#sounding">3. 实况探空/TlogP模块</a>
+        <a href="#profiler">4. 风廓线模块</a>
+        <a href="#config">5. 资料与配置概览</a>
+        <a href="#contracts">6. 原型输入与输出</a>
+        <a href="#verification">7. 原型验证用例</a>
+        <a href="#api-debug">8. 接口联调与数据调试</a>
+      </nav>
+      <div class="owner-box">
+        <b>原型用途</b>
+        明确模块边界、配置项、输入输出和验证样例，让业务验证和研发实现使用同一套口径。
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="hero" id="overview">
+        <div class="hero-copy">
+          <p class="eyebrow">开发原型定位</p>
+          <h2>以数值预报和实况探空先定势的短临诊断流程</h2>
+          <p class="lead">
+            本原型按预报员实际分析顺序组织：数值预报物理量和实况探空/TlogP 先判断环境定势，雷达/卫星再判断回波位置和强度，
+            风廓线与实况资料用于细化垂直结构、系统进度和短时修正。紧急临近场景下雷达仍是最直接预警信息，
+            但日常短临分析首要背景是订正后的数值预报物理量和探空实况。
+          </p>
+          <div class="tag-row">
+            <span class="tag blue">数值预报：EC/GFS</span>
+            <span class="tag teal">实况探空：福州/南平</span>
+            <span class="tag green">雷达/卫星：定点定强</span>
+            <span class="tag amber">风廓线：实时补充</span>
+            <span class="tag amber">输出：定性趋势 + 证据链</span>
+          </div>
+        </div>
+
+        <div class="visual-board" aria-label="诊断流程图">
+          <p class="visual-title">0-6h 短临环境诊断流程</p>
+          <div class="flow">
+            <div class="flow-row">
+              <div class="flow-node core">数值预报物理量<small>定势</small></div>
+              <div class="flow-line">上午会商前先看 EC/GFS 等模式；实际半夜四五点资料到齐后即可分析，判断能量、水汽、抬升、切变和触发条件。</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-node">实况探空/TlogP<small>校验</small></div>
+              <div class="flow-line">福州站、南平站提供实况垂直廓线，用于校验环境层结、湿层、抑制和探空指数。</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-node warn">雷达/卫星<small>定点定强</small></div>
+              <div class="flow-line">在有利环境区内追踪回波发生、发展、移动、强度、径向速度和垂直结构。</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-node">实况/风廓线<small>定结构</small></div>
+              <div class="flow-line">结合自动站、实况预报数据和风廓线，细化低层入流、切变、急流、系统进度。</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-node">物理量修正<small>定演变</small></div>
+              <div class="flow-line">根据雷达和实况反馈回看环境场，判断对流维持、增强、减弱或转移。</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-node core">综合意见<small>0-6h</small></div>
+              <div class="flow-line">输出趋势等级、支持证据、限制条件、可信度和结构化结果。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="grid four">
+          <div class="metric-card">
+            <b>首要资料</b>
+            <strong>数值预报</strong>
+            <span>先判断环境是否支持对流发展、维持或加强，再决定雷达重点盯防区域。</span>
+          </div>
+          <div class="metric-card">
+            <b>分析时点</b>
+            <strong>会商前</strong>
+            <span>TlogP 和物理量每天上午会商前分析；资料半夜四五点到后即可提前分析。</span>
+          </div>
+          <div class="metric-card">
+            <b>短临跟踪</b>
+            <strong>雷达/实况</strong>
+            <span>在环境背景确定后，用雷达、卫星和实况资料定位、定强、定移动。</span>
+          </div>
+          <div class="metric-card">
+            <b>配置重点</b>
+            <strong>模式 + 站点</strong>
+            <span>EC/GFS 等数值模式、福州/南平探空站、风廓线站、阈值和话术模板均需可配置。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="nwp">
+        <div class="section-title">
+          <h2>2. 数值预报物理量模块</h2>
+          <p>本模块只处理 EC、GFS 等数值预报模式资料，输出福州区域未来 0-24h 的环境物理量和模式 TlogP，业务重点关注未来 2-6h。</p>
+        </div>
+
+        <div class="module-header">
+          <div class="module-summary">
+            <h3>模块定位</h3>
+            <p>
+              数值预报物理量是短临分析的首要背景资料。TlogP 和物理量每天上午会商前分析；
+              实际半夜四五点资料到齐后即可提前分析。该模块按模式、起报时次、预报时效输出福州区域的热力、水汽、动力、对流指数和模式 TlogP，
+              用于判断环境是否支持对流发展、维持或加强。
+            </p>
+            <div class="tag-row">
+              <span class="tag blue">资料类型：数值预报</span>
+              <span class="tag teal">模式：EC/GFS 等</span>
+              <span class="tag amber">时点：上午会商前</span>
+              <span class="tag green">重点：2-6h 环境趋势</span>
+            </div>
+          </div>
+          <div class="audit-box">
+            <h4>数据边界</h4>
+            <ul>
+              <li>EC、GFS 等均属于预报资料，不与探空实况站混在同一数据对象中。</li>
+              <li>输出按模式、起报时次、预报时效组织，空间范围只做福州区域。</li>
+              <li>数值预报也提供模式 TlogP 图，与实况探空 TlogP 分开展示。</li>
+              <li>多模式结论保留差异，再形成融合诊断，不只给平均值。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="live-data" id="nwpLiveData">
+          <div class="live-head">
+            <h3>接口返回数据 · 数值预报</h3>
+            <span class="live-status" id="nwpLiveStatus">等待第 8 节运行诊断后刷新</span>
+          </div>
+          <div class="live-body">
+            <div class="live-grid" id="nwpLiveMetrics">
+              <div class="live-metric"><b>资料状态</b><strong>未请求</strong><span>运行接口后显示模式、时效和关键物理量。</span></div>
+            </div>
+            <div class="live-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 12%;">模式</th>
+                    <th style="width: 18%;">起报/时效</th>
+                    <th>CAPE</th>
+                    <th>850q</th>
+                    <th>0-6km切变</th>
+                    <th style="width: 22%;">定位/结论</th>
+                  </tr>
+                </thead>
+                <tbody id="nwpLiveRows">
+                  <tr><td colspan="6">尚未运行接口调试。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>数值预报 TlogP 图</h3>
+              <span>模式预报廓线，福州区域</span>
+            </div>
+            <div class="panel-body">
+              <div class="canvas-wrap">
+                <img id="nwpTlogpImage" class="skewt-image hidden" alt="数值预报 MetPy SkewT 图" />
+                <canvas id="nwpTlogpCanvas" width="720" height="360" aria-label="数值预报TlogP示意图"></canvas>
+              </div>
+              <p class="note" id="nwpTlogpStatus">该图来自 EC/GFS 等模式的福州区域预报廓线，不代表福州/南平探空实况。</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>数值预报物理量对比原型</h3>
+              <span>福州区域，按模式和预报时效输出</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th>区域</th>
+                    <th>数值模式</th>
+                    <th>时效</th>
+                    <th>CAPE</th>
+                    <th>850q</th>
+                    <th>0-6km切变</th>
+                    <th>结论</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>福州区域</td>
+                    <td>EC</td>
+                    <td>F+6h</td>
+                    <td>1800 J/kg</td>
+                    <td>10.2 g/kg</td>
+                    <td>17 m/s</td>
+                    <td><span class="pill required">支持维持</span></td>
+                  </tr>
+                  <tr>
+                    <td>福州区域</td>
+                    <td>GFS</td>
+                    <td>F+6h</td>
+                    <td>1450 J/kg</td>
+                    <td>9.4 g/kg</td>
+                    <td>15 m/s</td>
+                    <td><span class="pill required">偏有利</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="note">数值预报只需要福州区域；系统需保留 EC/GFS 等每个模式的单独证据。</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>数值预报物理量字段</h3>
+              <span>短临业务读取口径</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 24%;">类别</th>
+                    <th>字段</th>
+                    <th style="width: 28%;">业务解释</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>热力条件</td>
+                    <td>CAPE、CIN、K 指数、SI、850-500hPa 温差</td>
+                    <td>是否具备不稳定能量，是否有触发抑制。</td>
+                  </tr>
+                  <tr>
+                    <td>水汽条件</td>
+                    <td>850hPa 比湿、700/850hPa 相对湿度、水汽通量散度</td>
+                    <td>低层水汽和水汽辐合是否支持强降水。</td>
+                  </tr>
+                  <tr>
+                    <td>动力条件</td>
+                    <td>500/700/850hPa 垂直速度、散度、0-6km 风切变</td>
+                    <td>抬升、辐合、组织化和大风潜势。</td>
+                  </tr>
+                  <tr>
+                    <td>触发条件</td>
+                    <td>LCL/LFC、925/850hPa 低空急流、925/850hPa 辐合线或 θe 锋区</td>
+                    <td>判断未来 2-6h 是否容易被边界层辐合、地形或海风锋触发。</td>
+                  </tr>
+                  <tr>
+                    <td>降水效率</td>
+                    <td>整层可降水量、暖云厚度、925-700hPa 平均相对湿度、0℃层高度</td>
+                    <td>区分“有对流”与“易出短时强降水”，用于减少空报。</td>
+                  </tr>
+                  <tr>
+                    <td>强天气分型</td>
+                    <td>DCAPE、0-1/0-3km 风切变、中层直减率、湿球0℃层高度</td>
+                    <td>区分雷暴大风、冰雹和普通雷阵雨，避免只靠 0-6km 切变粗判。</td>
+                  </tr>
+                  <tr>
+                    <td>时效演变</td>
+                    <td>未来 0-24h 逐小时趋势：CAPE/CIN、850q、MFD、omega、切变</td>
+                    <td>短临更看未来几小时的增减演变，不能只看单个时次阈值。</td>
+                  </tr>
+                  <tr>
+                    <td>融合输出</td>
+                    <td>model_agreement、trend、trigger、precipitation_efficiency、storm_mode、risk_level、confidence</td>
+                    <td>表达多模式一致性、未来 2-6h 趋势、触发条件、降水效率、天气分型和可信度。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel profiler-panel">
+            <div class="panel-header">
+              <h3>短临常用物理量阈值矩阵</h3>
+              <span>用于 2-6h 环境定势，原型参考初值</span>
+            </div>
+            <div class="panel-body">
+              <div class="callout">
+                <b>使用条件：</b>汛期或日最高气温 ≥22℃ 时，上午会商前优先分析；实际半夜四五点资料到后即可提前分析，
+                条件允许时下午再看新资料。数据时效按 0-24h 展示，短临判断重点看未来 2-6h 的变化趋势。
+              </div>
+              <table style="margin-top: 12px;">
+                <thead>
+                  <tr>
+                    <th style="width: 15%;">类别</th>
+                    <th style="width: 23%;">物理量</th>
+                    <th style="width: 25%;">参考阈值</th>
+                    <th>业务判断</th>
+                    <th style="width: 22%;">使用提醒</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>热力条件</td>
+                    <td>CAPE</td>
+                    <td>≥1000J/kg 能量充足；≥2000J/kg 强对流高潜势</td>
+                    <td>环境具备对流发展、维持或加强的能量基础。</td>
+                    <td>只说明“有能量”，仍需触发和抬升释放。</td>
+                  </tr>
+                  <tr>
+                    <td>热力条件</td>
+                    <td>CIN</td>
+                    <td>&lt;50J/kg 抑制较弱；50-150J/kg 有抑制；≥150J/kg 抑制强</td>
+                    <td>CIN 小，热力触发更容易；CIN 大，需系统抬升、边界层辐合或地形触发。</td>
+                    <td>高 CAPE + 强 CIN 容易造成“有能量但不爆发”。</td>
+                  </tr>
+                  <tr>
+                    <td>热力条件</td>
+                    <td>850-500hPa 温度差 / 中层直减率</td>
+                    <td>850-500hPa 温差 ≥25℃ 为不稳定参考；700-500hPa 直减率 ≥6.5℃/km 偏有利，≥7.5℃/km 较陡</td>
+                    <td>温度随高度下降快，利于强上升和雷暴发展。</td>
+                    <td>南方暖湿环境中需结合湿层深度和触发条件。</td>
+                  </tr>
+                  <tr>
+                    <td>水汽条件</td>
+                    <td>850hPa 比湿</td>
+                    <td>&gt;8g/kg 低层水汽较好；≥12g/kg 暖季水汽更充沛</td>
+                    <td>低层水汽输送充足，支持短时强降水和对流维持。</td>
+                    <td>要与风场判断水汽输送方向和入流结构。</td>
+                  </tr>
+                  <tr>
+                    <td>水汽条件</td>
+                    <td>500/700/850hPa 相对湿度</td>
+                    <td>850hPa ≥80%、700hPa ≥70%、500hPa ≥60% 表示湿层较深</td>
+                    <td>深厚湿层越完整，降水效率越高，短时强降水潜势越明确。</td>
+                    <td>中层偏干时强降水效率下降，但雷暴大风潜势可能上升。</td>
+                  </tr>
+                  <tr>
+                    <td>水汽辐合</td>
+                    <td>700/850hPa 水汽通量散度</td>
+                    <td>700hPa ≤ -10×10^-7 g/(cm²·hPa·s) 为强降水潜势参考；850hPa &lt;0 表示低层水汽辐合</td>
+                    <td>水汽在目标区域汇聚，配合上升运动时更容易出现短时强降水。</td>
+                    <td>单位和符号需按资料源统一，负值代表辐合。</td>
+                  </tr>
+                  <tr>
+                    <td>动力条件</td>
+                    <td>500/700/850hPa 垂直速度 omega</td>
+                    <td>ω&lt;0 为上升运动；≤-0.2Pa/s 可作为明显上升参考</td>
+                    <td>反映天气系统抬升和中低层上升配合。</td>
+                    <td>不同模式量级差异大，重点看上升区位置和趋势。</td>
+                  </tr>
+                  <tr>
+                    <td>动力条件</td>
+                    <td>700/850hPa 散度</td>
+                    <td>低层散度 &lt;0 表示辐合；若 200/300hPa 有资料，上层散度 &gt;0 更有利</td>
+                    <td>低层辐合和上层辐散配合时，抬升更有效。</td>
+                    <td>需结合地面辐合线、海风锋、山地触发和雷达回波。</td>
+                  </tr>
+                  <tr>
+                    <td>动力条件</td>
+                    <td>0-6km 垂直风切变</td>
+                    <td>12m/s 组织化参考；15m/s 较有利；20m/s 大风和强组织潜势更高</td>
+                    <td>判断对流组织化、生命史和雷暴大风潜势。</td>
+                    <td>强降水不一定要求很强切变，但大风和组织化对流更依赖切变。</td>
+                  </tr>
+                  <tr>
+                    <td>动力条件</td>
+                    <td>925/850hPa 或 0.5-3km 低空急流</td>
+                    <td>≥12m/s 为低层风速大值区参考；≥16m/s 入流和水汽输送更强</td>
+                    <td>低层入流增强，支持对流维持、列车效应和短时强降水。</td>
+                    <td>需用风廓线验证本地低层急流高度和到达时间。</td>
+                  </tr>
+                  <tr>
+                    <td>对流指数</td>
+                    <td>K 指数</td>
+                    <td>32℃ 可能；35℃ 有利；38℃ 高潜势</td>
+                    <td>综合反映低层水汽、垂直温度递减和中层干湿状况，适合强降水潜势参考。</td>
+                    <td>K 指数高更偏向雷暴和强降水环境，不单独判大风。</td>
+                  </tr>
+                  <tr>
+                    <td>对流指数</td>
+                    <td>SI 沙氏指数</td>
+                    <td>&lt;0 不稳定；≤-3 明显不稳定；≤-6 强不稳定参考</td>
+                    <td>SI 越负，层结越不稳定，对深对流越有利。</td>
+                    <td>需确认系统使用的是沙氏指数还是抬升指数，符号口径不能混用。</td>
+                  </tr>
+                  <tr>
+                    <td>综合判据</td>
+                    <td>能量 + 水汽 + 抬升 + 切变</td>
+                    <td>CAPE ≥1000、850q&gt;8、MFD&lt;0 或 ω&lt;0、0-6km 切变 ≥12m/s 同时满足时，环境较有利</td>
+                    <td>多指标一致时，未来 2-6h 对流发展或维持可信度提高。</td>
+                    <td>短临结论必须同时给支持证据和限制条件，避免单阈值触发结论。</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="note">以上为开发原型参考初值，主要用于专家验证和历史个例回放；福州本地业务阈值需结合汛期个例、模式偏差和预报员反馈继续校准。</p>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>数值预报需要配置</h3>
+            <span>模式 + 变量 + 阈值</span>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 22%;">配置项</th>
+                  <th style="width: 14%;">级别</th>
+                  <th>说明</th>
+                  <th style="width: 24%;">示例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>模式清单</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>模式名、资料目录、起报时次、预报时效、优先级、权重。</td>
+                  <td>EC 00/12，GFS 00/06/12/18</td>
+                </tr>
+                <tr>
+                  <td>变量映射</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>不同模式变量名、层次、单位、正负号、缺测值映射。</td>
+                  <td>q, rh, omega, div, cape</td>
+                </tr>
+                <tr>
+                  <td>空间匹配</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>格点插值到福州区域或福州代表点。</td>
+                  <td>福州区域，双线性插值</td>
+                </tr>
+                <tr>
+                  <td>地形与分区</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>DEM/高程、海岸线、山谷通道、迎风坡/背风坡分区；用于把格点场拆成沿海、平原、河谷、山区，再做局地触发修正。</td>
+                  <td>福州沿海、闽江谷地、北部山区</td>
+                </tr>
+                <tr>
+                  <td>高度基准</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>明确模式层、气压层、距地高度和海拔高度的转换口径；0-1/0-3km 切变、低空急流、LCL/LFC/0℃层建议至少能输出 AGL/AMSL 两种解释。</td>
+                  <td>LCL 0.6km AGL；0℃层 4.8km AMSL</td>
+                </tr>
+                <tr>
+                  <td>阈值体系</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>CAPE、CIN、K、SI、850q、MFD、0-1/0-6km 切变、DCAPE、PWAT 等阈值。</td>
+                  <td>CAPE 1000/2000，CIN 50/150，0-6km 切变 12/15/20</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>判读样例：2-6h 环境分型</h3>
+            <span>环境分型输出口径</span>
+          </div>
+          <div class="panel-body">
+            <div class="callout teal">
+              <b>原型需要展示的中间判断：</b>除了最终趋势和风险等级，还应明确给出
+              <b>触发条件</b>、<b>降水效率</b>、<b>天气分型</b>，这样预报员能看出“为什么支持”以及“偏哪类强天气”。
+            </div>
+            <table style="margin-top: 12px;">
+              <thead>
+                <tr>
+                  <th style="width: 18%;">场景</th>
+                  <th>关键量示例</th>
+                  <th style="width: 24%;">中间判断</th>
+                  <th style="width: 28%;">业务结论</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>短时强降水维持型</td>
+                  <td>CAPE 1800J/kg，CIN 40J/kg，850q 10g/kg，PWAT 53mm，暖云层厚度 4.3km，925-700hPa 平均湿度 83%，0-1km 切变约 9m/s。</td>
+                  <td>触发条件较好；降水效率高；天气分型为短时强降水型。</td>
+                  <td>支持未来 2-6h 对流维持或增强，风险以短时强降水为主，可附带组织化雷暴风险。</td>
+                </tr>
+                <tr>
+                  <td>有能量待触发型</td>
+                  <td>CAPE 2300J/kg，但 CIN 180J/kg，850q 8g/kg，PWAT 32mm，LCL 1450m，LFC 2150m，500hPa 上升运动弱。</td>
+                  <td>触发条件偏弱；降水效率低；天气分型为有能量待触发型。</td>
+                  <td>不能仅因 CAPE 高就报强对流，需等待海风锋、低层辐合或上游回波进入后再上调预报。</td>
+                </tr>
+                <tr>
+                  <td>雷暴大风型</td>
+                  <td>DCAPE ≥ 1000J/kg，0-3km 切变 ≥ 18m/s，0-6km 切变 ≥ 20m/s，雷达呈线状或弓形组织。</td>
+                  <td>触发条件多为较好；降水效率常为中等；天气分型为雷暴大风型。</td>
+                  <td>风险重点转向雷暴大风，强降水不一定最突出，需与短时强降水型分开表述。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="note">原型应保留这三个中间判断，避免只给“支持维持”这一句最终结论。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="sounding">
+        <div class="section-title">
+          <h2>3. 实况探空/TlogP模块</h2>
+          <p>本模块只处理实况探空站资料，首期支持福州站、南平站，用 TlogP 图和实况指数校验当前环境层结。</p>
+        </div>
+
+        <div class="module-header">
+          <div class="module-summary">
+            <h3>模块定位</h3>
+            <p>
+              实况探空站属于观测资料，不属于数值预报模式。福州站、南平站提供温度、露点、风随高度变化和实况对流指数，
+              用于校验数值预报对层结、水汽、抑制和垂直风切变的判断。业务上与数值预报物理量相互印证，再进入雷达、卫星和风廓线跟踪。
+            </p>
+            <div class="tag-row">
+              <span class="tag blue">资料类型：实况观测</span>
+              <span class="tag teal">探空站：福州/南平</span>
+              <span class="tag green">图形：TlogP</span>
+              <span class="tag amber">作用：校验模式环境</span>
+            </div>
+          </div>
+          <div class="audit-box">
+            <h4>数据边界</h4>
+            <ul>
+              <li>福州站、南平站是实况探空站，输出观测 TlogP 和实况对流指数。</li>
+              <li>探空资料按观测时次管理，不使用 EC/GFS 的起报时次和预报时效结构。</li>
+              <li>探空结果可与数值预报物理量对比，但数据对象和配置保持独立。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="live-data" id="soundingLiveData">
+          <div class="live-head">
+            <h3>接口返回数据 · 实况探空/TlogP</h3>
+            <span class="live-status" id="soundingLiveStatus">等待第 8 节运行诊断后刷新</span>
+          </div>
+          <div class="live-body">
+            <div class="live-grid" id="soundingLiveMetrics">
+              <div class="live-metric"><b>资料状态</b><strong>未请求</strong><span>运行接口后显示探空站时次、指数和可用性。</span></div>
+            </div>
+            <div class="live-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 15%;">站点</th>
+                    <th style="width: 22%;">观测时次</th>
+                    <th>CAPE/CIN</th>
+                    <th>K/SI</th>
+                    <th>0-6km切变</th>
+                    <th style="width: 20%;">质量</th>
+                  </tr>
+                </thead>
+                <tbody id="soundingLiveRows">
+                  <tr><td colspan="6">尚未运行接口调试。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>TlogP 图形原型</h3>
+              <span>气压轴：1000hPa 在底部</span>
+            </div>
+            <div class="panel-body">
+              <div class="canvas-wrap">
+                <img id="soundingTlogpImage" class="skewt-image hidden" alt="实况探空 MetPy SkewT 图" />
+                <canvas id="tlogpCanvas" width="720" height="360" aria-label="TlogP示意图"></canvas>
+              </div>
+              <p class="note" id="soundingTlogpStatus">图形验证重点：优先展示后端 MetPy SkewT，气压坐标上小下大；接口不可用时使用前端示意图兜底。</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>探空站配置与输出</h3>
+              <span>福州站 + 南平站</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 18%;">站点</th>
+                    <th style="width: 20%;">站号</th>
+                    <th>输入资料</th>
+                    <th style="width: 26%;">输出</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>福州站</td>
+                    <td>58847</td>
+                    <td>气压、温度、露点、风向风速、观测时次、质控标记。</td>
+                    <td>TlogP、CAPE/CIN、K、SI、LCL/LFC/EL、PWAT、DCAPE、0-1/0-3/0-6km切变。</td>
+                  </tr>
+                  <tr>
+                    <td>南平站</td>
+                    <td>58834</td>
+                    <td>气压、温度、露点、风向风速、观测时次、质控标记。</td>
+                    <td>上游环境校验、系统移入前背景、实况对流指数、整层水汽与切变校验。</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="note">南平站作为实况探空站接入，不再写成后续预留或数值预报区域。</p>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>实况探空需要配置</h3>
+            <span>站点 + 观测时次 + 指数</span>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 22%;">配置项</th>
+                  <th style="width: 14%;">级别</th>
+                  <th>说明</th>
+                  <th style="width: 24%;">示例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>探空站清单</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>站号、站名、经纬度、海拔、服务区域、优先级。</td>
+                  <td>福州[58847]、南平[58834]</td>
+                </tr>
+                <tr>
+                  <td>观测时次</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>实况观测时间、资料到达时间、最大延迟、替代策略；上午会商前使用，资料半夜四五点到后即可分析。</td>
+                  <td>会商前分析，04:00-09:00</td>
+                </tr>
+                <tr>
+                  <td>廓线字段</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>气压、温度、露点、风向风速、高度、质控；高度字段需明确是探空几何高度还是距地高度。</td>
+                  <td>p, t, td, wd, ws, z</td>
+                </tr>
+                <tr>
+                  <td>高度口径</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>站点海拔、几何高度、AGL/AMSL 转换规则；低层切变、LCL/LFC、逆温厚度等近地层量优先按距地高度解释。</td>
+                  <td>站点海拔 84m；LFC 1.1km AGL</td>
+                </tr>
+                <tr>
+                  <td>探空指数</td>
+                  <td><span class="pill required">必配</span></td>
+                  <td>CAPE、CIN、K、SI、LCL、LFC、EL、PWAT、DCAPE、0℃层、-20℃层、湿球0℃层、0-1/0-3/0-6km切变。</td>
+                  <td>K 32/35/38，SI &lt; 0，DCAPE 800/1000</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>地形/海拔修正要点</h3>
+            <span>短临里要考虑，但主要影响低层和触发判读</span>
+          </div>
+          <div class="panel-body">
+            <div class="callout amber">
+              <b>结论：</b>短临 TlogP 和物理量需要考虑地形、海拔和下垫面，但不建议把所有指标都简单做“海拔订正”。
+              CAPE、PWAT、K、SI 这类整层或气压层指标仍可作为环境背景；真正受地形影响最明显的是低层触发、局地环流、近地层温湿代表性，以及 0-1/0-3km 等按高度定义的诊断量。
+            </div>
+            <table style="margin-top: 12px;">
+              <thead>
+                <tr>
+                  <th style="width: 18%;">关注点</th>
+                  <th>为什么受地形影响</th>
+                  <th style="width: 32%;">原型中建议怎么落</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>触发机制</td>
+                  <td>海风锋、山谷风、坡面加热、迎风坡抬升和背风侧辐合会直接决定 2-6h 是否能起对流。</td>
+                  <td>把地形作为触发修正层，输出沿海/平原/河谷/山区四类触发提示，不只给一个全市平均结论。</td>
+                </tr>
+                <tr>
+                  <td>低层风和切变</td>
+                  <td>0-1km 切变、低空急流、边界层辐合本质上依赖距地高度，山区和平原不能直接共用同一高度口径。</td>
+                  <td>低层诊断统一按 AGL 解释，并用风廓线或自动站验证本地急流高度和到达时间。</td>
+                </tr>
+                <tr>
+                  <td>TlogP 近地层解释</td>
+                  <td>站点海拔和下垫面会改变近地层温湿结构、逆温强度和 LCL/LFC 的业务含义。</td>
+                  <td>关键层位至少注明 AGL/AMSL；山区应用时更强调“距地多高开始自由对流”，而不是只看海拔高度。</td>
+                </tr>
+                <tr>
+                  <td>资料代表性</td>
+                  <td>福州/南平探空站更像区域背景场，不一定代表山谷、海岛或迎风坡局地环境。</td>
+                  <td>综合诊断时写清“代表全区背景”还是“仅代表沿海/内陆背景”，局地结论继续依赖雷达、自动站和风廓线订正。</td>
+                </tr>
+                <tr>
+                  <td>阈值本地化</td>
+                  <td>同样 CAPE 或 CIN，在沿海平原和山地触发效率可能完全不同。</td>
+                  <td>整层阈值可以先共用，触发类阈值和置信度建议按沿海、平原、河谷、山区分区维护。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="note">对福州这类沿海且有山地背景的业务场景，更建议把地形做成“区域分区 + 触发修正 + 高度口径统一”的配置层，而不是为每个物理量单独维护一套复杂海拔订正公式。</p>
+          </div>
+        </article>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>TlogP 判读样例：与环境分型对应</h3>
+            <span>不是只画线，还要服务触发和类型判断</span>
+          </div>
+          <div class="panel-body">
+            <div class="callout amber">
+              <b>判读口径：</b>TlogP 不是独立给一个 CAPE/CIN 数值就结束，而应结合 LCL、LFC、湿层厚度、0℃层、湿球0℃层，直接说明它支持哪种环境分型；
+              山区或沿海应用时，关键层位应同时说明是距地高度还是海拔高度。
+            </div>
+            <table style="margin-top: 12px;">
+              <thead>
+                <tr>
+                  <th style="width: 20%;">样例</th>
+                  <th>图上应关注的层位或结构</th>
+                  <th style="width: 30%;">对应解释</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>短时强降水型</td>
+                  <td>近地层温露差小，湿层深厚；LCL 约 600m，LFC 约 1.0km；0℃层约 4.8km；湿球0℃层偏高。</td>
+                  <td>表示低层容易抬升凝结，暖云过程明显，适合和 PWAT、暖云层厚度一起判断降水效率高。</td>
+                </tr>
+                <tr>
+                  <td>触发受限型</td>
+                  <td>近地层温露差较大，LCL 约 1.4km，LFC 约 2.1km；湿层偏浅，低层存在明显抑制。</td>
+                  <td>即使 CAPE 偏高，也应提示“有能量但未必能触发”，防止在 2-6h 时效内提前报空。</td>
+                </tr>
+                <tr>
+                  <td>雷暴大风或冰雹型</td>
+                  <td>边界层偏干、中层直减率大；若湿球0℃层较低、-20℃层位置合适，则需额外关注冰雹。</td>
+                  <td>同时结合 DCAPE、中层直减率、湿球0℃层与 TlogP 结构，体现强天气类型分流。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="note">图形输出时直接标注 LCL/LFC/EL、0℃层、-20℃层、湿球0℃层，并尽量区分 AGL/AMSL，减少预报员二次换算和误读。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="profiler">
+        <div class="section-title">
+          <h2>4. 风廓线模块</h2>
+          <p>获取边界层到低层风场垂直结构，作为物理量/TlogP、雷达、卫星和实况资料之后的实时补充证据。</p>
+        </div>
+
+        <div class="module-header">
+          <div class="module-summary">
+            <h3>模块定位</h3>
+            <p>
+              风廓线用于判断当前本地所处天气系统位置和垂直结构，关注 0-1km、0-3km、0-6km
+              风切变、低空急流、风向随高度变化和垂直辐合信号。业务上在物理量/TlogP 定势、雷达/卫星定点后，
+              用于补充判断低层入流结构、系统移动进度、对流维持和大风潜势。福州地区首期支持福州站、罗源、闽清三个风廓线雷达站点切换。
+            </p>
+            <div class="tag-row">
+              <span class="tag blue">实时</span>
+              <span class="tag teal">0-2h 实时补充</span>
+              <span class="tag green">辅助判断低层结构</span>
+              <span class="tag amber">依赖质控</span>
+            </div>
+          </div>
+          <div class="audit-box">
+            <h4>实施边界</h4>
+            <ul>
+              <li>首期接入福州地区三个风廓线雷达站：福州站、罗源、闽清。</li>
+              <li>低空急流、风切变阈值先采用研究初值，历史个例验证后本地化校准。</li>
+              <li>输出作为实时风场证据进入综合诊断，不单独替代物理量/TlogP 定势和雷达识别。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="live-data" id="profilerLiveData">
+          <div class="live-head">
+            <h3>接口返回数据 · 风廓线</h3>
+            <span class="live-status" id="profilerLiveStatus">等待第 8 节运行诊断后刷新</span>
+          </div>
+          <div class="live-body">
+            <div class="live-grid" id="profilerLiveMetrics">
+              <div class="live-metric"><b>资料状态</b><strong>未请求</strong><span>运行接口后显示福州、罗源、闽清风廓线指标。</span></div>
+            </div>
+            <div class="live-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 15%;">站点</th>
+                    <th>0-1km</th>
+                    <th>0-3km</th>
+                    <th>0-6km</th>
+                    <th>低空急流</th>
+                    <th style="width: 24%;">入流/质量</th>
+                  </tr>
+                </thead>
+                <tbody id="profilerLiveRows">
+                  <tr><td colspan="6">尚未运行接口调试。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <article class="panel profiler-panel">
+            <div class="panel-header">
+              <h3>风廓线雷达图形原型</h3>
+              <span>站点选择 + 0-6km 高度轴 + 时间轴风羽</span>
+            </div>
+            <div class="panel-body">
+              <div class="station-selector" id="profilerStationSelector" aria-label="风廓线雷达站点选择"></div>
+              <p class="station-meta" id="profilerStationMeta">-</p>
+              <div class="canvas-wrap profiler-wrap">
+                <canvas id="profilerCanvas" width="720" height="360" aria-label="风廓线示意图"></canvas>
+              </div>
+              <p class="note">图形验证重点：左侧高度轴固定显示 0-6km，下方为真实时间轴；福州站、罗源、闽清需要支持切换；缺测层保留空白或质控标记。</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>风廓线处理流程</h3>
+              <span>从资料到诊断</span>
+            </div>
+            <div class="panel-body">
+              <div class="data-flow">
+                <div class="box">
+                  <h4>输入</h4>
+                  <p>站号、时间、高度、风向、风速或 u/v、质控码、信噪比、探测模式。</p>
+                </div>
+                <div class="arrow">›</div>
+                <div class="box">
+                  <h4>计算</h4>
+                  <p>统一单位、插值关键高度、切变、急流、风向转变、系统进退。</p>
+                </div>
+                <div class="arrow">›</div>
+                <div class="box">
+                  <h4>输出</h4>
+                  <p>图形、指标、证据链、限制条件、综合诊断结果。</p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>业务调阅场景示例</h3>
+              <span>选择性补充资料</span>
+            </div>
+            <div class="panel-body">
+              <ol class="step-list">
+                <li>
+                  <span class="step-no">1</span>
+                  <span><b>天气过程或重大活动前</b>快速查看近 6 小时边界层到 6km 风场结构，确认低层风向、风速和系统影响是否已经进入本地。</span>
+                </li>
+                <li>
+                  <span class="step-no">2</span>
+                  <span><b>判断对流条件时</b>重点看低层入流、0-1km/0-3km/0-6km 风切变、低空急流和风向随高度变化。</span>
+                </li>
+                <li>
+                  <span class="step-no">3</span>
+                  <span><b>加密判断系统进度时</b>结合雷达回波移动、探空/TlogP 和自动站风场，判断辐合抬升和天气系统移动进度。</span>
+                </li>
+              </ol>
+              <p class="note">资料时效按实时处理；本模块输出辅助意见，不单独替代物理量/TlogP 定势和雷达实况识别。</p>
+            </div>
+          </article>
+
+          <article class="panel profiler-panel">
+            <div class="panel-header">
+              <h3>判读样例：福州站风廓线</h3>
+              <span>0-6h 对流维持与大风潜势辅助意见</span>
+            </div>
+            <div class="panel-body">
+              <div class="callout teal">
+                <b>业务背景：</b>数值预报物理量显示福州区域 CAPE 约 1800J/kg、0-6km 切变约 17m/s，雷达西南侧有回波东移。
+                此时调阅福州站风廓线，验证低层入流、切变和系统进度是否支持未来 0-6h 对流维持。
+              </div>
+              <div class="grid four" style="margin-top: 12px;">
+                <div class="metric-card">
+                  <b>0-1km 风切变</b>
+                  <strong>10.6m/s</strong>
+                  <span>边界层风向风速变化明显，提示近地层入流和阵风潜势需关注。</span>
+                </div>
+                <div class="metric-card">
+                  <b>0-3km 风切变</b>
+                  <strong>15.2m/s</strong>
+                  <span>低层组织条件较好，有利已生成对流维持或短时增强。</span>
+                </div>
+                <div class="metric-card">
+                  <b>0-6km 风切变</b>
+                  <strong>18.7m/s</strong>
+                  <span>接近较强组织化阈值，雷暴大风风险为中等偏高。</span>
+                </div>
+                <div class="metric-card">
+                  <b>低空急流</b>
+                  <strong>1.0km / 15m/s</strong>
+                  <span>低层风速大值区明显，支持水汽输送和入流维持。</span>
+                </div>
+              </div>
+              <table style="margin-top: 12px;">
+                <thead>
+                  <tr>
+                    <th style="width: 24%;">风廓线信号</th>
+                    <th style="width: 28%;">业务含义</th>
+                    <th>系统输出样例</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>0.5-1.5km 出现风速大值区</td>
+                    <td>低空急流或低层入流增强</td>
+                    <td>低层暖湿入流较好，支持雷达回波在进入福州后维持。</td>
+                  </tr>
+                  <tr>
+                    <td>近地层东南风，2-3km 转为西南风</td>
+                    <td>风向随高度顺转，低层暖湿平流和垂直切变存在</td>
+                    <td>环境支持对流组织化，需关注短时强降水和雷暴大风。</td>
+                  </tr>
+                  <tr>
+                    <td>低层风向在相邻站点或相邻时次出现汇合</td>
+                    <td>存在辐合抬升提示</td>
+                    <td>若雷达回波在辐合区发展，应提高 0-2h 强降水关注等级。</td>
+                  </tr>
+                  <tr>
+                    <td>风速大值区和风向转变层随时间下压或东移</td>
+                    <td>天气系统影响本地的进度加快</td>
+                    <td>结合探空和雷达判断系统已接近本地，需加密跟踪未来 1-2h 演变。</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="callout amber" style="margin-top: 12px;">
+                <b>样例结论：</b>福州站风廓线显示低层入流增强、0-6km 切变接近较强阈值，辅助判断未来 0-6h
+                对流维持条件较好；未来 0-2h 重点关注福州西部至城区回波东移带来的短时强降水和雷暴大风。置信度中等，需继续用雷达实况订正。
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="grid two" style="margin-top: 14px;">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>风廓线需要配置</h3>
+              <span>上线前必须固化</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 22%;">配置项</th>
+                    <th style="width: 14%;">级别</th>
+                    <th>说明</th>
+                    <th style="width: 22%;">示例</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>站点清单</td>
+                    <td><span class="pill required">必配</span></td>
+                    <td>福州地区三个站点：福州站、罗源、闽清；配置站号、站名、经纬度、海拔、服务区域、资料源。</td>
+                    <td>福州[58847]、罗源、闽清</td>
+                  </tr>
+                  <tr>
+                    <td>高度层</td>
+                    <td><span class="pill required">必配</span></td>
+                    <td>原始高度层、关键诊断层、最高显示高度、插值方式；图形固定显示 0-6km。</td>
+                    <td>0-6000m</td>
+                  </tr>
+                  <tr>
+                    <td>时间窗</td>
+                    <td><span class="pill required">必配</span></td>
+                    <td>实时资料读取频率、回看长度、最大允许延迟；图形下方使用时间轴。</td>
+                    <td>6min 更新，6h 回看</td>
+                  </tr>
+                  <tr>
+                    <td>质控规则</td>
+                    <td><span class="pill required">必配</span></td>
+                    <td>缺测、跳变、低信噪比、异常风速、相邻层连续性检查。</td>
+                    <td>qc_flag in A/B</td>
+                  </tr>
+                  <tr>
+                    <td>阈值参数</td>
+                    <td><span class="pill required">必配</span></td>
+                    <td>切变、急流、风向转变、辐合抬升信号阈值。</td>
+                    <td>0-6km: 12/15/20m/s</td>
+                  </tr>
+                  <tr>
+                    <td>话术模板</td>
+                    <td><span class="pill optional">建议</span></td>
+                    <td>将指标翻译成预报员可读的定性意见。</td>
+                    <td>低层急流增强，支持维持</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>风廓线输入与输出</h3>
+              <span>字段口径</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">类型</th>
+                    <th style="width: 26%;">字段</th>
+                    <th>要求</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>输入</td>
+                    <td>station_id, obs_time</td>
+                    <td>支持福州站、罗源、闽清多站选择；用于时空匹配雷达和其他资料，时间精确到分钟。</td>
+                  </tr>
+                  <tr>
+                    <td>输入</td>
+                    <td>height_m, wind_dir_deg, wind_speed_mps</td>
+                    <td>风向角度 0-360，风速统一 m/s；也可由 u/v 分量自动换算。</td>
+                  </tr>
+                  <tr>
+                    <td>输入</td>
+                    <td>qc_flag, snr, vertical_velocity</td>
+                    <td>质控码必须保留；垂直速度若有可作为抬升参考。</td>
+                  </tr>
+                  <tr>
+                    <td>输出</td>
+                    <td>shear_0_1km, shear_0_3km, shear_0_6km</td>
+                    <td>矢量切变，输出数值、等级和阈值命中情况。</td>
+                  </tr>
+                  <tr>
+                    <td>输出</td>
+                    <td>llj, wind_turning, convergence_hint</td>
+                    <td>低空急流、顺转/逆转、辐合抬升提示。</td>
+                  </tr>
+                  <tr>
+                    <td>输出</td>
+                    <td>diagnosis, trigger, precipitation_efficiency, storm_mode, evidence, limitations, confidence</td>
+                    <td>给综合短临模块使用，也可直接展示给预报员和下游结构化接口。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="config">
+        <div class="section-title">
+          <h2>5. 资料与配置概览</h2>
+          <p>原型阶段只呈现业务方需要确认的资料范围、站点、时效和阈值口径；完整字段配置由研发实现阶段承接。</p>
+        </div>
+
+        <div class="grid four">
+          <div class="metric-card">
+            <b>数值预报</b>
+            <strong>福州区域</strong>
+            <span>EC/GFS 等模式，提供物理量和模式 TlogP，只展示福州区域。</span>
+          </div>
+          <div class="metric-card">
+            <b>实况探空</b>
+            <strong>福州/南平</strong>
+            <span>实况站点独立于数值预报，用于校验当前环境层结和对流指数。</span>
+          </div>
+          <div class="metric-card">
+            <b>风廓线</b>
+            <strong>3 站切换</strong>
+            <span>福州、罗源、闽清，固定 0-6km 高度轴和近 6 小时时间轴。</span>
+          </div>
+          <div class="metric-card">
+            <b>诊断阈值</b>
+            <strong>可调整</strong>
+            <span>CAPE、水汽、切变、急流、K、SI 等阈值后续按本地个例校准。</span>
+          </div>
+        </div>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>原型需要确认的配置项</h3>
+            <span>业务可读版本</span>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 20%;">模块</th>
+                  <th style="width: 30%;">需要配置什么</th>
+                  <th>原型默认口径</th>
+                  <th style="width: 24%;">验证关注点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>数值预报物理量</td>
+                  <td>模式清单、起报时次、预报时效、目标区域、变量映射。</td>
+                  <td>EC/GFS；目标区域只取福州区域；展示 0-24h，重点看 2-6h。</td>
+                  <td>是否能看出模式差异，是否避免混入南平区域。</td>
+                </tr>
+                <tr>
+                  <td>数值预报 TlogP</td>
+                  <td>模式廓线来源、预报时效、温度/露点/风廓线字段。</td>
+                  <td>随 EC/GFS 福州区域预报同步展示模式 TlogP。</td>
+                  <td>能否与实况探空 TlogP 明确区分。</td>
+                </tr>
+                <tr>
+                  <td>实况探空/TlogP</td>
+                  <td>探空站、观测时次、最大延迟、实况指数计算口径。</td>
+                  <td>福州站为主，南平站作为上游背景；每天上午会商前分析。</td>
+                  <td>站点切换是否清楚，资料未到时是否提示。</td>
+                </tr>
+                <tr>
+                  <td>风廓线</td>
+                  <td>站点、时间窗、高度范围、质控规则、切变和急流阈值。</td>
+                  <td>福州、罗源、闽清三站；0-6km；近 6 小时；实时补充判断。</td>
+                  <td>图形是否看得全，是否支持多站选择。</td>
+                </tr>
+                <tr>
+                  <td>综合诊断</td>
+                  <td>指标阈值、证据权重、话术模板、置信度和降级规则。</td>
+                  <td>输出趋势、风险、支持证据、限制条件和可信度。</td>
+                  <td>结论是否可解释，是否避免单指标下结论。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <div class="grid two" style="margin-top: 14px;">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>核心阈值展示</h3>
+              <span>详见第 2 节阈值矩阵</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 34%;">指标</th>
+                    <th style="width: 24%;">参考阈值</th>
+                    <th>业务含义</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>CAPE</td>
+                    <td>1000 / 2000J/kg</td>
+                    <td>能量充足 / 强对流潜势高。</td>
+                  </tr>
+                  <tr>
+                    <td>CIN</td>
+                    <td>&lt;50 / 50-150 / ≥150J/kg</td>
+                    <td>抑制弱 / 有抑制 / 抑制强。</td>
+                  </tr>
+                  <tr>
+                    <td>850hPa 比湿</td>
+                    <td>&gt;8g/kg</td>
+                    <td>低层水汽条件较好。</td>
+                  </tr>
+                  <tr>
+                    <td>850/700/500hPa 相对湿度</td>
+                    <td>80% / 70% / 60%</td>
+                    <td>湿层较深，降水效率较好。</td>
+                  </tr>
+                  <tr>
+                    <td>700hPa 水汽通量散度</td>
+                    <td>≤ -10</td>
+                    <td>强降水潜势增强。</td>
+                  </tr>
+                  <tr>
+                    <td>500/700/850hPa 垂直速度</td>
+                    <td>ω&lt;0；≤-0.2Pa/s</td>
+                    <td>存在上升运动 / 明显上升参考。</td>
+                  </tr>
+                  <tr>
+                    <td>0-6km 风切变</td>
+                    <td>12 / 15 / 20m/s</td>
+                    <td>组织化对流和雷暴大风潜势。</td>
+                  </tr>
+                  <tr>
+                    <td>K 指数 / SI</td>
+                    <td>K: 32/35/38℃；SI＜0</td>
+                    <td>不稳定和雷暴潜势参考。</td>
+                  </tr>
+                  <tr>
+                    <td>850-500hPa 温度差</td>
+                    <td>≥25℃</td>
+                    <td>不稳定层结辅助参考。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>原型页不展开的工程细节</h3>
+              <span>研发阶段单独沉淀</span>
+            </div>
+            <div class="panel-body">
+              <div class="check-grid">
+                <div class="check-item">
+                  <b>完整字段规范</b>
+                  <span>字段、枚举值、版本号、兼容策略放到研发文档。</span>
+                </div>
+                <div class="check-item">
+                  <b>文件路径与权限</b>
+                  <span>真实资料路径、账号权限、调度策略不放在业务验证页。</span>
+                </div>
+                <div class="check-item">
+                  <b>算法权重细节</b>
+                  <span>融合权重、评分公式、置信度计算在历史个例验证后固化。</span>
+                </div>
+                <div class="check-item">
+                  <b>站点元数据补齐</b>
+                  <span>罗源、闽清站号、经纬度、海拔按实际资料源补齐。</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="contracts">
+        <div class="section-title">
+          <h2>6. 原型输入与输出</h2>
+          <p>用业务可读样例说明页面如何查询、展示和解释结果；工程字段细节以接口联调结果为准。</p>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>页面查询输入</h3>
+              <span>原型验证时只需选择这些条件</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 26%;">输入项</th>
+                    <th>原型默认</th>
+                    <th style="width: 30%;">用途</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>分析区域</td>
+                    <td>福州区域</td>
+                    <td>数值预报物理量和模式 TlogP 只按福州区域展示。</td>
+                  </tr>
+                  <tr>
+                    <td>分析时间</td>
+                    <td>上午会商前；资料半夜四五点到后可提前分析。</td>
+                    <td>确定数值预报时效、探空时次和风廓线回看窗口。</td>
+                  </tr>
+                  <tr>
+                    <td>资料选择</td>
+                    <td>EC/GFS、福州/南平探空、福州/罗源/闽清风廓线。</td>
+                    <td>验证三个模块是否独立展示、可互相印证。</td>
+                  </tr>
+                  <tr>
+                    <td>业务场景</td>
+                    <td>短临强降水、雷暴大风、天气系统移入。</td>
+                    <td>决定综合意见优先解释哪些风险。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>页面输出构成</h3>
+              <span>验证时看这些结果是否合理</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 28%;">输出块</th>
+                    <th>展示内容</th>
+                    <th style="width: 30%;">验证关注点</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>数值预报物理量</td>
+                    <td>EC/GFS 对比、关键物理量、福州区域模式 TlogP。</td>
+                    <td>先定势，是否能判断环境有利程度。</td>
+                  </tr>
+                  <tr>
+                    <td>实况探空/TlogP</td>
+                    <td>福州站、南平站 TlogP 和探空指数。</td>
+                    <td>能否校验模式环境，是否区分实况与预报。</td>
+                  </tr>
+                  <tr>
+                    <td>风廓线</td>
+                    <td>0-6km 时间-高度风场、切变、急流、辐合抬升提示。</td>
+                    <td>是否辅助判断低层结构、入流和系统进度。</td>
+                  </tr>
+                  <tr>
+                    <td>综合意见</td>
+                    <td>0-6h 趋势、数字预报员诊断意见、触发条件、降水效率、天气分型、证据链、限制条件、诊断 JSON。</td>
+                    <td>是否能被预报员快速复核，也能被后续接口直接消费。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>综合诊断输出原型</h3>
+            <span>把 demo 的最终输出卡片放回说明页</span>
+          </div>
+          <div class="panel-body">
+            <div class="callout">
+              <b>更好的集成方式：</b>这三块属于“跨模块综合输出”，不宜挂在某一个资料模块内部，
+              最适合放在 <b>原型输入与输出</b> 里作为统一出口。这样前面各模块负责提供证据，
+              到这里再汇总成数字预报员诊断意见、证据链和诊断 JSON。
+            </div>
+            <div class="diagnosis-preview">
+              <div class="output-stack">
+                <div class="trend-box">
+                  <h4>数字预报员诊断意见</h4>
+                  <p>
+                    福州区域环境支持未来 2-6h 对流维持或增强，短时强降水风险高于雷暴大风；
+                    未来 0-2h 仍需结合雷达回波东移实况，重点订正影响落区和开始时间。
+                  </p>
+                </div>
+                <div class="diagnosis-badges">
+                  <span class="pill required">趋势：支持维持或增强</span>
+                  <span class="pill">触发：较好</span>
+                  <span class="pill optional">降水效率：高</span>
+                  <span class="pill risk">分型：短时强降水型</span>
+                  <span class="pill risk">风险：短时强降水</span>
+                  <span class="pill risk">风险：雷暴大风</span>
+                  <span class="pill">置信度：中高</span>
+                </div>
+                <div class="grid two">
+                  <div class="list-block">
+                    <h4>证据链</h4>
+                    <ul>
+                      <li>CAPE 1800J/kg，环境能量较足。</li>
+                      <li>850hPa 比湿 10g/kg，低层水汽充足。</li>
+                      <li>PWAT 53mm、暖云层厚度 4.3km，降水效率偏高。</li>
+                      <li>0-1km 切变约 9m/s，低层触发和入流条件较好。</li>
+                      <li>风廓线识别到低层急流和回波前入流加强。</li>
+                    </ul>
+                  </div>
+                  <div class="list-block">
+                    <h4>限制条件</h4>
+                    <ul>
+                      <li>最终影响落区仍受海风锋和局地触发影响。</li>
+                      <li>若未来 1-2h 雷达回波未持续发展，结论需及时下调。</li>
+                      <li>大风风险存在，但当前主导类型仍是短时强降水。</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="list-block">
+                <h4>诊断 JSON</h4>
+                <pre>{
+  "trend": "支持对流维持或增强",
+  "trigger": "触发条件较好",
+  "precipitation_efficiency": "高",
+  "storm_mode": "短时强降水型",
+  "risks": ["短时强降水", "雷暴大风"],
+  "evidence": [
+    "CAPE 1800J/kg，能量较足",
+    "850hPa 比湿 10g/kg，低层水汽较好",
+    "PWAT 53mm，暖云层厚度 4.3km",
+    "0-1km 切变约 9m/s，低层触发和入流较好"
+  ],
+  "limitations": [
+    "最终落区和强度仍需结合雷达实况订正"
+  ],
+  "confidence": "中高"
+}</pre>
+              </div>
+            </div>
+            <p class="note">说明页建议保留这三个输出块，但以静态样例方式呈现；真正交互和切换个例仍放在 environment_demo.html，更清晰。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="verification">
+        <div class="section-title">
+          <h2>7. 原型验证用例</h2>
+          <p>用可复现样例验证页面、字段口径、算法口径和降级逻辑，保证开发实现与预报员业务流程一致。</p>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>业务场景用例</h3>
+              <span>按预报员操作流程验证</span>
+            </div>
+            <div class="panel-body">
+              <div class="check-grid">
+                <div class="check-item">
+                  <b>上午会商前</b>
+                  <span>EC/GFS 资料到齐后，先展示福州区域物理量和数值预报 TlogP，形成环境定势。</span>
+                </div>
+                <div class="check-item">
+                  <b>实况校验</b>
+                  <span>福州站、南平站探空实况独立切换，用 TlogP 和指数校验模式环境。</span>
+                </div>
+                <div class="check-item">
+                  <b>对流临近</b>
+                  <span>雷达出现回波后，回看环境场和风廓线，输出对流维持、加强或减弱倾向。</span>
+                </div>
+                <div class="check-item">
+                  <b>系统进度</b>
+                  <span>风廓线风速大值区和风向转变层随时间变化时，提示系统移入或影响加快。</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>异常与降级用例</h3>
+              <span>保证缺测时仍可读</span>
+            </div>
+            <div class="panel-body">
+              <div class="check-grid">
+                <div class="check-item">
+                  <b>模式缺测</b>
+                  <span>EC 或 GFS 缺测时保留另一模式结果，并在质量字段写入缺测说明。</span>
+                </div>
+                <div class="check-item">
+                  <b>探空延迟</b>
+                  <span>探空资料未到时，实况 TlogP 标记为不可用，不能用数值预报伪造替代。</span>
+                </div>
+                <div class="check-item">
+                  <b>风廓线缺层</b>
+                  <span>缺测高度层保留空白或质控标记，切变计算说明插值或不可计算原因。</span>
+                </div>
+                <div class="check-item">
+                  <b>指标冲突</b>
+                  <span>强能量但弱切变、低 CIN 但水汽不足等情况，输出分歧证据而非单一结论。</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel" style="margin-top: 14px;">
+          <div class="panel-header">
+            <h3>验证样例矩阵</h3>
+            <span>样例数据优先覆盖</span>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 18%;">用例</th>
+                  <th style="width: 28%;">输入条件</th>
+                  <th>期望输出</th>
+                  <th style="width: 24%;">页面验证点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>物理量有利</td>
+                  <td>福州区域 CAPE ≥ 1000J/kg、850hPa 比湿 ＞ 8g/kg、0-6km 切变 ≥ 15m/s。</td>
+                  <td>环境支持对流维持或增强，强降水和雷暴大风潜势上调。</td>
+                  <td>数值预报表、模式 TlogP、综合结果同步更新。</td>
+                </tr>
+                <tr>
+                  <td>有能量但受抑制</td>
+                  <td>CAPE 较高，CIN 偏强，TlogP 显示低层抑制明显。</td>
+                  <td>提示“有能量但触发受限”，不直接给强对流高潜势。</td>
+                  <td>结论同时展示支持证据和限制条件。</td>
+                </tr>
+                <tr>
+                  <td>风廓线急流增强</td>
+                  <td>1km 附近风速达到低空急流阈值，0-6km 切变接近较强等级。</td>
+                  <td>低层入流较好，辅助判断对流维持和大风潜势。</td>
+                  <td>风廓线图、指标卡和判读样例一致。</td>
+                </tr>
+                <tr>
+                  <td>站点或模式缺测</td>
+                  <td>任一探空站、风廓线站或数值模式无资料。</td>
+                  <td>缺测模块标记为不可用，其他可用模块继续输出。</td>
+                  <td>质量字段、页面提示和诊断置信度同步降级。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="api-debug">
+        <div class="section-title">
+          <h2>8. 接口联调与数据调试</h2>
+          <p>在同一原型页内调用后台接口；运行后会把接口返回的数值预报、实况探空和风廓线数据同步刷新到第 2、3、4 节。</p>
+        </div>
+
+        <div class="api-console">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>请求配置</h3>
+              <span>默认 DSL 精简请求</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-row">
+                <label for="apiBaseUrl">服务地址</label>
+                <input class="text-input" id="apiBaseUrl" type="text" value="" placeholder="同源服务或 http://127.0.0.1:8010" />
+              </div>
+              <div class="action-row">
+                <button class="action-button" id="loadDebugConfig" type="button">加载默认配置</button>
+                <button class="action-button" id="loadFullExample" type="button">载入完整资料源样例</button>
+                <button class="action-button secondary" id="checkHealth" type="button">健康检查</button>
+                <button class="action-button" id="formatApiPayload" type="button">格式化 JSON</button>
+                <button class="action-button primary" id="runPrototypeDiagnosis" type="button">运行</button>
+              </div>
+              <textarea class="api-editor" id="apiPayloadEditor" spellcheck="false" aria-label="接口请求 JSON"></textarea>
+              <p class="status-line" id="apiDebugStatus">等待加载默认配置。</p>
+              <p class="note">提示：运行时会按文本框 JSON 原样请求；需要联调完整资料源时点击“载入完整资料源样例”。</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>响应结果</h3>
+              <div class="response-tabs" role="tablist" aria-label="接口响应视图">
+                <button class="active" id="showApiSummary" type="button">摘要</button>
+                <button id="showApiJson" type="button">JSON</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="live-grid" style="margin-bottom: 12px;">
+                <div class="live-metric"><b>状态</b><strong id="apiRunState">未运行</strong><span id="apiRunCode">-</span></div>
+                <div class="live-metric"><b>耗时</b><strong id="apiRunDuration">-</strong><span>浏览器侧计时</span></div>
+                <div class="live-metric"><b>请求 ID</b><strong id="apiRunRequestId">-</strong><span>来自 meta.request_id</span></div>
+                <div class="live-metric"><b>服务模式</b><strong id="apiRunServiceMode">-</strong><span>NWP/探空/风廓线数据来源</span></div>
+              </div>
+              <div id="apiSummaryViewer" class="api-summary-viewer">
+                <div class="summary-empty">尚未运行。点击“运行”后，这里会按第 6 点的综合诊断输出样式展示接口摘要。</div>
+              </div>
+              <pre id="apiJsonViewer" class="hidden">尚未运行。</pre>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <p class="footer">短临环境诊断开发原型说明 · 建议版本 v0.1 · 面向样例数据联调、真实资料接入和历史个例回放。</p>
+    </main>
+  </div>
+
+  <script>
+    const profilerCanvas = document.getElementById("profilerCanvas");
+    const nwpTlogpCanvas = document.getElementById("nwpTlogpCanvas");
+    const tlogpCanvas = document.getElementById("tlogpCanvas");
+    const nwpTlogpImage = document.getElementById("nwpTlogpImage");
+    const soundingTlogpImage = document.getElementById("soundingTlogpImage");
+    const nwpTlogpStatus = document.getElementById("nwpTlogpStatus");
+    const soundingTlogpStatus = document.getElementById("soundingTlogpStatus");
+    const profilerStationSelector = document.getElementById("profilerStationSelector");
+    const profilerStationMeta = document.getElementById("profilerStationMeta");
+    const apiState = { config: null, lastResponse: null };
+    let latestNwpTlogpOptions = null;
+    let latestSoundingTlogpOptions = null;
+
+    const DEFAULT_PROFILER_STATIONS = [
+      {
+        id: "58847",
+        name: "福州",
+        code: "58847",
+        lon: "119.2894°",
+        lat: "26.0775°",
+        elevation: "84.1m",
+        directionOffset: 0,
+        speedOffset: 0
+      },
+      {
+        id: "luoyuan",
+        name: "罗源",
+        code: "资料源站号",
+        lon: "按资料源配置",
+        lat: "按资料源配置",
+        elevation: "按资料源配置",
+        directionOffset: -16,
+        speedOffset: 1.4
+      },
+      {
+        id: "minqing",
+        name: "闽清",
+        code: "资料源站号",
+        lon: "按资料源配置",
+        lat: "按资料源配置",
+        elevation: "按资料源配置",
+        directionOffset: 18,
+        speedOffset: -0.8
+      }
+    ];
+
+    let profilerStations = DEFAULT_PROFILER_STATIONS.map((station) => ({ ...station, records: [] }));
+    let selectedProfilerStationId = "58847";
+
+    function resizeCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, width: rect.width, height: rect.height };
+    }
+
+    function speedColor(speed) {
+      if (speed >= 18) return "#087f77";
+      if (speed >= 13) return "#49a866";
+      if (speed >= 8) return "#5f93e8";
+      if (speed >= 4) return "#94bdf5";
+      return "#d0dce9";
+    }
+
+    function getSelectedProfilerStation() {
+      return profilerStations.find((station) => station.id === selectedProfilerStationId) || profilerStations[0];
+    }
+
+    function setupProfilerStationSelector() {
+      if (!profilerStationSelector) return;
+      profilerStationSelector.innerHTML = "";
+      profilerStations.forEach((station) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "station-button";
+        button.dataset.stationId = station.id;
+        button.textContent = station.name;
+        button.addEventListener("click", () => {
+          selectedProfilerStationId = station.id;
+          updateProfilerStationSelector();
+          drawProfiler();
+        });
+        profilerStationSelector.appendChild(button);
+      });
+      updateProfilerStationSelector();
+    }
+
+    function updateProfilerStationSelector() {
+      const station = getSelectedProfilerStation();
+      document.querySelectorAll(".station-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.stationId === station.id);
+      });
+      if (profilerStationMeta) {
+        const recordText = station.records && station.records.length ? `接口记录：${station.records.length} 条` : "样例风场";
+        profilerStationMeta.textContent = `${station.name} [${station.code}] 风廓线雷达  |  经度：${station.lon}  纬度：${station.lat}  海拔：${station.elevation}  |  ${recordText}`;
+      }
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function buildProfilerTimes() {
+      const startMinutes = 4 * 60 + 48;
+      const count = 61;
+      return Array.from({ length: count }, (_, index) => {
+        const minutes = startMinutes + index * 6;
+        return `${pad2(Math.floor(minutes / 60))}:${pad2(minutes % 60)}`;
+      });
+    }
+
+    function profilerStationId(station) {
+      return String(
+        station.station_key ||
+        station.station_id ||
+        station.station_code ||
+        station.code ||
+        station.id ||
+        ""
+      );
+    }
+
+    function formatStationMetaValue(value, unit, fallback) {
+      if (value === undefined || value === null || value === "") return fallback;
+      const text = String(value);
+      return text.includes(unit) || text.includes("按资料源") ? text : `${text}${unit}`;
+    }
+
+    function profilerStationFromData(station) {
+      const id = profilerStationId(station);
+      const defaultStation = DEFAULT_PROFILER_STATIONS.find((item) => {
+        return [item.id, item.code, item.name].map(String).includes(id) ||
+          item.name === station.station_name ||
+          item.code === station.station_code;
+      }) || {};
+      const records = Array.isArray(station.time_height_wind) ? station.time_height_wind.filter((record) => {
+        return record && record.height_km !== undefined && record.wind_dir_deg !== undefined && record.wind_speed_ms !== undefined;
+      }) : [];
+      return {
+        ...defaultStation,
+        id: id || defaultStation.id || station.station_name || "profiler-station",
+        name: station.station_name || defaultStation.name || id || "风廓线站",
+        code: station.station_code || station.station_id || defaultStation.code || id || "-",
+        lon: formatStationMetaValue(station.lon ?? station.longitude, "°", defaultStation.lon || "按资料源配置"),
+        lat: formatStationMetaValue(station.lat ?? station.latitude, "°", defaultStation.lat || "按资料源配置"),
+        elevation: formatStationMetaValue(station.elevation_m ?? station.elevation, "m", defaultStation.elevation || "按资料源配置"),
+        directionOffset: defaultStation.directionOffset || 0,
+        speedOffset: defaultStation.speedOffset || 0,
+        records,
+        quality: station.quality || {},
+        sourceRecordCount: records.length
+      };
+    }
+
+    function setProfilerStationsFromData(stations) {
+      if (Array.isArray(stations) && stations.length) {
+        profilerStations = stations.map(profilerStationFromData);
+      } else {
+        profilerStations = DEFAULT_PROFILER_STATIONS.map((station) => ({ ...station, records: [] }));
+      }
+      if (!profilerStations.some((station) => station.id === selectedProfilerStationId)) {
+        selectedProfilerStationId = (profilerStations[0] || {}).id || "58847";
+      }
+      setupProfilerStationSelector();
+      drawProfiler();
+    }
+
+    function profilerRecordsByTime(records) {
+      const groups = new Map();
+      (records || []).forEach((record, index) => {
+        const heightM = Number(record.height_km) * 1000;
+        const speed = Number(record.wind_speed_ms);
+        const direction = Number(record.wind_dir_deg);
+        if (!Number.isFinite(heightM) || !Number.isFinite(speed) || !Number.isFinite(direction) || heightM < 0 || heightM > 6000) return;
+        const key = record.time || record.happen_time || record.obs_time || `time-${index}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push({ ...record, heightM, speed, direction });
+      });
+      return Array.from(groups.entries())
+        .sort(([a], [b]) => {
+          const ta = Date.parse(a);
+          const tb = Date.parse(b);
+          if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+          return String(a).localeCompare(String(b), "zh-CN");
+        })
+        .map(([time, items]) => ({
+          time,
+          label: formatProfilerTimeLabel(time),
+          records: items.sort((a, b) => a.heightM - b.heightM)
+        }));
+    }
+
+    function formatProfilerTimeLabel(value) {
+      const parsed = Date.parse(value);
+      if (Number.isFinite(parsed)) {
+        const date = new Date(parsed);
+        return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+      }
+      const text = String(value || "");
+      const match = text.match(/(\d{1,2}):(\d{2})/);
+      return match ? `${pad2(match[1])}:${match[2]}` : text.replace("time-", "T");
+    }
+
+    function profilerChartWindow(groups) {
+      if (!groups.length) return "样例时段 04:48 至 10:48";
+      return `接口返回时段 ${groups[0].label} 至 ${groups[groups.length - 1].label}`;
+    }
+
+    function profilerWindSample(station, timeIndex, heightM) {
+      const h = heightM / 1000;
+      const t = timeIndex / 4;
+      const lowLevelPulse = heightM > 1600 && heightM < 2600 ? 3.2 + Math.sin(t * 0.8) * 1.6 : 0;
+      const upperJet = heightM > 4200 ? 2.8 + Math.cos(t * 0.55) * 1.4 : 0;
+      const nearSurfaceDamping = heightM < 800 ? -2.2 : 0;
+      const speed = Math.max(
+        1.2,
+        2.4 + h * 2.15 + Math.sin(t + h * 1.4) * 2.1 + lowLevelPulse + upperJet + nearSurfaceDamping + station.speedOffset
+      );
+      const direction = 145 + h * 17 + Math.sin(t * 0.72 + h) * 22 + station.directionOffset;
+      return { direction, speed };
+    }
+
+    function drawWindBarb(ctx, x, y, dirDeg, speed, color) {
+      const shaftLength = 18;
+      const rad = (dirDeg - 180) * Math.PI / 180;
+      const dx = Math.sin(rad) * shaftLength;
+      const dy = -Math.cos(rad) * shaftLength;
+      const sx = x - dx * 0.42;
+      const sy = y - dy * 0.42;
+      const ex = x + dx * 0.42;
+      const ey = y + dy * 0.42;
+      const barbCount = Math.max(1, Math.min(4, Math.round(speed / 4.5)));
+      const shaftAngle = Math.atan2(ey - sy, ex - sx);
+      const barbAngle = shaftAngle - Math.PI * 0.72;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = speed >= 13 ? 2 : 1.6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      for (let i = 0; i < barbCount; i += 1) {
+        const ratio = 0.18 + i * 0.17;
+        const bx = ex - (ex - sx) * ratio;
+        const by = ey - (ey - sy) * ratio;
+        const barbLength = i === 0 && speed >= 18 ? 10 : 7;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + Math.cos(barbAngle) * barbLength, by + Math.sin(barbAngle) * barbLength);
+        ctx.stroke();
+      }
+    }
+
+    function drawProfiler() {
+      const station = getSelectedProfilerStation();
+      const { ctx, width, height } = resizeCanvas(profilerCanvas);
+      const pad = { left: 76, right: 26, top: 92, bottom: 58 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const maxH = 6000;
+      const recordGroups = profilerRecordsByTime(station.records);
+      const hasInterfaceRecords = recordGroups.length > 0;
+      const times = hasInterfaceRecords ? recordGroups.map((group) => group.label) : buildProfilerTimes();
+      const levels = Array.from({ length: 31 }, (_, index) => index * 200);
+      const startDate = "2026-05-07";
+      const endDate = "2026-05-07";
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#faf9f5";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = "#141413";
+      ctx.font = "800 18px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      const windowText = hasInterfaceRecords ? profilerChartWindow(recordGroups) : `${startDate} 04:48 至 ${endDate} 10:48`;
+      ctx.fillText(`${station.name} [${station.code}] 风廓线雷达 ${windowText}`, width / 2, 26);
+      ctx.fillStyle = "#6b6a64";
+      ctx.font = "700 13px system-ui, sans-serif";
+      ctx.fillText(`经度：${station.lon}    纬度：${station.lat}    海拔：${station.elevation}`, width / 2, 52);
+      ctx.textAlign = "left";
+      ctx.fillText("高度(m)", 18, pad.top - 22);
+
+      ctx.strokeStyle = "#e8e6dc";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#6b6a64";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      for (let h = 0; h <= maxH; h += 500) {
+        const y = pad.top + plotH - (h / maxH) * plotH;
+        ctx.strokeStyle = h % 1000 === 0 ? "#e8e6dc" : "#f1efe7";
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+        if (h % 1000 === 0 || h === 500) {
+          ctx.fillStyle = "#6b6a64";
+          ctx.fillText(h.toLocaleString("zh-CN"), pad.left - 10, y + 4);
+        }
+      }
+
+      ctx.strokeStyle = "#8793a1";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, pad.top);
+      ctx.lineTo(pad.left, pad.top + plotH);
+      ctx.lineTo(width - pad.right, pad.top + plotH);
+      ctx.stroke();
+
+      times.forEach((t, i) => {
+        const x = pad.left + (i / (times.length - 1)) * plotW;
+        ctx.strokeStyle = i % 6 === 0 ? "#e1e8f0" : "#f3f6fa";
+        ctx.beginPath();
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x, height - pad.bottom);
+        ctx.stroke();
+        if (i % 3 === 0 || i === times.length - 1) {
+          ctx.fillStyle = "#617083";
+          ctx.textAlign = "center";
+          ctx.fillText(t, x, height - 22);
+        }
+      });
+
+      if (hasInterfaceRecords) {
+        recordGroups.forEach((group, timeIndex) => {
+          const x = pad.left + (timeIndex / Math.max(1, recordGroups.length - 1)) * plotW;
+          group.records.forEach((record) => {
+            const y = pad.top + plotH - (record.heightM / maxH) * plotH;
+            drawWindBarb(ctx, x, y, record.direction, record.speed, speedColor(record.speed));
+          });
+        });
+      } else {
+        times.forEach((_, timeIndex) => {
+          const x = pad.left + (timeIndex / (times.length - 1)) * plotW;
+          levels.forEach((heightM) => {
+            const y = pad.top + plotH - (heightM / maxH) * plotH;
+            const sample = profilerWindSample(station, timeIndex, heightM);
+            drawWindBarb(ctx, x, y, sample.direction, sample.speed, speedColor(sample.speed));
+          });
+        });
+      }
+
+      ctx.fillStyle = "#617083";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("时间", width - pad.right, height - 8);
+
+      ctx.fillStyle = "#314356";
+      ctx.font = "700 12px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("色彩提示风速强弱：浅蓝弱风，蓝色中等，绿色较强", pad.left, height - 8);
+    }
+
+    function drawTlogp(canvas = tlogpCanvas, options = {}) {
+      if (!canvas) return;
+      const { ctx, width, height } = resizeCanvas(canvas);
+      const pad = { left: 58, right: 24, top: 26, bottom: 40 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const pressures = options.pressures || [1000, 925, 850, 700, 500, 300, 200];
+      const temp = options.temp || [29, 25, 20, 8, -7, -27, -46];
+      const dew = options.dew || [24, 22, 17, 4, -14, -35, -54];
+      const parcel = options.parcel || [29, 24, 20, 15, 5, -10, -23];
+      const minT = -60;
+      const maxT = 36;
+
+      const xForT = (t) => pad.left + ((t - minT) / (maxT - minT)) * plotW;
+      const yForP = (p) => pad.top + ((200 - p) / (200 - 1000)) * plotH;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#faf9f5";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "#e8e6dc";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#6b6a64";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      pressures.forEach((p) => {
+        const y = yForP(p);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+        ctx.fillText(String(p), pad.left - 12, y + 4);
+      });
+
+      ctx.textAlign = "center";
+      for (let t = -50; t <= 30; t += 10) {
+        const x = xForT(t);
+        ctx.strokeStyle = "#f1efe7";
+        ctx.beginPath();
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x + 34, height - pad.bottom);
+        ctx.stroke();
+        ctx.fillStyle = "#6b6a64";
+        ctx.fillText(`${t}℃`, x, height - 15);
+      }
+
+      function drawLine(values, color, labelIndex, label) {
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        values.forEach((v, i) => {
+          const x = xForT(v);
+          const y = yForP(pressures[i]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        values.forEach((v, i) => {
+          const x = xForT(v);
+          const y = yForP(pressures[i]);
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = "#faf9f5";
+          ctx.fill();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        });
+        ctx.fillStyle = color;
+        ctx.font = "700 13px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(label, xForT(values[labelIndex]) + 8, yForP(pressures[labelIndex]) - 6);
+      }
+
+      drawLine(temp, "#b8324f", 2, "温度");
+      drawLine(dew, "#087f77", 2, "露点");
+      drawLine(parcel, "#2f7d32", 3, "气块");
+
+      ctx.fillStyle = "#dce7db";
+      ctx.beginPath();
+      parcel.forEach((v, i) => {
+        const x = xForT(v);
+        const y = yForP(pressures[i]);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      for (let i = temp.length - 1; i >= 0; i -= 1) {
+        ctx.lineTo(xForT(temp[i]), yForP(pressures[i]));
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#141413";
+      ctx.font = "700 13px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(options.caption || "实况探空：CAPE 与低层水汽较好，CIN 较弱", pad.left, 18);
+    }
+
+    function text(value, fallback = "-") {
+      if (value === null || value === undefined || value === "") return fallback;
+      return String(value);
+    }
+
+    function html(value) {
+      return text(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function pretty(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    function setApiStatus(message, kind = "") {
+      const node = document.getElementById("apiDebugStatus");
+      if (!node) return;
+      node.className = "status-line" + (kind ? ` ${kind}` : "");
+      node.textContent = message;
+    }
+
+    function getApiBaseUrl() {
+      const node = document.getElementById("apiBaseUrl");
+      return (node && node.value.trim()) || (window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8010");
+    }
+
+    function apiUrl(path) {
+      return getApiBaseUrl().replace(/\/$/, "") + path;
+    }
+
+    function buildPrototypePayload(config) {
+      const base = (config && config.default_request) || {
+        region: "fuzhou",
+        analysis_time: null,
+        forecast_hours: 6,
+        models: ["EC"]
+      };
+      return {
+        ...base,
+        analysis_time: base.analysis_time ?? null,
+        "include_dsl": false,
+        "include_data_sources": true,
+        "include_chart_series": true,
+        "include_raw_profiles": true
+      };
+    }
+
+    function buildPrototypeFullPayload(config) {
+      const base = (config && config.examples && config.examples["调试完整资料源"]) || (config && config.default_request) || {
+        region: "fuzhou",
+        analysis_time: null,
+        forecast_hours: 6,
+        models: ["EC"]
+      };
+      return {
+        ...base,
+        analysis_time: base.analysis_time ?? null,
+        "include_dsl": false,
+        "include_data_sources": true,
+        "include_chart_series": true,
+        "include_raw_profiles": true
+      };
+    }
+
+    async function loadPrototypeDebugConfig() {
+      setApiStatus("正在加载后台默认配置...");
+      const [configResponse, healthResponse] = await Promise.all([
+        fetch(apiUrl("/api/nowcasting/debug-config")),
+        fetch(apiUrl("/api/nowcasting/health")).catch(() => null)
+      ]);
+      const body = await configResponse.json();
+      apiState.config = body.data;
+      const payload = buildPrototypePayload(apiState.config);
+      document.getElementById("apiPayloadEditor").value = pretty(payload);
+      if (healthResponse && healthResponse.ok) {
+        const health = await healthResponse.json();
+        setApiStatus(`默认配置已加载，服务状态：${health.data.status}。`, "ok");
+      } else {
+        setApiStatus("默认配置已加载，健康检查暂不可用。", "warn");
+      }
+    }
+
+    async function checkPrototypeHealth() {
+      try {
+        setApiStatus("正在请求健康检查...");
+        const response = await fetch(apiUrl("/api/nowcasting/health"));
+        const body = await response.json();
+        const displayBody = sanitizeHealthBodyForDisplay(body);
+        document.getElementById("apiSummaryViewer").innerHTML = renderHealthSummaryHtml(displayBody);
+        document.getElementById("apiJsonViewer").textContent = pretty(displayBody);
+        setApiStatus(`健康检查完成：${body.data ? body.data.status : body.msg}`, response.ok ? "ok" : "warn");
+      } catch (error) {
+        setApiStatus(`健康检查失败：${error.message}`, "err");
+      }
+    }
+
+    function sanitizeHealthBodyForDisplay(body) {
+      if (!body || !body.data) return body;
+      const { log_file, ...data } = body.data;
+      return { ...body, data };
+    }
+
+    function formatPrototypePayload() {
+      try {
+        const node = document.getElementById("apiPayloadEditor");
+        node.value = pretty(JSON.parse(node.value || "{}"));
+        setApiStatus("请求 JSON 格式正确。", "ok");
+      } catch (error) {
+        setApiStatus(`请求 JSON 解析失败：${error.message}`, "err");
+      }
+    }
+
+    function loadPrototypeFullExample() {
+      const payload = buildPrototypeFullPayload(apiState.config);
+      document.getElementById("apiPayloadEditor").value = pretty(payload);
+      setApiStatus("已载入完整资料源调试样例。", "ok");
+    }
+
+    function firstAvailable(items) {
+      return (items || []).find((item) => item && (!item.quality || item.quality.available !== false)) || (items || [])[0] || null;
+    }
+
+    function valueWithUnit(value, unit) {
+      return value === null || value === undefined ? "-" : `${value}${unit || ""}`;
+    }
+
+    function metricStat(metrics, key, unit) {
+      const metric = metrics && metrics[key];
+      if (!metric) return { main: "-", detail: "无统计" };
+      const main = metric.max !== undefined ? valueWithUnit(metric.max, unit) : valueWithUnit(metric.mean, unit);
+      const where = metric.max_point_name || metric.max_point || metric.max_county || "";
+      const hour = metric.max_forecast_hour !== undefined ? `F+${metric.max_forecast_hour}h` : "";
+      return {
+        main,
+        detail: [where, hour].filter(Boolean).join(" / ") || "区域统计"
+      };
+    }
+
+    function liveMetric(title, main, detail) {
+      return `<div class="live-metric"><b>${html(title)}</b><strong>${html(main)}</strong><span>${html(detail)}</span></div>`;
+    }
+
+    function profileValues(profile) {
+      return (((profile || {}).physics || {}).values) || {};
+    }
+
+    function profileTlogp(profile) {
+      return ((profile || {}).tlogp) || {};
+    }
+
+    function tlogpOptionsFromProfile(tlogp, caption) {
+      if (!tlogp) return null;
+      let pressures = [];
+      let temp = [];
+      let dew = [];
+      if (tlogp.chart_series) {
+        pressures = tlogp.chart_series.pressure_hpa || [];
+        temp = tlogp.chart_series.temperature_c || [];
+        dew = tlogp.chart_series.dewpoint_c || [];
+      }
+      if ((!pressures.length || !temp.length) && Array.isArray(tlogp.levels)) {
+        pressures = tlogp.levels.map((level) => level.pressure_hpa).filter((value) => value !== undefined);
+        temp = tlogp.levels.map((level) => level.temperature_c).filter((value) => value !== undefined);
+        dew = tlogp.levels.map((level) => level.dewpoint_c).filter((value) => value !== undefined);
+      }
+      if (!pressures.length || !temp.length || !dew.length) return null;
+      const parcel = temp.map((value, index) => value + Math.max(-16, 6 - index * 4));
+      return { pressures, temp, dew, parcel, caption };
+    }
+
+    function setSkewtFallback(image, canvas, status, message, options) {
+      if (image) image.classList.add("hidden");
+      if (canvas) canvas.classList.remove("hidden");
+      if (status) status.textContent = message;
+      if (options && canvas) drawTlogp(canvas, options);
+    }
+
+    async function renderSkewtFromTlogp(tlogp, options, image, canvas, status) {
+      if (!tlogp || !options) {
+        setSkewtFallback(image, canvas, status, "本次响应未返回可绘制的 TlogP 廓线，保留前端示意图。", options);
+        return;
+      }
+      try {
+        if (status) status.textContent = "正在生成后端 MetPy SkewT 图...";
+        const response = await fetch(apiUrl("/api/nowcasting/render/skewt"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caption: options.caption, tlogp })
+        });
+        const body = await response.json();
+        if (!response.ok || body.code !== 200 || !body.data || !body.data.image_data_url) {
+          throw new Error((body && body.msg) || "SkewT 图生成失败");
+        }
+        image.src = body.data.image_data_url;
+        image.classList.remove("hidden");
+        canvas.classList.add("hidden");
+        if (status) {
+          status.textContent = `MetPy SkewT 已生成：${body.data.caption || options.caption}，有效层数 ${body.data.level_count} 层。`;
+        }
+      } catch (error) {
+        setSkewtFallback(image, canvas, status, `MetPy SkewT 暂不可用，已切换前端示意图：${error.message}`, options);
+      }
+    }
+
+    function updateNwpSection(data) {
+      const models = (((data || {}).data_sources || {}).nwp || {}).models || [];
+      const status = document.getElementById("nwpLiveStatus");
+      const metricsHost = document.getElementById("nwpLiveMetrics");
+      const rowsHost = document.getElementById("nwpLiveRows");
+      if (!models.length) {
+        status.textContent = "本次响应未包含数值预报 data_sources";
+        metricsHost.innerHTML = liveMetric("资料状态", "无资料", "请在请求中设置 include_data_sources=true");
+        rowsHost.innerHTML = `<tr><td colspan="6">本次响应未包含数值预报资料。</td></tr>`;
+        return;
+      }
+      const model = firstAvailable(models);
+      const summary = model.area_summary || {};
+      const metrics = ((summary.regional_background || {}).metrics) || {};
+      const cape = metricStat(metrics, "cape_j_kg", "J/kg");
+      const q850 = metricStat(metrics, "q850_g_kg", "g/kg");
+      const shear = metricStat(metrics, "shear_0_6km_ms", "m/s");
+      const modeNames = models.map((item) => item.model || item.display_name).join("、");
+      status.textContent = `已接入 ${modeNames || "数值模式"}，服务模式：${(data.meta || {}).service_mode || "-"}`;
+      metricsHost.innerHTML = [
+        liveMetric("模式/起报", modeNames || "-", model.run_time || "-"),
+        liveMetric("CAPE 高值", cape.main, cape.detail),
+        liveMetric("850hPa 比湿", q850.main, q850.detail),
+        liveMetric("0-6km 切变", shear.main, shear.detail)
+      ].join("");
+
+      const rows = [];
+      models.forEach((item) => {
+        (item.grid_groups || []).forEach((group) => {
+          (group.points || []).forEach((point) => {
+            (point.profiles || []).slice(0, 4).forEach((profile) => {
+              const values = profileValues(profile);
+              rows.push(`<tr>
+                <td>${html(item.model || item.display_name)}</td>
+                <td>${html(item.run_time || "-")}<br>${html(profile.forecast_hour !== undefined ? `F+${profile.forecast_hour}h` : "-")}</td>
+                <td>${html(valueWithUnit(values.cape_j_kg, "J/kg"))}</td>
+                <td>${html(valueWithUnit(values.q850_g_kg, "g/kg"))}</td>
+                <td>${html(valueWithUnit(values.shear_0_6km_ms, "m/s"))}</td>
+                <td>${html(point.name || point.point_id || group.name || "-")}<br>${html(((profile.physics || {}).diagnosis || {}).lift || "诊断见证据链")}</td>
+              </tr>`);
+            });
+          });
+        });
+      });
+      rowsHost.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="6">数值预报资料可用，但未返回逐点物理量。</td></tr>`;
+
+      const profile = (((model.grid_groups || [])[0] || {}).points || [])[0];
+      const firstProfile = profile && (profile.profiles || [])[0];
+      const nwpTlogp = firstProfile ? profileTlogp(firstProfile) : null;
+      latestNwpTlogpOptions = firstProfile ? tlogpOptionsFromProfile(nwpTlogp, `${model.display_name || model.model} ${firstProfile.forecast_hour !== undefined ? `F+${firstProfile.forecast_hour}h` : ""} 模式TlogP`) : null;
+      renderSkewtFromTlogp(nwpTlogp, latestNwpTlogpOptions, nwpTlogpImage, nwpTlogpCanvas, nwpTlogpStatus);
+    }
+
+    function updateSoundingSection(data) {
+      const stations = (((data || {}).data_sources || {}).sounding || {}).stations || [];
+      const status = document.getElementById("soundingLiveStatus");
+      const metricsHost = document.getElementById("soundingLiveMetrics");
+      const rowsHost = document.getElementById("soundingLiveRows");
+      if (!stations.length) {
+        status.textContent = "本次响应未包含实况探空 data_sources";
+        metricsHost.innerHTML = liveMetric("资料状态", "无资料", "请在请求中设置 include_data_sources=true");
+        rowsHost.innerHTML = `<tr><td colspan="6">本次响应未包含实况探空资料。</td></tr>`;
+        return;
+      }
+      status.textContent = `已接入 ${stations.map((station) => station.station_name || station.station_id).join("、")}`;
+      const primary = firstAvailable(stations);
+      const values = ((primary.physics || {}).values) || {};
+      metricsHost.innerHTML = [
+        liveMetric("代表站", primary.station_name || primary.station_id || "-", primary.obs_time || "-"),
+        liveMetric("CAPE/CIN", `${valueWithUnit(values.cape_j_kg, "J/kg")} / ${valueWithUnit(values.cin_j_kg, "J/kg")}`, "实况探空指数"),
+        liveMetric("K/SI", `${valueWithUnit(values.k_index_c, "℃")} / ${valueWithUnit(values.si_c, "℃")}`, "不稳定指数"),
+        liveMetric("0-6km 切变", valueWithUnit(values.shear_0_6km_ms, "m/s"), (primary.quality || {}).status || "-")
+      ].join("");
+      rowsHost.innerHTML = stations.map((station) => {
+        const itemValues = ((station.physics || {}).values) || {};
+        const quality = station.quality || {};
+        return `<tr>
+          <td>${html(station.station_name || station.station_id)}</td>
+          <td>${html(station.obs_time || "-")}</td>
+          <td>${html(valueWithUnit(itemValues.cape_j_kg, "J/kg"))}<br>${html(valueWithUnit(itemValues.cin_j_kg, "J/kg"))}</td>
+          <td>${html(valueWithUnit(itemValues.k_index_c, "℃"))}<br>${html(valueWithUnit(itemValues.si_c, "℃"))}</td>
+          <td>${html(valueWithUnit(itemValues.shear_0_6km_ms, "m/s"))}</td>
+          <td>${html(quality.available === false ? "不可用" : (quality.status || "可用"))}<br>${html(quality.reason || quality.representativeness || "")}</td>
+        </tr>`;
+      }).join("");
+      latestSoundingTlogpOptions = tlogpOptionsFromProfile(primary.tlogp, `${primary.station_name || "实况探空"} TlogP：接口返回实况廓线`);
+      renderSkewtFromTlogp(primary.tlogp, latestSoundingTlogpOptions, soundingTlogpImage, tlogpCanvas, soundingTlogpStatus);
+    }
+
+    function updateProfilerSection(data) {
+      const stations = (((data || {}).data_sources || {}).wind_profiler || {}).stations || [];
+      const status = document.getElementById("profilerLiveStatus");
+      const metricsHost = document.getElementById("profilerLiveMetrics");
+      const rowsHost = document.getElementById("profilerLiveRows");
+      setProfilerStationsFromData(stations);
+      if (!stations.length) {
+        status.textContent = "本次响应未包含风廓线 data_sources";
+        metricsHost.innerHTML = liveMetric("资料状态", "无资料", "请在请求中设置 include_data_sources=true");
+        rowsHost.innerHTML = `<tr><td colspan="6">本次响应未包含风廓线资料。</td></tr>`;
+        return;
+      }
+      status.textContent = `已接入 ${stations.map((station) => station.station_name || station.station_id).join("、")}`;
+      metricsHost.innerHTML = stations.slice(0, 4).map((station) => {
+        const derived = station.derived || {};
+        const quality = station.quality || {};
+        return liveMetric(
+          station.station_name || station.station_id || "风廓线站",
+          valueWithUnit(derived.wind_shear_0_6km, "m/s"),
+          `${quality.available === false ? "不可用" : "可用"} / 低空急流 ${valueWithUnit(derived.low_level_jet_ms, "m/s")}`
+        );
+      }).join("");
+      rowsHost.innerHTML = stations.map((station) => {
+        const derived = station.derived || {};
+        const quality = station.quality || {};
+        return `<tr>
+          <td>${html(station.station_name || station.station_id)}</td>
+          <td>${html(valueWithUnit(derived.wind_shear_0_1km, "m/s"))}</td>
+          <td>${html(valueWithUnit(derived.wind_shear_0_3km, "m/s"))}</td>
+          <td>${html(valueWithUnit(derived.wind_shear_0_6km, "m/s"))}</td>
+          <td>${html(valueWithUnit(derived.low_level_jet_ms, "m/s"))}</td>
+          <td>${html(derived.inflow_hint || quality.reason || quality.status || "-")}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function syncPrototypeSections(data) {
+      updateNwpSection(data);
+      updateSoundingSection(data);
+      updateProfilerSection(data);
+    }
+
+    function formatSummaryList(items, formatter, emptyText = "-") {
+      if (!Array.isArray(items) || !items.length) return `- ${emptyText}`;
+      return items.map((item, index) => `- ${formatter(item, index)}`).join("\n");
+    }
+
+    function formatRiskSummary(risk) {
+      if (typeof risk === "string") return risk;
+      const probability = risk.probability !== undefined ? `，概率 ${risk.probability}` : "";
+      const confidence = risk.confidence !== undefined ? `，置信 ${risk.confidence}` : "";
+      return `${risk.type || risk.name || "-"}：${risk.level || "-"}${probability}${confidence}`;
+    }
+
+    function formatEvidenceSummary(item) {
+      if (typeof item === "string") return item;
+      const prefix = [item.source, item.metric, item.level].filter(Boolean).join(" / ");
+      return `${prefix ? `${prefix}：` : ""}${item.text || item.value || "-"}`;
+    }
+
+    function formatLimitationSummary(item) {
+      if (typeof item === "string") return item;
+      const prefix = [item.source, item.severity].filter(Boolean).join(" / ");
+      return `${prefix ? `${prefix}：` : ""}${item.text || "-"}`;
+    }
+
+    function collectQualitySummary(dataSources) {
+      const lines = [];
+      (((dataSources.nwp || {}).models) || []).forEach((model) => {
+        const quality = model.quality || {};
+        lines.push(`数值预报 ${model.display_name || model.model || "-"}：${quality.available === false ? "不可用" : "可用"} / ${quality.status || "-"}${quality.reason ? `；${quality.reason}` : ""}`);
+      });
+      (((dataSources.sounding || {}).stations) || []).forEach((station) => {
+        const quality = station.quality || {};
+        lines.push(`实况探空 ${station.station_name || station.station_id || "-"}：${quality.available === false ? "不可用" : "可用"} / ${quality.status || "-"}${quality.reason ? `；${quality.reason}` : ""}`);
+      });
+      (((dataSources.wind_profiler || {}).stations) || []).forEach((station) => {
+        const quality = station.quality || {};
+        lines.push(`风廓线 ${station.station_name || station.station_id || "-"}：${quality.available === false ? "不可用" : "可用"} / ${quality.status || "-"}${quality.reason ? `；${quality.reason}` : ""}`);
+      });
+      return lines;
+    }
+
+    function formatTrendSummary(item) {
+      if (typeof item === "string") return item;
+      const parts = [
+        item.model || item.name,
+        item.risk_window ? `风险窗口 ${item.risk_window}` : "",
+        item.trend,
+        item.summary
+      ].filter(Boolean);
+      return parts.join("；") || "-";
+    }
+
+    function formatBiasSummary(item) {
+      if (typeof item === "string") return item;
+      const parts = [
+        item.model || item.station_name || item.station_id,
+        item.metric,
+        item.bias !== undefined ? `偏差 ${item.bias}` : "",
+        item.text || item.summary
+      ].filter(Boolean);
+      return parts.join("；") || "-";
+    }
+
+    function summaryEmptyHtml(message, extraClass = "") {
+      return `<div class="summary-empty${extraClass ? ` ${extraClass}` : ""}">${html(message)}</div>`;
+    }
+
+    function summaryListHtml(items, formatter, emptyText = "本次响应未返回该项") {
+      if (!Array.isArray(items) || !items.length) {
+        return `<ul><li>${html(emptyText)}</li></ul>`;
+      }
+      return `<ul>${items.map((item, index) => `<li>${html(formatter(item, index))}</li>`).join("")}</ul>`;
+    }
+
+    function summaryBadgesHtml(items) {
+      return items
+        .filter((item) => item.value !== undefined && item.value !== null && item.value !== "")
+        .map((item) => `<span class="pill${item.className ? ` ${item.className}` : ""}">${html(item.label)}：${html(item.value)}</span>`)
+        .join("");
+    }
+
+    function metaListHtml(rows) {
+      return `<dl class="api-meta-list">${rows.map(([key, value]) => `
+        <div><dt>${html(key)}</dt><dd>${html(value === undefined || value === null || value === "" ? "-" : value)}</dd></div>
+      `).join("")}</dl>`;
+    }
+
+    function probabilityText(value) {
+      if (value === undefined || value === null || value === "") return "-";
+      if (typeof value === "number" && value >= 0 && value <= 1) return `${Math.round(value * 100)}%`;
+      return String(value);
+    }
+
+    function renderHealthSummaryHtml(body) {
+      const data = (body && body.data) || {};
+      return `<div class="diagnosis-preview">
+        <div class="output-stack">
+          <div class="trend-box">
+            <h4>健康检查结果</h4>
+            <p>${html(data.status ? `服务状态：${data.status}` : (body && body.msg) || "健康检查完成")}</p>
+          </div>
+          <div class="diagnosis-badges">
+            ${summaryBadgesHtml([
+              { label: "接口", value: body && body.code !== undefined ? body.code : "-", className: "required" },
+              { label: "服务", value: data.service || "-", className: "" },
+              { label: "状态", value: data.status || "-", className: "optional" }
+            ])}
+          </div>
+        </div>
+        <div class="list-block">
+          <h4>服务元信息</h4>
+          ${metaListHtml([
+            ["默认区域", data.default_region || "-"],
+            ["服务状态", data.status || "-"],
+            ["适配器", Array.isArray(data.available_adapters) ? `${data.available_adapters.length} 个可用适配器` : "-"]
+          ])}
+        </div>
+      </div>`;
+    }
+
+    function renderApiSummaryHtml(body, duration) {
+      const data = body && body.data ? body.data : {};
+      const meta = data.meta || {};
+      const diagnosis = data.diagnosis || {};
+      const confidence = diagnosis.confidence || {};
+      const dataSources = data.data_sources || {};
+      const qualityLines = collectQualitySummary(dataSources);
+      const probability = probabilityText(diagnosis.precipitation_probability);
+      const confidenceText = [confidence.level, confidence.score !== undefined ? confidence.score : ""].filter((item) => item !== "").join(" / ") || "-";
+      const summary = diagnosis["数字预报员诊断意见"] || diagnosis.summary || "本次响应未返回诊断意见。";
+      const period = meta.forecast_period ? `${meta.forecast_period.start} 至 ${meta.forecast_period.end}` : "-";
+      return `<div class="diagnosis-preview">
+        <div class="output-stack">
+          <div class="trend-box">
+            <h4>数字预报员诊断意见</h4>
+            <p>${html(summary)}</p>
+          </div>
+          <div class="diagnosis-badges">
+            ${summaryBadgesHtml([
+              { label: "趋势", value: diagnosis.trend || "-", className: "required" },
+              { label: "触发", value: diagnosis.trigger || "-" },
+              { label: "降水效率", value: diagnosis.precipitation_efficiency || "-", className: "optional" },
+              { label: "分型", value: diagnosis.storm_type || "-", className: "risk" },
+              { label: "降水概率", value: probability, className: "risk" },
+              { label: "置信度", value: confidenceText }
+            ])}
+          </div>
+          <div class="grid two">
+            <div class="list-block">
+              <h4>证据链</h4>
+              ${summaryListHtml(diagnosis.evidence_chain, formatEvidenceSummary, "本次响应未返回证据链")}
+            </div>
+            <div class="list-block">
+              <h4>限制条件</h4>
+              ${summaryListHtml(diagnosis.limitations, formatLimitationSummary, "本次响应未返回限制条件")}
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="list-block">
+              <h4>模式趋势</h4>
+              ${summaryListHtml(diagnosis.model_trends, formatTrendSummary, "本次响应未返回模式趋势")}
+            </div>
+            <div class="list-block">
+              <h4>模式-实况偏差</h4>
+              ${summaryListHtml(diagnosis.model_observation_bias, formatBiasSummary, "本次响应未返回模式与实况偏差")}
+            </div>
+          </div>
+        </div>
+        <div class="output-stack">
+          <div class="list-block">
+            <h4>风险</h4>
+            ${summaryListHtml(diagnosis.risks, formatRiskSummary, "本次响应未返回风险列表")}
+          </div>
+          <div class="list-block">
+            <h4>资料质控</h4>
+            ${summaryListHtml(qualityLines, (line) => line, "本次响应未返回 data_sources 质控详情")}
+          </div>
+          <div class="list-block">
+            <h4>接口元信息</h4>
+            ${metaListHtml([
+              ["code", body && body.code !== undefined ? body.code : "-"],
+              ["msg", body && body.msg ? body.msg : "-"],
+              ["request_id", meta.request_id || body.request_id || "-"],
+              ["区域", meta.region || "-"],
+              ["分析时间", meta.analysis_time || "-"],
+              ["预报时段", period],
+              ["服务模式", meta.service_mode || "-"],
+              ["耗时", `${duration} ms`],
+              ["置信说明", confidence.reason || "-"]
+            ])}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    async function runPrototypeDiagnosis() {
+      try {
+        const payload = JSON.parse(document.getElementById("apiPayloadEditor").value || "{}");
+        const startedAt = performance.now();
+        setApiStatus("正在按文本框 JSON 调用诊断接口，返回后将刷新可用数据视图...");
+        document.getElementById("apiRunState").textContent = "请求中";
+        document.getElementById("apiRunDuration").textContent = "-";
+        document.getElementById("apiRunRequestId").textContent = payload.request_id || "自动生成";
+        const response = await fetch(apiUrl("/api/nowcasting/diagnosis"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const body = await response.json();
+        const duration = Math.round(performance.now() - startedAt);
+        apiState.lastResponse = body;
+        document.getElementById("apiJsonViewer").textContent = pretty(body);
+        document.getElementById("apiSummaryViewer").innerHTML = renderApiSummaryHtml(body, duration);
+        const data = body.data || {};
+        syncPrototypeSections(data);
+        const meta = data.meta || {};
+        document.getElementById("apiRunState").textContent = response.ok ? "完成" : "异常";
+        document.getElementById("apiRunCode").textContent = `code=${body.code}`;
+        document.getElementById("apiRunDuration").textContent = `${duration} ms`;
+        document.getElementById("apiRunRequestId").textContent = meta.request_id || body.request_id || "-";
+        document.getElementById("apiRunServiceMode").textContent = meta.service_mode || "-";
+        setApiStatus("诊断完成，已按接口返回内容同步页面。", response.ok ? "ok" : "warn");
+      } catch (error) {
+        document.getElementById("apiRunState").textContent = "失败";
+        document.getElementById("apiSummaryViewer").innerHTML = summaryEmptyHtml(error.stack || String(error), "summary-error");
+        setApiStatus(`诊断失败：${error.message}`, "err");
+      }
+    }
+
+    function activateApiTab(tabName) {
+      const showSummary = tabName === "summary";
+      document.getElementById("apiSummaryViewer").classList.toggle("hidden", !showSummary);
+      document.getElementById("apiJsonViewer").classList.toggle("hidden", showSummary);
+      document.getElementById("showApiSummary").classList.toggle("active", showSummary);
+      document.getElementById("showApiJson").classList.toggle("active", !showSummary);
+    }
+
+    function setupApiDebugPanel() {
+      const baseInput = document.getElementById("apiBaseUrl");
+      if (!baseInput) return;
+      baseInput.value = window.location.protocol.startsWith("http") ? window.location.origin : "http://127.0.0.1:8010";
+      document.getElementById("loadDebugConfig").addEventListener("click", () => loadPrototypeDebugConfig().catch((error) => setApiStatus(`默认配置加载失败：${error.message}`, "err")));
+      document.getElementById("loadFullExample").addEventListener("click", loadPrototypeFullExample);
+      document.getElementById("checkHealth").addEventListener("click", checkPrototypeHealth);
+      document.getElementById("formatApiPayload").addEventListener("click", formatPrototypePayload);
+      document.getElementById("runPrototypeDiagnosis").addEventListener("click", runPrototypeDiagnosis);
+      document.getElementById("showApiSummary").addEventListener("click", () => activateApiTab("summary"));
+      document.getElementById("showApiJson").addEventListener("click", () => activateApiTab("json"));
+      loadPrototypeDebugConfig().catch((error) => setApiStatus(`默认配置加载失败：${error.message}`, "err"));
+    }
+
+    function setActiveToc() {
+      const links = Array.from(document.querySelectorAll(".toc a"));
+      const sections = links.map((link) => document.querySelector(link.getAttribute("href")));
+      let active = 0;
+      sections.forEach((section, index) => {
+        if (section && section.getBoundingClientRect().top < 160) active = index;
+      });
+      links.forEach((link, index) => link.classList.toggle("active", index === active));
+    }
+
+    function drawAll() {
+      drawProfiler();
+      drawTlogp(nwpTlogpCanvas, latestNwpTlogpOptions || {
+        temp: [27, 23, 18, 7, -9, -29, -48],
+        dew: [22, 20, 16, 3, -16, -37, -55],
+        parcel: [27, 22, 18, 13, 3, -12, -25],
+        caption: "EC F+6h 模式TlogP：福州区域环境偏有利"
+      });
+      drawTlogp(tlogpCanvas, latestSoundingTlogpOptions || {
+        caption: "实况探空：福州/南平站用于校验模式环境"
+      });
+    }
+
+    window.addEventListener("resize", drawAll);
+    window.addEventListener("scroll", setActiveToc, { passive: true });
+    setupProfilerStationSelector();
+    setupApiDebugPanel();
+    drawAll();
+    setActiveToc();
+  </script>
+</body>
+</html>

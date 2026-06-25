@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>物理量速查表｜气象物理量课程</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body  >
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="index.html">课程首页</a>
+        <a class="side-home" href="glossary.html">物理量速查</a>
+        <a class="side-home" href="cases.html">个例复盘</a>
+        <a class="side-home" href="learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content glossary">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>物理量速查表</h1>
+          <p class="subtitle">按类别快速查找常用气象物理量的含义、用途和误区。</p>
+        </div>
+        <div class="hero-actions">
+          
+          <a class="btn ghost" href="glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          
+<div class="tool-panel">
+  <input id="glossarySearch" placeholder="搜索物理量：CAPE、K指数、湿球温度、涡度…" />
+</div>
+<div class="table-wrap">
+<table class="glossary-table" id="glossaryTable">
+<thead><tr><th>分类</th><th>物理量</th><th>主要意义</th><th>怎么看/注意点</th></tr></thead>
+<tbody><tr><td>基础状态量</td><td><strong>气压 p</strong></td><td>空气柱重量；地面高低压分析基础</td><td>看相对高低和等压线疏密</td></tr>
+<tr><td>基础状态量</td><td><strong>位势高度 Z/H</strong></td><td>气压面的高度；500hPa 形势核心</td><td>高值偏暖、低值偏冷；看槽脊副高</td></tr>
+<tr><td>基础状态量</td><td><strong>温度 T</strong></td><td>冷暖空气、层结和相态</td><td>结合风判断冷暖平流</td></tr>
+<tr><td>基础状态量</td><td><strong>风 u/v/V</strong></td><td>输送水汽、冷暖空气、系统移动</td><td>看来源、辐合、持续性</td></tr>
+<tr><td>水汽</td><td><strong>相对湿度 RH</strong></td><td>空气接近饱和程度</td><td>高 RH 不等于实际水汽多</td></tr>
+<tr><td>水汽</td><td><strong>露点 Td</strong></td><td>低层实际水汽多少</td><td>露点越高越湿，T-Td 越小越接近饱和</td></tr>
+<tr><td>水汽</td><td><strong>比湿 q</strong></td><td>实际水汽含量</td><td>常看 850/925hPa 低层水汽</td></tr>
+<tr><td>水汽</td><td><strong>可降水量 PW</strong></td><td>整层水汽总储量</td><td>高 PW 仍需抬升和维持</td></tr>
+<tr><td>水汽</td><td><strong>水汽通量</strong></td><td>水汽输送强弱</td><td>约等于风 × 水汽</td></tr>
+<tr><td>水汽</td><td><strong>水汽通量散度</strong></td><td>水汽辐合/发散</td><td>常见负值表示辐合，注意图例</td></tr>
+<tr><td>热力</td><td><strong>CAPE</strong></td><td>对流上升能量</td><td>汽油；大不等于一定触发</td></tr>
+<tr><td>热力</td><td><strong>CIN</strong></td><td>对流抑制</td><td>锅盖；大时需强触发</td></tr>
+<tr><td>热力</td><td><strong>LCL</strong></td><td>抬升凝结高度，云底附近</td><td>低 LCL 表示低层湿</td></tr>
+<tr><td>热力</td><td><strong>LFC</strong></td><td>自由对流高度</td><td>到此高度后气块可自行上升</td></tr>
+<tr><td>热力</td><td><strong>EL</strong></td><td>平衡高度</td><td>对流云发展上限</td></tr>
+<tr><td>热力指数</td><td><strong>K 指数</strong></td><td>湿对流/雷阵雨潜势</td><td>辅助看湿对流，不能单独判断</td></tr>
+<tr><td>热力指数</td><td><strong>LI</strong></td><td>抬升指数</td><td>越负越不稳定</td></tr>
+<tr><td>热力指数</td><td><strong>SI</strong></td><td>沙氏指数</td><td>850hPa 气块稳定度，越负越不稳定</td></tr>
+<tr><td>热力指数</td><td><strong>BLI</strong></td><td>最优抬升指数</td><td>找最不稳定气块，适合高架对流</td></tr>
+<tr><td>强对流</td><td><strong>0–6km 风切变</strong></td><td>雷暴组织能力</td><td>强时利于多单体/飑线/超级单体</td></tr>
+<tr><td>强对流</td><td><strong>0–1km 风切变</strong></td><td>低层旋转和近地面结构</td><td>结合 SRH、LCL 和速度图</td></tr>
+<tr><td>强对流</td><td><strong>SRH</strong></td><td>风暴相对螺旋度</td><td>低层旋转环境指标</td></tr>
+<tr><td>强对流</td><td><strong>DCAPE</strong></td><td>下沉气流能量</td><td>雷暴大风、下击暴流潜势</td></tr>
+<tr><td>强对流</td><td><strong>SWEAT</strong></td><td>强天气威胁指数</td><td>综合经验指数，只作辅助筛查</td></tr>
+<tr><td>动力</td><td><strong>垂直速度 ω</strong></td><td>上升/下沉运动</td><td>气压坐标中负值常表示上升</td></tr>
+<tr><td>动力</td><td><strong>散度</strong></td><td>空气散开或汇聚</td><td>低层负散度=辐合，有利上升</td></tr>
+<tr><td>动力</td><td><strong>高空散度</strong></td><td>高空辐散抽吸</td><td>配合低层辐合利于强上升</td></tr>
+<tr><td>动力</td><td><strong>相对涡度</strong></td><td>空气旋转强弱</td><td>北半球正涡度为气旋性旋转</td></tr>
+<tr><td>动力</td><td><strong>垂直涡度</strong></td><td>相对涡度垂直分量</td><td>常用于识别槽、低涡、切变</td></tr>
+<tr><td>动力</td><td><strong>涡度平流</strong></td><td>风把涡度输送到某地</td><td>槽前正涡度平流利于上升</td></tr>
+<tr><td>相态</td><td><strong>湿球温度 Tw</strong></td><td>蒸发冷却后的温度</td><td>雨雪相态和湿球0℃层关键</td></tr>
+<tr><td>相态</td><td><strong>0℃ 层高度</strong></td><td>温度为 0℃ 的高度</td><td>雨雪、冰雹融化层参考</td></tr>
+<tr><td>相态</td><td><strong>湿球0℃层</strong></td><td>湿球温度为0℃的高度</td><td>相态判断更实用</td></tr>
+<tr><td>边界层</td><td><strong>查理森数 Ri</strong></td><td>稳定度与风切变对抗</td><td>Ri 小表示湍流更易发生</td></tr>
+<tr><td>雷达</td><td><strong>反射率 dBZ</strong></td><td>回波强弱</td><td>强回波不等于雨量一定大</td></tr>
+<tr><td>雷达</td><td><strong>径向速度</strong></td><td>朝/离雷达的风</td><td>看旋转、出流、辐合和大风信号</td></tr></tbody>
+</table>
+</div>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="assets/js/search-index.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

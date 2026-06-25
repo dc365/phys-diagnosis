@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from shapely.geometry import box, mapping
-from shapely.ops import unary_union
+from shapely.geometry import box, mapping, shape
+from shapely.ops import transform, unary_union
 
 EARTH_RADIUS_M = 6_371_000.0
 
@@ -104,6 +104,106 @@ def _component_polygon_geometry(ys: np.ndarray, xs: np.ndarray, lat: np.ndarray,
         "type": geojson["type"],
         "coordinates": _jsonable_coordinates(geojson["coordinates"]),
     }
+
+
+def geometry_bounds(geometry: dict) -> list[float]:
+    """Return [min_lon, min_lat, max_lon, max_lat] for a GeoJSON geometry."""
+    try:
+        geom = shape(geometry)
+        if geom.is_empty:
+            return [0.0, 0.0, 0.0, 0.0]
+        minx, miny, maxx, maxy = geom.bounds
+        return [float(minx), float(miny), float(maxx), float(maxy)]
+    except Exception:
+        coords = geometry.get("coordinates", []) if isinstance(geometry, dict) else []
+        xs: list[float] = []
+        ys: list[float] = []
+
+        def walk(value):
+            if isinstance(value, (list, tuple)) and len(value) >= 2 and all(isinstance(v, (int, float)) for v in value[:2]):
+                xs.append(float(value[0]))
+                ys.append(float(value[1]))
+                return
+            if isinstance(value, (list, tuple)):
+                for child in value:
+                    walk(child)
+
+        walk(coords)
+        if not xs or not ys:
+            return [0.0, 0.0, 0.0, 0.0]
+        return [float(np.nanmin(xs)), float(np.nanmin(ys)), float(np.nanmax(xs)), float(np.nanmax(ys))]
+
+
+def _geometry_reference_lat(geometry: dict, fallback: float = 25.0) -> float:
+    bbox = geometry_bounds(geometry)
+    lat = (bbox[1] + bbox[3]) / 2.0
+    if not np.isfinite(lat):
+        return fallback
+    return float(np.clip(lat, -75.0, 75.0))
+
+
+def smooth_polygon_geometry(
+    geometry: dict,
+    *,
+    reference_lat: float | None = None,
+    smooth_km: float = 80.0,
+    simplify_km: float = 25.0,
+    min_area_ratio: float = 0.65,
+) -> dict:
+    """Smooth a grid-cell polygon boundary in local-km coordinates.
+
+    Mask-derived polygons are naturally stair-stepped because each grid cell is
+    unioned as a rectangle. For display systems such as the 500hPa subtropical
+    high, this helper applies a conservative rounded buffer and topology-
+    preserving simplification in a local equirectangular km plane, then converts
+    the result back to lon/lat GeoJSON. The operation is intended for map
+    visualization and keeps the original component statistics unchanged.
+    """
+    if not isinstance(geometry, dict) or geometry.get("type") not in {"Polygon", "MultiPolygon"}:
+        return geometry
+    smooth_km = max(float(smooth_km or 0.0), 0.0)
+    simplify_km = max(float(simplify_km or 0.0), 0.0)
+    if smooth_km <= 0.0 and simplify_km <= 0.0:
+        return geometry
+
+    try:
+        geom = shape(geometry)
+        if geom.is_empty:
+            return geometry
+        ref_lat = _geometry_reference_lat(geometry) if reference_lat is None else float(reference_lat)
+        x_scale = 111.32 * max(float(np.cos(np.deg2rad(ref_lat))), 0.2)
+        y_scale = 111.32
+
+        def to_km(x, y, z=None):
+            return (np.asarray(x, dtype=float) * x_scale, np.asarray(y, dtype=float) * y_scale)
+
+        def to_degree(x, y, z=None):
+            return (np.asarray(x, dtype=float) / x_scale, np.asarray(y, dtype=float) / y_scale)
+
+        projected = transform(to_km, geom)
+        if projected.is_empty:
+            return geometry
+
+        candidate = projected
+        if smooth_km > 0.0:
+            # Round short grid-cell corners without intentionally changing the
+            # synoptic-scale 5880-gpm envelope.
+            candidate = candidate.buffer(smooth_km, join_style=1).buffer(-smooth_km, join_style=1)
+        if simplify_km > 0.0:
+            candidate = candidate.simplify(simplify_km, preserve_topology=True)
+        candidate = candidate.buffer(0)
+
+        original_area = max(float(projected.area), 1e-6)
+        if candidate.is_empty or float(candidate.area) < original_area * float(min_area_ratio):
+            candidate = projected.simplify(max(simplify_km, 1.0), preserve_topology=True).buffer(0)
+        if candidate.is_empty:
+            return geometry
+
+        restored = transform(to_degree, candidate)
+        geojson = mapping(restored)
+        return {"type": geojson["type"], "coordinates": _jsonable_coordinates(geojson["coordinates"])}
+    except Exception:
+        return geometry
 
 
 def mask_to_bbox_features(mask: np.ndarray, lat: np.ndarray, lon: np.ndarray, *, min_points: int = 5):

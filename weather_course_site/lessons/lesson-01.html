@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 1 课：天气学核心逻辑｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-01.html" data-lesson-id="lesson-01">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 1 课：天气学核心逻辑</h1>
+          <p class="subtitle">水汽、抬升、不稳定和维持，是理解天气过程的主线。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会用一句话解释大多数天气过程：<strong>水汽 + 抬升 + 不稳定 + 维持 = 天气发展条件</strong>。</p>
+<div class="sketch">
+<pre>
+水汽：有没有原料？
+  ↓
+抬升：谁把空气抬起来？
+  ↓
+不稳定：空气抬起来后能不能继续发展？
+  ↓
+维持：这个过程能持续多久？
+  ↓
+云、雨、雷暴、暴雨、强对流
+</pre>
+</div>
+
+<h2>1. 水汽是原料</h2>
+<p>没有水汽，很难形成明显降水。水汽可以来自南海、孟加拉湾、西太平洋、台风外围、近海或局地蒸发。业务上常看露点、比湿、可降水量、水汽通量等。</p>
+<p><strong>记法：</strong>水汽像做饭的米，没有米，锅再热也做不出饭。</p>
+<h2>2. 抬升是动作</h2>
+<p>空气上升后会膨胀冷却，水汽更容易凝结成云雨。常见抬升来源包括冷锋、暖锋、切变线、低压、低层辐合、高空辐散、地形抬升和地面加热。</p>
+<p><strong>经典口诀：</strong>下面挤，上面抽，空气就往上升。</p>
+<h2>3. 不稳定是能量</h2>
+<p>如果空气被抬起来后比周围空气暖、更轻，它会继续上升；如果比周围空气冷、更重，它会被压回去。CAPE、CIN、LI、K 指数等都服务于这个判断。</p>
+<h2>4. 维持决定影响大小</h2>
+<p>同样是雷阵雨，如果只持续 20 分钟，影响有限；如果水汽输送、低层辐合和回波训练持续数小时，就可能造成暴雨或灾害。</p>
+<h2>5. 五个固定问题</h2>
+<table>
+<thead>
+<tr>
+  <th>问题</th>
+  <th>主要资料</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>水汽够不够？</td>
+  <td>露点、比湿、PW、850hPa 水汽</td>
+</tr>
+<tr>
+  <td>谁把空气抬起来？</td>
+  <td>锋面、切变线、低压、地形、垂直速度</td>
+</tr>
+<tr>
+  <td>大气稳不稳定？</td>
+  <td>CAPE、CIN、探空、LI、K 指数</td>
+</tr>
+<tr>
+  <td>风场是否支持？</td>
+  <td>850hPa 风、低空急流、风切变</td>
+</tr>
+<tr>
+  <td>能不能维持？</td>
+  <td>系统移动、水汽持续、雷达演变</td>
+</tr>
+</tbody>
+</table>
+<h2>小练习</h2>
+<p>下面哪种情况最容易出现明显降水？</p>
+<p>A. 空气干，风弱，没有抬升。<br />
+B. 低层暖湿，有切变线，低空急流持续输送水汽。<br />
+C. 湿度较大，但大气稳定、无触发。</p>
+<p><strong>答案：B。</strong>因为它同时具备水汽、抬升和维持条件。</p>
+<h2>本课一句话</h2>
+<blockquote>
+<p>任何天气过程都先问：水汽从哪里来，谁把空气抬起来，空气能不能继续发展，这个过程能不能维持。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><span></span><a class="btn primary" href="../lessons/lesson-02.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

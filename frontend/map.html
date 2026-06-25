@@ -3,39 +3,41 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>天气形势智能诊断 MVP</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="/static/map.css" />
+  <title>天气形势分析与物理量诊断工作台</title>
+  <link rel="stylesheet" href="/static/vendor/maplibre-gl/maplibre-gl.css?v=5.24.0" />
+  <link rel="stylesheet" href="/static/map.css?v=hide-source-paths-20260625" />
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到地图</a>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <h1>天气形势智能诊断</h1>
-        <span>EC NetCDF → 物理量诊断 → 天气系统识别</span>
+        <h1>天气形势分析与物理量诊断工作台</h1>
+        <span>地图研判 / 物理量图层 / 点位证据链</span>
       </div>
       <div class="mode-strip" aria-label="模式与运行控制">
         <label class="control-field">
           <span>模式</span>
-          <select id="modelSelect" disabled>
-            <option>ECMWF</option>
-          </select>
+          <select id="pointDataCodeSelect" aria-label="模式"></select>
         </label>
         <label class="control-field run-field" hidden>
           <span>诊断产品</span>
           <select id="runSelect"></select>
         </label>
-        <label class="control-field point-data-field" hidden>
-          <span>点查数据</span>
-          <select id="pointDataCodeSelect" aria-label="点位诊断数据编码"></select>
-        </label>
         <label class="control-field point-run-field">
           <span>起报</span>
           <select id="pointRunTimeSelect" aria-label="点位诊断起报时次"></select>
         </label>
+        <label class="control-field basemap-field">
+          <span>底图</span>
+          <select id="basemapSelect" aria-label="地图底图">
+            <option value="offline" selected>离线简图</option>
+            <option value="local-xyz">内网瓦片</option>
+            <option value="tdt-vector">天地图矢量</option>
+            <option value="tdt-image">天地图影像</option>
+          </select>
+        </label>
         <button id="btnPointProbe" class="point-probe-toggle" type="button" aria-pressed="false">点位诊断</button>
-        <button id="btnDemo" class="secondary-action">示例数据</button>
         <button id="btnDiagnose">运行诊断</button>
       </div>
     </header>
@@ -73,18 +75,35 @@
           <section class="panel-section">
             <div class="section-head">
               <h2>风险</h2>
-              <div class="section-actions">
-                <button id="btnClearFeatures" class="ghost-button quiet-button" type="button">清空</button>
-                <button id="btnLoadFeatures" class="ghost-button" type="button">刷新</button>
-              </div>
             </div>
             <div class="panel-subsection">
               <strong class="panel-subtitle">风险图层</strong>
               <div id="riskLayerChips" class="layer-chips"></div>
             </div>
-            <div class="panel-subsection">
-              <strong class="panel-subtitle">风险对象</strong>
-              <div class="checkboxes feature-grid" id="riskFeatureToggles"></div>
+            <div class="panel-subsection area-risk-panel">
+              <div class="area-risk-head">
+                <strong class="panel-subtitle">区域风险</strong>
+                <span id="areaRiskSummary" class="area-risk-summary">未加载</span>
+              </div>
+              <label class="area-risk-field">
+                <span>区域范围</span>
+                <select id="areaRiskScopeSelect" aria-label="区域风险范围"></select>
+              </label>
+              <div class="area-risk-control-grid">
+                <label class="area-risk-field">
+                  <span>显示方式</span>
+                  <select id="areaRiskModeSelect" aria-label="区域风险显示方式">
+                    <option value="dominant" selected>主导风险</option>
+                    <option value="single">单类风险</option>
+                  </select>
+                </label>
+                <label class="area-risk-field">
+                  <span>风险类别</span>
+                  <select id="areaRiskTypeSelect" aria-label="区域风险类别"></select>
+                </label>
+              </div>
+              <button id="btnLoadAreaRisk" class="area-risk-load" type="button">加载区域风险</button>
+              <div id="areaRiskList" class="area-risk-list" aria-label="区域风险排序"></div>
             </div>
           </section>
 
@@ -94,35 +113,11 @@
             </div>
             <div class="checkboxes feature-grid" id="featureToggles"></div>
           </section>
-
-          <section class="panel-section feature-index-panel">
-            <div class="section-head compact-head">
-              <h2>对象索引</h2>
-              <span id="featureIndexSummary" class="feature-index-summary">尚未加载对象</span>
-            </div>
-            <div class="feature-index-controls">
-              <label>
-                <span>类型</span>
-                <select id="featureIndexTypeFilter" aria-label="对象类型筛选"></select>
-              </label>
-              <label>
-                <span>可信度</span>
-                <select id="featureIndexQualityFilter" aria-label="可信度筛选">
-                  <option value="all">全部</option>
-                  <option value="pending">待核验</option>
-                  <option value="low">低可信</option>
-                  <option value="moderate">中可信</option>
-                  <option value="high">高可信</option>
-                </select>
-              </label>
-            </div>
-            <div id="featureIndexList" class="feature-index-list"></div>
-          </section>
         </aside>
 
         <aside class="analysis-panel" aria-label="诊断信息">
           <h2 id="analysisTitle">自动形势分析</h2>
-          <pre id="analysisText">暂无分析。点击“示例数据”并“运行诊断”。</pre>
+          <pre id="analysisText">暂无分析。选择起报时次后点击“运行诊断”。</pre>
           <div class="detail-heading">
             <h2 id="detailTitle">对象详情</h2>
             <span id="pointProbeBadge" class="probe-badge" hidden>点位诊断</span>
@@ -154,8 +149,14 @@
     </footer>
   </div>
 
-  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script src="/static/maplibre-utils.js"></script>
-  <script src="/static/map.js"></script>
+  <script src="/static/vendor/maplibre-gl/maplibre-gl.js?v=5.24.0"></script>
+  <script src="/static/maplibre-utils.js?v=hide-source-paths-20260625"></script>
+  <script>
+    window.WEATHER_MAP_CONFIG = {
+      basemap: 'tdt-vector',
+      tiandituToken: '607ace490b937459cac5709cc3aef752'
+    };
+  </script>
+  <script src="/static/map.js?v=hide-source-paths-20260625"></script>
 </body>
 </html>

@@ -5,10 +5,491 @@ from copy import deepcopy
 from datetime import datetime, timezone
 
 from weather_diag.config import THRESHOLD_MATRIX_PATH, ensure_dirs
+from weather_diag.features.risk_scoring import DEFAULT_RISK_SCORING
 
 
 ALGORITHM_ID = "nafp-situation"
 DEFAULT_MATRIX_ID = "nafp-default"
+WEATHER_SYSTEM_DOMAIN = "weather-systems"
+RISK_DIAGNOSIS_DOMAIN = "risk-diagnosis"
+SUPPORTING_DIAGNOSIS_DOMAIN = "supporting-diagnosis"
+RISK_DIAGNOSIS_TARGETS = {
+    "persistent_heavy_rain",
+    "short_duration_heavy_rain",
+    "thunderstorm_gale",
+    "hail",
+    "rotating_storm_or_supercell",
+    "severe_convection_composite",
+}
+LEGACY_SUPPORT_TARGETS = {
+    "heavy_rain_potential",
+    "convection_potential",
+    "dynamic_lift_potential",
+    "precipitation_phase",
+    "evidence_chain_region",
+}
+
+RISK_RULE_SPECS = {
+    "persistent_heavy_rain": {
+        "title": "持续性强降水",
+        "purpose": "综合水汽输送、水汽辐合、上升运动、深厚湿层和累计降水，输出持续性强降水风险评分。",
+        "basis": ["水汽供给、持续抬升和模式累计降水共同增强时，持续性强降水风险升高。"],
+        "inputs": ["q850", "tcwv", "uv850", "div850", "w700", "rain6"],
+    },
+    "short_duration_heavy_rain": {
+        "title": "短时强降水",
+        "purpose": "综合低层水汽、CAPE/K 指数、低层触发、水汽辐合和短时降水响应，输出短时强降水风险评分。",
+        "basis": ["暖湿低层、局地触发和不稳定能量同时存在时，短时强降水风险升高。"],
+        "inputs": ["q850", "tcwv", "div850", "w700", "kindex", "cape", "rain6"],
+    },
+    "thunderstorm_gale": {
+        "title": "雷暴大风/下击暴流",
+        "purpose": "综合 DCAPE、深层风切变、CAPE、中层干冷和低层触发，输出雷暴大风/下击暴流风险评分。",
+        "basis": ["强下沉潜势、足够不稳定和风切变配合时，雷暴大风或下击暴流风险升高。"],
+        "inputs": ["cape", "dcape", "shr850-200", "div850", "div200/div300"],
+    },
+    "hail": {
+        "title": "冰雹",
+        "purpose": "综合 CAPE、深层风切变、LI 和冷性层结代理指标，输出冰雹风险评分。",
+        "basis": ["较强不稳定、组织化风切变和冷性中层环境配合时，冰雹风险升高。"],
+        "inputs": ["cape", "shr850-200", "li"],
+    },
+    "rotating_storm_or_supercell": {
+        "title": "旋转风暴/超级单体潜势",
+        "purpose": "综合 CAPE、深层风切变、低层切变或 SRH，输出旋转风暴/超级单体组织潜势评分。",
+        "basis": ["不稳定能量、深层风切变和低层旋转环境配合时，旋转风暴组织潜势升高。"],
+        "inputs": ["cape", "shr850-200", "srh"],
+    },
+    "severe_convection_composite": {
+        "title": "强对流综合风险",
+        "purpose": "综合短时强降水、雷暴大风、冰雹和旋转风暴风险，输出强对流综合风险评分。",
+        "basis": ["强对流综合风险不替代单灾种风险，主要用于快速定位多灾种叠加或最强风险区。"],
+        "inputs": [
+            "risk_short_duration_heavy_rain_score",
+            "risk_thunderstorm_gale_score",
+            "risk_hail_score",
+            "risk_rotating_storm_score",
+        ],
+    },
+}
+
+RISK_COMPOSITION_RULES = {
+    "short_duration_heavy_rain": {
+        "mode": "max",
+        "label": "取较高风险通道",
+        "formula": "max(降水型短时强降水通道, 对流型短时强降水通道)",
+        "description": "短时强降水同时属于强降水风险和强对流风险，先分别计算降水型与对流型通道，再取较高值作为最终 source_grid。",
+        "channels": [
+            {
+                "channel_id": "precip_short_duration_heavy_rain",
+                "label": "降水型短时强降水通道",
+                "field": "risk_precip_short_duration_heavy_rain_score",
+                "basis": "低层水汽、整层可降水量、水汽辐合、低层辐合、上升运动、列车效应和短时雨强。",
+                "weight": None,
+            },
+            {
+                "channel_id": "conv_short_duration_heavy_rain",
+                "label": "对流型短时强降水通道",
+                "field": "risk_conv_short_duration_heavy_rain_score",
+                "basis": "降水型基础叠加 CAPE/K 指数、CIN 可突破、触发条件、低层水汽和深层风切变。",
+                "weight": None,
+            },
+        ],
+    }
+}
+
+RISK_TARGET_ORDER = [
+    "persistent_heavy_rain",
+    "short_duration_heavy_rain",
+    "thunderstorm_gale",
+    "hail",
+    "rotating_storm_or_supercell",
+    "severe_convection_composite",
+]
+
+RISK_MATRIX_FEATURE_DEFAULTS = {
+    "persistent_heavy_rain": {
+        "feature_type": "persistent_heavy_rain_risk",
+        "score_grid": "risk_persistent_heavy_rain_score",
+        "score_threshold": 0.60,
+        "high_score_threshold": 0.75,
+        "min_area_grid_points": 12,
+        "max_objects": 8,
+    },
+    "short_duration_heavy_rain": {
+        "feature_type": "short_duration_heavy_rain_risk",
+        "score_grid": "risk_short_duration_heavy_rain_score",
+        "score_threshold": 0.60,
+        "high_score_threshold": 0.75,
+        "min_area_grid_points": 10,
+        "max_objects": 8,
+    },
+    "thunderstorm_gale": {
+        "feature_type": "thunderstorm_gale_risk",
+        "score_grid": "risk_thunderstorm_gale_score",
+        "score_threshold": 0.58,
+        "high_score_threshold": 0.72,
+        "min_area_grid_points": 10,
+        "max_objects": 8,
+    },
+    "hail": {
+        "feature_type": "hail_risk",
+        "score_grid": "risk_hail_score",
+        "score_threshold": 0.58,
+        "high_score_threshold": 0.72,
+        "min_area_grid_points": 8,
+        "max_objects": 8,
+    },
+    "rotating_storm_or_supercell": {
+        "feature_type": "rotating_storm_risk",
+        "score_grid": "risk_rotating_storm_score",
+        "score_threshold": 0.55,
+        "high_score_threshold": 0.70,
+        "min_area_grid_points": 8,
+        "max_objects": 8,
+    },
+    "severe_convection_composite": {
+        "feature_type": "severe_convection_composite_risk",
+        "score_grid": "risk_severe_convection_composite_score",
+        "score_threshold": 0.60,
+        "high_score_threshold": 0.72,
+        "min_area_grid_points": 10,
+        "max_objects": 8,
+    },
+}
+
+RISK_MATRIX_FACTOR_DEFAULTS = {
+    "persistent_heavy_rain": [
+        ("moisture_transport", "低层水汽输送", "moisture_flux850", 0.18),
+        ("moisture_convergence", "水汽辐合", "moisture_flux_divergence850", 0.20),
+        ("ascent", "700hPa 上升运动", "w700", 0.18),
+        ("deep_moisture", "深厚湿层", "deep_moisture_score", 0.14),
+        ("low_level_convergence", "低层辐合", "div850", 0.10),
+        ("model_precip", "模式累计降水", "model_precip_score", 0.10),
+        ("persistence", "持续性", "persistence_score", 0.07),
+        ("system_support", "系统支持", "supporting_systems", 0.03),
+    ],
+    "short_duration_heavy_rain": [
+        ("moisture", "低层水汽", "moisture_score", 0.18),
+        ("moisture_convergence", "水汽辐合", "moisture_flux_divergence850", 0.18),
+        ("low_level_convergence", "低层辐合", "div850", 0.12),
+        ("ascent", "700hPa 上升运动", "w700", 0.12),
+        ("instability", "对流能量", "instability_score", 0.10),
+        ("k_index", "K 指数", "kindex", 0.08),
+        ("training", "列车效应潜势", "training_score", 0.06),
+        ("rainrate", "模式短时雨强", "rainrate_score", 0.04),
+    ],
+    "thunderstorm_gale": [
+        ("storm_initiation", "雷暴发生潜势", "storm_initiation_score", 0.18),
+        ("dcape", "DCAPE/下沉大风潜势", "dcape", 0.25),
+        ("mid_dry", "中层干空气", "mid_dry_score", 0.17),
+        ("deep_shear", "0-6km 风切变", "shr850-200", 0.18),
+        ("upper_wind", "高空强风", "wind500", 0.10),
+        ("linear_mode", "线状组织潜势", "front_or_shearline_score", 0.12),
+    ],
+    "hail": [
+        ("cape", "CAPE", "cape", 0.22),
+        ("deep_shear", "0-6km 风切变", "shr850-200", 0.22),
+        ("mid_cold", "中层冷空气", "t500", 0.14),
+        ("lapse_rate", "700-500hPa 递减率", "lapse_rate_700_500", 0.12),
+        ("freezing_level", "0℃ 层高度", "freezing_level_m", 0.10),
+        ("supercell_env", "超级单体环境", "supercell_env_score", 0.12),
+        ("trigger", "触发条件", "trigger_score", 0.08),
+    ],
+    "rotating_storm_or_supercell": [
+        ("cape", "CAPE", "cape", 0.18),
+        ("deep_shear", "0-6km 风切变", "shr850-200", 0.28),
+        ("low_level_shear", "0-1km 风切变", "shear_0_1km", 0.18),
+        ("srh", "风暴相对螺旋度", "srh", 0.16),
+        ("lcl", "LCL 云底高度", "lcl_m", 0.08),
+        ("cin_breakable", "CIN 可突破", "cin", 0.05),
+        ("trigger", "触发条件", "trigger_score", 0.05),
+        ("discrete_storm", "离散单体环境", "discrete_storm_score", 0.02),
+    ],
+    "severe_convection_composite": [
+        ("short_duration_heavy_rain", "短时强降水", "risk_short_duration_heavy_rain_score", 0.25),
+        ("thunderstorm_gale", "雷暴大风/下击暴流", "risk_thunderstorm_gale_score", 0.25),
+        ("hail", "冰雹", "risk_hail_score", 0.25),
+        ("rotating_storm", "旋转风暴/超级单体潜势", "risk_rotating_storm_score", 0.25),
+    ],
+}
+
+RISK_MATRIX_FIELD_COMPONENTS = {
+    ("persistent_heavy_rain", "deep_moisture"): [
+        ("rh850", "rh850", "850hPa 相对湿度", 0.36),
+        ("rh700", "rh700", "700hPa 相对湿度", 0.36),
+        ("rh500", "rh500", "500hPa 相对湿度", 0.28),
+    ],
+    ("persistent_heavy_rain", "model_precip"): [
+        ("rain6", "rain6", "6h 累计降水", 0.50),
+        ("rain24", "rain24", "24h 累计降水", 0.50),
+    ],
+    ("short_duration_heavy_rain", "moisture"): [
+        ("q850", "q850", "850hPa 比湿", 0.35),
+        ("td2m", "td2m", "2m 露点", 0.25),
+        ("tcwv", "tcwv", "整层可降水量", 0.25),
+        ("rh850", "rh850", "850hPa 相对湿度", 0.15),
+    ],
+    ("short_duration_heavy_rain", "instability"): [
+        ("cape", "cape", "CAPE", 0.45),
+        ("kindex", "kindex", "K 指数", 0.35),
+        ("li", "li", "抬升指数", 0.20),
+    ],
+    ("short_duration_heavy_rain", "training"): [
+        ("persistence", "persistence_score", "持续性", 0.40),
+        ("moisture_convergence", "moisture_flux_divergence850", "水汽辐合", 0.40),
+        ("slow_motion", "mean_wind_850_500", "系统慢移", 0.20),
+    ],
+    ("short_duration_heavy_rain", "rainrate"): [
+        ("rain1", "rain1", "1h 雨强", 1.0 / 3.0),
+        ("rain3", "rain3", "3h 雨强", 1.0 / 3.0),
+        ("rain6", "rain6", "6h 雨强", 1.0 / 3.0),
+    ],
+    ("thunderstorm_gale", "storm_initiation"): [
+        ("instability", "instability_score", "对流能量", 0.35),
+        ("moisture", "moisture_score", "低层水汽", 0.20),
+        ("cin_breakable", "cin", "CIN 可突破", 0.15),
+        ("trigger", "trigger_score", "触发条件", 0.20),
+        ("deep_shear", "shr850-200", "深层风切变", 0.10),
+    ],
+    ("thunderstorm_gale", "mid_dry"): [
+        ("rh700", "rh700", "700hPa 中层干空气", 0.55),
+        ("rh500", "rh500", "500hPa 中层干空气", 0.45),
+    ],
+    ("hail", "supercell_env"): [
+        ("cape", "cape", "CAPE", 0.30),
+        ("deep_shear", "shr850-200", "深层风切变", 0.40),
+        ("low_level_shear", "shear_0_1km", "低层风切变", 0.15),
+        ("trigger", "trigger_score", "触发条件", 0.15),
+    ],
+    ("hail", "trigger"): [
+        ("div850", "div850", "低层辐合", 0.25),
+        ("moisture_convergence", "moisture_flux_divergence850", "水汽辐合", 0.25),
+        ("pva", "pva500", "正涡度平流", 0.25),
+        ("upper_divergence", "upper_divergence", "高空辐散", 0.25),
+    ],
+    ("rotating_storm_or_supercell", "trigger"): [
+        ("div850", "div850", "低层辐合", 0.25),
+        ("moisture_convergence", "moisture_flux_divergence850", "水汽辐合", 0.25),
+        ("pva", "pva500", "正涡度平流", 0.25),
+        ("upper_divergence", "upper_divergence", "高空辐散", 0.25),
+    ],
+}
+
+RISK_SCORING_FIELD_RULES = {
+    "q850": ("q850_gkg", "ramp", "g/kg"),
+    "td2m": ("td2m_c", "ramp", "degC"),
+    "tcwv": ("pw_mm", "ramp", "mm"),
+    "pw": ("pw_mm", "ramp", "mm"),
+    "rh850": ("rh850", "ramp", "%"),
+    "rh700": ("rh700", "ramp", "%"),
+    "rh500": ("rh500", "ramp", "%"),
+    "moisture_flux850": ("moisture_flux850", "ramp", ""),
+    "cape": ("cape", "ramp", "J/kg"),
+    "kindex": ("k_index", "ramp", "degC"),
+    "k_index": ("k_index", "ramp", "degC"),
+    "li": ("li", "negative_ratio", "degC"),
+    "shr850-200": ("deep_shear_ms", "ramp", "m/s"),
+    "deep_shear": ("deep_shear_ms", "ramp", "m/s"),
+    "shear_0_1km": ("low_level_shear_ms", "ramp", "m/s"),
+    "dcape": ("dcape", "ramp", "J/kg"),
+    "wind500": ("wind500_ms", "ramp", "m/s"),
+    "t500": ("t500_c", "negative_ratio", "degC"),
+    "lapse_rate_700_500": ("lapse_rate_700_500", "ramp", "degC/km"),
+    "lcl_m": ("lcl_m", "negative_ratio", "m"),
+    "srh": ("srh", "ramp", "m2/s2"),
+    "rain1": ("precip_1h_mm", "ramp", "mm"),
+    "rain3": ("precip_3h_mm", "ramp", "mm"),
+    "rain6": ("precip_6h_mm", "ramp", "mm"),
+    "rain24": ("precip_24h_mm", "ramp", "mm"),
+    "mean_wind_850_500": ("mean_wind_850_500_ms", "negative_ratio", "m/s"),
+}
+
+RISK_FACTOR_FIELD_RULE_OVERRIDES = {
+    ("mid_dry", "rh700"): ("mid_dry_rh700", "negative_ratio", "%"),
+    ("mid_dry", "rh500"): ("mid_dry_rh500", "negative_ratio", "%"),
+}
+
+
+def _risk_threshold_entry(
+    target: str,
+    suffix: str,
+    *,
+    signal: str,
+    statistic: str,
+    operator: str,
+    threshold: float,
+    unit: str,
+    field: str | None = None,
+    scale: float | None = None,
+    weight: float | None = None,
+) -> dict:
+    feature = RISK_MATRIX_FEATURE_DEFAULTS[target]
+    return {
+        "entry_id": f"risk.{target}.{suffix}",
+        "group": RISK_RULE_SPECS[target]["title"],
+        "target": target,
+        "field": field or feature["score_grid"],
+        "signal": signal,
+        "statistic": statistic,
+        "operator": operator,
+        "threshold": threshold,
+        "scale": scale,
+        "weight": weight,
+        "unit": unit,
+        "enabled": True,
+        "source": feature["feature_type"],
+    }
+
+
+def _risk_scoring_threshold_meta(factor: str, field: str) -> dict | None:
+    key_operator_unit = RISK_FACTOR_FIELD_RULE_OVERRIDES.get((factor, field)) or RISK_SCORING_FIELD_RULES.get(field)
+    if not key_operator_unit:
+        return None
+    key, operator, unit = key_operator_unit
+    rule = DEFAULT_RISK_SCORING.get("common", {}).get(key)
+    if not rule:
+        return None
+    if operator == "negative_ratio":
+        high = float(rule.get("high", 0.0))
+        low = float(rule.get("low", 0.0))
+        return {
+            "operator": "negative_ratio",
+            "threshold": high,
+            "scale": abs(high - low),
+            "unit": unit,
+        }
+    if "low" in rule and "high" in rule:
+        low = float(rule["low"])
+        high = float(rule["high"])
+        return {
+            "operator": "ramp",
+            "threshold": low,
+            "scale": abs(high - low),
+            "unit": unit,
+        }
+    if {"min", "max"} <= set(rule):
+        min_v = float(rule["min"])
+        max_v = float(rule["max"])
+        return {
+            "operator": "triangular",
+            "threshold": min_v,
+            "scale": abs(max_v - min_v),
+            "unit": unit,
+        }
+    return None
+
+
+def _risk_weight_entry(target: str, factor: str, signal: str, field: str, weight: float) -> dict:
+    meta = _risk_scoring_threshold_meta(factor, field) or {}
+    return _risk_threshold_entry(
+        target,
+        f"weight.{factor}",
+        signal=signal,
+        statistic="factor_score" if meta else "factor_weight",
+        operator=meta.get("operator", "weight"),
+        threshold=meta.get("threshold"),
+        scale=meta.get("scale"),
+        unit=meta.get("unit", "ratio"),
+        field=field,
+        weight=weight,
+    )
+
+
+def _fallback_field_components(field: str) -> list[tuple[str, str, str, float]]:
+    parts = [part.strip() for part in str(field).split("/") if part.strip()]
+    if len(parts) <= 1:
+        return []
+    ratio = 1.0 / len(parts)
+    return [(part.replace("-", "_"), part, part, ratio) for part in parts]
+
+
+def _risk_weight_entries(target: str, factor: str, signal: str, field: str, weight: float) -> list[dict]:
+    components = RISK_MATRIX_FIELD_COMPONENTS.get((target, factor)) or _fallback_field_components(field)
+    if not components:
+        return [_risk_weight_entry(target, factor, signal, field, weight)]
+    entries = []
+    for component_key, component_field, component_signal, ratio in components:
+        component_weight = round(float(weight) * float(ratio), 6)
+        meta = _risk_scoring_threshold_meta(factor, component_field) or {}
+        entries.append(
+            _risk_threshold_entry(
+                target,
+                f"weight.{factor}.{component_key}",
+                signal=f"{signal}：{component_signal}",
+                statistic="factor_component_score" if meta else "factor_component_weight",
+                operator=meta.get("operator", "weight"),
+                threshold=meta.get("threshold"),
+                scale=meta.get("scale"),
+                unit=meta.get("unit", "ratio"),
+                field=component_field,
+                weight=component_weight,
+            )
+        )
+    return entries
+
+
+def _risk_threshold_entries() -> list[dict]:
+    entries: list[dict] = []
+    for target in RISK_TARGET_ORDER:
+        feature = RISK_MATRIX_FEATURE_DEFAULTS[target]
+        entries.extend(
+            [
+                _risk_threshold_entry(
+                    target,
+                    "score_threshold",
+                    signal="风险区起算评分",
+                    statistic="score",
+                    operator=">=",
+                    threshold=feature["score_threshold"],
+                    unit="0-1",
+                ),
+                _risk_threshold_entry(
+                    target,
+                    "high_score_threshold",
+                    signal="高风险核心评分",
+                    statistic="score",
+                    operator=">=",
+                    threshold=feature["high_score_threshold"],
+                    unit="0-1",
+                ),
+                _risk_threshold_entry(
+                    target,
+                    "min_area_grid_points",
+                    signal="风险区最小连续格点数",
+                    statistic="count",
+                    operator=">=",
+                    threshold=float(feature["min_area_grid_points"]),
+                    unit="grid",
+                ),
+                _risk_threshold_entry(
+                    target,
+                    "max_objects",
+                    signal="最大输出风险区数",
+                    statistic="rank",
+                    operator="<=",
+                    threshold=float(feature["max_objects"]),
+                    unit="object",
+                ),
+            ]
+        )
+        for factor, signal, field, weight in RISK_MATRIX_FACTOR_DEFAULTS[target]:
+            entries.extend(_risk_weight_entries(target, factor, signal, field, weight))
+    return entries
+
+
+def _risk_threshold_entry_ids(target: str) -> list[str]:
+    return [
+        f"risk.{target}.score_threshold",
+        f"risk.{target}.high_score_threshold",
+        f"risk.{target}.min_area_grid_points",
+        f"risk.{target}.max_objects",
+        *[
+            entry["entry_id"]
+            for factor, signal, field, weight in RISK_MATRIX_FACTOR_DEFAULTS[target]
+            for entry in _risk_weight_entries(target, factor, signal, field, weight)
+        ],
+    ]
 
 
 class ThresholdMatrixError(Exception):
@@ -1316,6 +1797,32 @@ DEFAULT_THRESHOLD_MATRIX = {
     ],
 }
 
+def _is_legacy_support_entry(entry: dict) -> bool:
+    entry_id = str(entry.get("entry_id") or "")
+    target = str(entry.get("target") or "")
+    return target in LEGACY_SUPPORT_TARGETS or entry_id.startswith(
+        (
+            "region.risk.",
+            "heavy_rain.",
+            "convection.",
+            "dynamic_lift.",
+            "phase.",
+        )
+    )
+
+
+LEGACY_SUPPORT_THRESHOLD_ENTRIES = [
+    deepcopy(entry)
+    for entry in DEFAULT_THRESHOLD_MATRIX["entries"]
+    if _is_legacy_support_entry(entry)
+]
+DEFAULT_THRESHOLD_MATRIX["entries"] = [
+    entry
+    for entry in DEFAULT_THRESHOLD_MATRIX["entries"]
+    if not _is_legacy_support_entry(entry)
+]
+DEFAULT_THRESHOLD_MATRIX["entries"].extend(_risk_threshold_entries())
+
 
 RULE_EXPLANATION_TEMPLATES = [
     {
@@ -1326,7 +1833,7 @@ RULE_EXPLANATION_TEMPLATES = [
         "basis": [
             "500hPa 位势高度使用 dagpm 或 gpm 双单位适配；最大值小于 1000 时按 dagpm 判读，否则按 gpm 判读。",
             "连续区域满足高度阈值后，再要求连通格点数达到最小面积门槛。",
-            "输出对象可信度固定为 0.78，证据中保留最大高度、阈值和最小格点数。",
+            "输出对象保留主体中心、西伸脊点、南北界、面积格点数、最大/平均高度和主体形态。",
         ],
         "inputs": [
             {"field": "gh500", "required": True, "role": "500hPa 位势高度基础场"},
@@ -1334,6 +1841,8 @@ RULE_EXPLANATION_TEMPLATES = [
         "method": [
             "mask = gh500 >= threshold",
             "largest_component(mask, min_points) 选取满足面积约束的最大连续区",
+            "在最西侧阈值区格点中选高度最高点作为西伸脊点",
+            "统计 north_boundary_lat / south_boundary_lat / axis_orientation 供地图详情和证据链展示",
             "连通分量按格点 cell union 输出 polygon geometry，bbox 仅作为范围元数据",
         ],
         "threshold_entries": [
@@ -1345,12 +1854,14 @@ RULE_EXPLANATION_TEMPLATES = [
             "systems.type = subtropical_high",
             "systems.feature_type = subtropical_high",
             "systems.geometry.type = polygon",
+            "systems.ridge_point / center / north_boundary_lat / area_grid_points",
         ],
         "evidence_contract": [
             "field=gh500",
             "signal=height threshold area",
             "raw_value=max(gh500)",
             "rule_id 指向启用的高度阈值条目",
+            "附加 system.subtropical_high.area_extent / ridge_point / north_boundary 证据",
         ],
     },
     {
@@ -1362,7 +1873,7 @@ RULE_EXPLANATION_TEMPLATES = [
             "先按纬向平均移除背景场，得到 gh500_anomaly。",
             "槽区使用低值分位，脊区使用高值分位，同时要求轴线位于等高线曲率支撑的连续槽脊带内。",
             "当 uv500 可用时，槽线要求正涡度支撑、脊线要求负涡度支撑，作为动力一致性证据。",
-            "轴线从连通槽脊带中按主轴投影加权抽取，避免被局地闭合低值或高值中心打断。",
+            "轴线从连续槽脊带中按局地低值/高值轴、曲率、距平强度、梯度和可选涡度综合评分抽取，再经样条平滑和评分脊线回贴。",
         ],
         "inputs": [
             {"field": "gh500", "required": True, "role": "500hPa 位势高度，用于计算纬向距平"},
@@ -1372,7 +1883,8 @@ RULE_EXPLANATION_TEMPLATES = [
             "gh500_anomaly = gh500 - mean(gh500, axis=longitude)",
             "trough_area = anomaly <= p8，ridge_area = anomaly >= p92",
             "axis_mask = anomaly_tail_mask 且 curvature_support >= curvature_p55",
-            "对 axis_mask 连通区按主轴投影抽取加权中心线；按轴线长度、格点数和距平强度排序",
+            "score = local_axis + curvature + anomaly_intensity + gradient + optional_vorticity",
+            "对 axis_mask 连通区按主轴投影抽取高评分轴线点，B 样条平滑后回贴评分脊线；按轴线长度、格点数和距平强度排序",
             "uv500 可用时输出 vorticity500 的符号支撑证据",
         ],
         "threshold_entries": [
@@ -1906,12 +2418,39 @@ def default_threshold_matrix() -> dict:
     return deepcopy(DEFAULT_THRESHOLD_MATRIX)
 
 
+def _same_optional_float(left: object, right: object) -> bool:
+    if left is None or right is None or left == "" or right == "":
+        return False
+    try:
+        return abs(float(left) - float(right)) <= 1.0e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _migrate_saved_threshold_entry(default_item: dict, raw_item: dict) -> dict:
+    item = dict(raw_item)
+    entry_id = str(item.get("entry_id") or "")
+    if not entry_id.startswith("risk."):
+        return item
+    if str(item.get("operator") or "") != "weight":
+        return item
+    if not _same_optional_float(item.get("threshold"), item.get("weight")):
+        return item
+    if default_item.get("threshold") is not None and _same_optional_float(item.get("threshold"), default_item.get("threshold")):
+        return item
+    for field in ["threshold", "scale", "operator", "statistic", "unit"]:
+        item.pop(field, None)
+    return item
+
+
 def _merge_default_items(default_items: list[dict], saved_items: list[dict] | None, key: str) -> list[dict]:
     merged = [deepcopy(item) for item in default_items]
     by_key = {str(item.get(key) or ""): item for item in merged}
     for raw in saved_items or []:
         item_key = str(raw.get(key) or "")
         if item_key in by_key:
+            if key == "entry_id":
+                raw = _migrate_saved_threshold_entry(by_key[item_key], raw)
             by_key[item_key].update(raw)
     return merged
 
@@ -1946,7 +2485,11 @@ def load_threshold_matrix() -> dict:
 
 
 def threshold_entries_by_id(matrix: dict) -> dict[str, dict]:
-    entries = _merge_default_items(DEFAULT_THRESHOLD_MATRIX["entries"], matrix.get("entries") or [], "entry_id")
+    internal_defaults = [
+        *DEFAULT_THRESHOLD_MATRIX["entries"],
+        *LEGACY_SUPPORT_THRESHOLD_ENTRIES,
+    ]
+    entries = _merge_default_items(internal_defaults, matrix.get("entries") or [], "entry_id")
     return {str(entry["entry_id"]): entry for entry in entries}
 
 
@@ -1963,18 +2506,94 @@ def score_level(score: float, matrix: dict) -> str:
 
 
 def catalog_payload() -> dict:
+    algorithms = deepcopy(ALGORITHM_CATALOG)
+    for algorithm in algorithms:
+        for system in algorithm.get("systems") or []:
+            system["governance_domain"] = WEATHER_SYSTEM_DOMAIN
+        algorithm["evidence_chains"] = [
+            chain for chain in algorithm.get("evidence_chains") or []
+            if str(chain.get("target") or "") in RISK_DIAGNOSIS_TARGETS
+        ]
+        for chain in algorithm["evidence_chains"]:
+            target = str(chain.get("target") or "")
+            if target in RISK_DIAGNOSIS_TARGETS:
+                chain["governance_domain"] = RISK_DIAGNOSIS_DOMAIN
     return {
-        "algorithms": deepcopy(ALGORITHM_CATALOG),
+        "algorithms": algorithms,
         "threshold_matrix": load_threshold_matrix(),
     }
+
+
+def _risk_diagnosis_rule_templates() -> list[dict]:
+    chain_lookup = {
+        chain["target"]: chain
+        for algorithm in ALGORITHM_CATALOG
+        for chain in algorithm.get("evidence_chains") or []
+        if chain.get("target") in RISK_DIAGNOSIS_TARGETS
+    }
+    sections = []
+    for target in [
+        "persistent_heavy_rain",
+        "short_duration_heavy_rain",
+        "thunderstorm_gale",
+        "hail",
+        "rotating_storm_or_supercell",
+        "severe_convection_composite",
+    ]:
+        spec = RISK_RULE_SPECS[target]
+        chain = chain_lookup.get(target, {})
+        title = spec["title"]
+        source_grid = f"risk_{target.replace('rotating_storm_or_supercell', 'rotating_storm')}_score"
+        sections.append(
+            {
+                "rule_id": target,
+                "title": title,
+                "category": "风险诊断",
+                "purpose": spec["purpose"],
+                "basis": spec["basis"],
+                "inputs": [
+                    {"field": field, "required": False, "role": "风险评分因子"}
+                    for field in spec["inputs"]
+                ],
+                "method": [
+                    chain.get("method") or spec["purpose"],
+                    "各因子统一归一到 0-100，再转换为 0-1 风险格点输出。",
+                    "按中等/高风险阈值提取风险区，保留主导因子、支撑天气系统和 source_grid。",
+                ],
+                "composition": deepcopy(RISK_COMPOSITION_RULES.get(target)),
+                "threshold_entries": _risk_threshold_entry_ids(target),
+                "outputs": [
+                    f"risk_diagnoses.hazard_type = {target}",
+                    f"risk_diagnoses.source_grid = {source_grid}",
+                    f"diagnostics.{source_grid}",
+                ],
+                "evidence_contract": [
+                    "score 必须来自对应 source_grid 的格点评分。",
+                    "dominant_evidence 按主导因子贡献排序。",
+                    "supporting_systems 只记录空间邻近或重叠的天气系统支撑。",
+                ],
+            }
+        )
+    return sections
+
+
+def _rule_governance_domain(section: dict) -> str:
+    if section.get("rule_id") in RISK_DIAGNOSIS_TARGETS:
+        return RISK_DIAGNOSIS_DOMAIN
+    if section.get("category") == "天气系统":
+        return WEATHER_SYSTEM_DOMAIN
+    return SUPPORTING_DIAGNOSIS_DOMAIN
 
 
 def rule_explanations_payload() -> dict:
     matrix = load_threshold_matrix()
     by_id = threshold_entries_by_id(matrix)
     sections = []
-    for template in RULE_EXPLANATION_TEMPLATES:
+    for template in [*RULE_EXPLANATION_TEMPLATES, *_risk_diagnosis_rule_templates()]:
+        if str(template.get("rule_id") or "") in LEGACY_SUPPORT_TARGETS:
+            continue
         section = deepcopy(template)
+        section["governance_domain"] = _rule_governance_domain(section)
         threshold_ids = list(section["threshold_entries"])
         section["threshold_details"] = [deepcopy(by_id[entry_id]) for entry_id in threshold_ids if entry_id in by_id]
         section["missing_threshold_entries"] = [entry_id for entry_id in threshold_ids if entry_id not in by_id]

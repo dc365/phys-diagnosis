@@ -77,18 +77,34 @@ def generate_situation_report(features_geojson: Dict[str, Any], diag_ds, *, fore
         paragraphs.append(f"低层水汽输送方面，识别到低空急流候选 {counts.get('low_level_jet', 0)} 条、水汽输送带候选 {counts.get('moisture_transport', 0)} 条。低空急流出口区和水汽辐合区是强降水潜势的重点关注区域。")
 
     # Risk.
-    if counts.get("heavy_rain_risk", 0):
-        paragraphs.append(f"强降水潜势方面，综合水汽输送、水汽辐合、低层辐合、上升运动和热力条件，识别到强降水潜势区 {counts['heavy_rain_risk']} 个。")
-    if counts.get("convection_risk", 0):
-        paragraphs.append(f"强对流潜势方面，综合 CAPE/CIN、风切变、低层水汽和触发条件，识别到强对流潜势区 {counts['convection_risk']} 个。")
-    if not counts.get("heavy_rain_risk", 0) and not counts.get("convection_risk", 0):
-        paragraphs.append("风险综合方面，当前自动评分未识别出明显强降水或强对流高潜势区，但仍需结合最新雷达、卫星和自动站实况订正。")
+    risk_labels = {
+        "persistent_heavy_rain_risk": "持续性强降水",
+        "short_duration_heavy_rain_risk": "短时强降水",
+        "thunderstorm_gale_risk": "雷暴大风/下击暴流",
+        "hail_risk": "冰雹",
+        "rotating_storm_risk": "旋转风暴/超级单体潜势",
+        "severe_convection_composite_risk": "强对流综合风险",
+    }
+    risk_parts = [
+        f"{label}风险区 {counts[feature_type]} 个"
+        for feature_type, label in risk_labels.items()
+        if counts.get(feature_type, 0)
+    ]
+    if risk_parts:
+        paragraphs.append("风险诊断方面，识别到" + "、".join(risk_parts) + "。")
+    else:
+        paragraphs.append("风险诊断方面，当前六类风险评分未识别出明显高潜势区，但仍需结合最新雷达、卫星和自动站实况订正。")
 
-    # Important maxima.
-    if "heavy_rain_score" in stats:
-        paragraphs.append(f"强降水评分最大值约 {stats['heavy_rain_score']['max']:.2f}；该值为 0–1 归一化评分，只表示潜势强弱，不等同于实况雨量。")
-    if "convection_score" in stats:
-        paragraphs.append(f"强对流评分最大值约 {stats['convection_score']['max']:.2f}；需结合触发机制和实况回波判断是否真正发生。")
+    for score_name, label in [
+        ("risk_persistent_heavy_rain_score", "持续性强降水"),
+        ("risk_short_duration_heavy_rain_score", "短时强降水"),
+        ("risk_thunderstorm_gale_score", "雷暴大风/下击暴流"),
+        ("risk_hail_score", "冰雹"),
+        ("risk_rotating_storm_score", "旋转风暴/超级单体潜势"),
+        ("risk_severe_convection_composite_score", "强对流综合风险"),
+    ]:
+        if score_name in stats:
+            paragraphs.append(f"{label}风险评分最大值约 {stats[score_name]['max']:.2f}。")
 
     summary = "".join(paragraphs[:3])
     return {

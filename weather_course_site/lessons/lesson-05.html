@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 5 课：湿度、露点和比湿｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-05.html" data-lesson-id="lesson-05">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 5 课：湿度、露点和比湿</h1>
+          <p class="subtitle">判断水汽不能只看相对湿度。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会判断空气里实际水汽多不多，以及湿层是否足够深厚。</p>
+<h2>1. 相对湿度 RH</h2>
+<p>相对湿度表示当前水汽量占该温度下最多能容纳水汽量的百分比。它回答的是：<strong>空气离饱和还有多远</strong>。</p>
+<p>冷空气容量小，相对湿度很高也可能实际水汽不多；暖空气容量大，相对湿度中等也可能实际水汽很多。</p>
+<h2>2. 露点 Td</h2>
+<p>露点表示空气冷却到多少度会达到饱和。露点越高，实际水汽越多。</p>
+<table>
+<thead>
+<tr>
+  <th>露点</th>
+  <th>粗略理解</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>10℃ 以下</td>
+  <td>水汽有限</td>
+</tr>
+<tr>
+  <td>15–20℃</td>
+  <td>较湿</td>
+</tr>
+<tr>
+  <td>20℃ 以上</td>
+  <td>暖湿明显</td>
+</tr>
+<tr>
+  <td>24℃ 以上</td>
+  <td>非常潮湿，强降水环境中常见</td>
+</tr>
+</tbody>
+</table>
+<h2>3. T - Td</h2>
+<p>气温和露点越接近，空气越接近饱和。雾、低云常发生在低层 T 和 Td 接近、风弱且夜间冷却明显的环境。</p>
+<h2>4. 比湿 q</h2>
+<p>比湿表示单位湿空气中实际含有多少水汽，常用 g/kg。它更适合定量判断水汽含量。</p>
+<table>
+<thead>
+<tr>
+  <th>量</th>
+  <th>主要回答的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>相对湿度</td>
+  <td>是否接近饱和</td>
+</tr>
+<tr>
+  <td>露点</td>
+  <td>低层实际水汽多不多</td>
+</tr>
+<tr>
+  <td>比湿</td>
+  <td>某一层实际水汽含量</td>
+</tr>
+</tbody>
+</table>
+<h2>5. 湿层厚度</h2>
+<p>只看地面湿度不够。持续降水通常希望看到低层到中层都有较高湿度。低层湿、中层干，则可能更偏雷暴大风或下击暴流环境。</p>
+<div class="sketch">
+<pre>
+暴雨型：T 和 Td 在较深层靠近 → 湿层厚
+大风型：低层湿，中层 T 与 Td 分开 → 中层干空气
+雾型：近地面 T 与 Td 靠近，但湿层浅
+</pre>
+</div>
+
+<h2>6. 水汽多不等于一定下雨</h2>
+<p>还需要抬升、触发、上升运动和系统维持。湿度高但无抬升，可能只是闷热、雾或低云。</p>
+<h2>本课一句话</h2>
+<blockquote>
+<p>相对湿度看是否接近饱和，露点和比湿看实际水汽多少，再结合风和抬升判断能不能形成降水。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-04.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-06.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

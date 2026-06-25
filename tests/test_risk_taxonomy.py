@@ -72,3 +72,5 @@ def test_legacy_targets_expand_without_mutating_old_contract():
         "rotating_storm_or_supercell",
         "severe_convection_composite",
     ]
+    assert legacy_target_hazards("heavy_rain_risk") == []
+    assert legacy_target_hazards("convection_risk") == []

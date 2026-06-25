@@ -42,3 +42,11 @@ unit_conversions:
     m_to_mm: true
   specific_humidity:
     kgkg_to_gkg: false
+
+
+# EC/ECMWF tp 通常为从起报时刻累计到当前时效的总降水。
+# 读取时会自动转成当前时段、3h、6h、24h 降水；若发现大面积负差分，自动回退为已分段降水。
+precipitation:
+  accumulation_type: auto  # auto | cumulative | interval
+  negative_diff_tolerance_mm: -0.1
+  negative_diff_fraction_limit: 0.01

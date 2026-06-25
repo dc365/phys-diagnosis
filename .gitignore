@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 .playwright-cli/
 output/
+.runtime/
 
 # Runtime uploads, job records, and generated products.
 data/jobs/

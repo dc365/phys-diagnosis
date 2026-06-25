@@ -1,11 +1,11 @@
-# 天气形势智能诊断与物理量分析系统 MVP
+# 天气形势分析与物理量诊断工作台
 
-这是一个第一版 MVP 工程骨架，用于基于 **ECMWF/EC 模式 NetCDF 格点数据**进行：
+这是一个天气形势分析与物理量诊断工程，用于基于 **ECMWF/EC 模式 NetCDF 格点数据**进行：
 
 - NetCDF 数据读取与变量标准化
 - 常用气象物理量诊断计算
 - 高压、低压、槽脊、副高、辐合区、辐散区、低空急流、水汽输送带、锋面候选区自动识别
-- 强降水/强对流潜势初步评分
+- 六类风险格点评分：持续性强降水、短时强降水、雷暴大风、冰雹、旋转风暴/超级单体潜势、强对流综合风险
 - Web 端 MapLibre GIS 可视化
 - 自动天气形势分析文本生成
 
@@ -37,16 +37,43 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### 2. 启动服务
+### 2. 启动后台整体服务
 
 ```bash
-uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+scripts/services.sh start
 ```
+
+该脚本会在后台启动：
+
+- `api`：FastAPI 工作台服务，默认 `http://localhost:8000`
+- `area-risk-mcp`：风险 MCP 服务，默认 `http://localhost:11011/mcp`，默认传输方式为 HTTP；包含 `get_town_risk_dsl`（乡镇风险 DSL）和 `get_point_risk`（经纬度点风险 JSON）
 
 浏览器打开：
 
 ```text
 http://localhost:8000
+```
+
+常用运维命令：
+
+```bash
+scripts/services.sh status
+scripts/services.sh restart
+scripts/services.sh restart area-risk-mcp
+scripts/services.sh logs api
+scripts/services.sh stop
+```
+
+PID 和日志默认写入 `.runtime/pids`、`.runtime/logs`。需要改端口或主机时可用环境变量覆盖：
+
+```bash
+WEATHER_DIAG_API_PORT=8001 AREA_RISK_DSL_MCP_PORT=11012 scripts/services.sh restart
+```
+
+如果只想前台调试 API，也可以继续使用：
+
+```bash
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 3. 生成示例 EC NetCDF 数据
@@ -120,8 +147,12 @@ http://localhost:8000/api/layers/z500/grid?run_id=ecmwf_demo&forecast_hour=24
 - 水汽通量散度/水汽辐合
 - K 指数
 - 0–6 km 深层风切变近似
-- 强降水潜势评分
-- 强对流潜势评分
+- 持续性强降水风险评分
+- 短时强降水风险评分
+- 雷暴大风/下击暴流风险评分
+- 冰雹风险评分
+- 旋转风暴/超级单体潜势评分
+- 强对流综合风险评分
 
 ### 天气系统识别
 

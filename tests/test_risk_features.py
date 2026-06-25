@@ -4,10 +4,19 @@ import numpy as np
 
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 from weather_diag.features.risk import (
-    convection_score_details,
-    detect_heavy_rain_risk,
-    heavy_rain_score_details,
     multi_hazard_score_details,
+)
+from weather_diag.features.risk_scoring import (
+    risk_level,
+    score_conv_short_duration_heavy_rain,
+    score_neg,
+    score_percentile,
+    score_persistent_heavy_rain,
+    score_pos,
+    score_precip_short_duration_heavy_rain,
+    score_rotating_storm_supercell,
+    score_triangular,
+    weighted_mean,
 )
 from weather_diag.pipeline import diagnose_file, load_analysis, load_diagnostics, load_features
 
@@ -19,121 +28,39 @@ def _risk_grid():
     return lat, lon, lon2d, lat2d
 
 
-def test_heavy_rain_score_details_exposes_weighted_factor_contributions():
-    lat, lon, lon2d, lat2d = _risk_grid()
-    moisture_axis = np.exp(-(((lon2d - 114.0) / 4.0) ** 2 + ((lat2d - 27.0) / 2.5) ** 2))
-    lift_axis = np.exp(-(((lon2d - 116.0) / 3.5) ** 2 + ((lat2d - 28.0) / 2.0) ** 2))
-    weak_background = np.zeros_like(lon2d) + 0.1
+def test_risk_scoring_utils_use_operational_0_100_thresholds():
+    values = np.array([-1.0, 0.0, 5.0, 10.0, 12.0])
 
-    details = heavy_rain_score_details(
+    np.testing.assert_allclose(score_pos(values, 0.0, 10.0), [0.0, 0.0, 50.0, 100.0, 100.0])
+    np.testing.assert_allclose(score_neg(values, high=10.0, low=0.0), [100.0, 100.0, 50.0, 0.0, 0.0])
+    np.testing.assert_allclose(
+        score_triangular(np.array([1800.0, 2500.0, 4200.0, 5600.0]), 1800.0, 2500.0, 4200.0, 5600.0),
+        [0.0, 100.0, 100.0, 0.0],
+    )
+    np.testing.assert_allclose(score_percentile(np.array([1.0, 3.0, 5.0]), p70=1.0, p95=5.0), [0.0, 50.0, 100.0])
+
+    assert risk_level(81.0) == "very_high"
+    assert risk_level(61.0) == "high"
+    assert risk_level(41.0) == "medium"
+    assert risk_level(21.0) == "low"
+    assert risk_level(19.0) == "very_low"
+
+
+def test_weighted_mean_skips_missing_factors_and_reports_confidence():
+    score = np.array([[20.0, 80.0]])
+    result = weighted_mean(
         {
-            "moisture_flux": 100.0 * moisture_axis,
-            "moisture_convergence": 6.0 * moisture_axis,
-            "div850": -2.0e-5 * lift_axis,
-            "omega700": -0.8 * lift_axis,
-            "k_index": 35.0 * moisture_axis,
-            "cape": weak_background,
-            "precipitation": None,
+            "available": (score, 0.7),
+            "missing": (None, 0.3),
         },
-        {
-            "heavy_rain_risk": {
-                "weights": {
-                    "moisture_flux": 0.25,
-                    "moisture_convergence": 0.20,
-                    "low_level_convergence": 0.18,
-                    "upward_motion": 0.18,
-                    "k_index": 0.12,
-                    "cape": 0.04,
-                    "precipitation": 0.03,
-                }
-            }
-        },
+        sample=score,
     )
 
-    assert details["score"].shape == lon2d.shape
-    assert details["available_weight"] == 0.97
-    assert {"moisture_flux", "moisture_convergence", "upward_motion"} <= set(details["factors"])
-    moisture = details["factors"]["moisture_flux"]
-    assert moisture["weight"] == 0.25
-    assert moisture["contribution"].shape == lon2d.shape
-    assert float(np.nanmax(moisture["contribution"])) > 0.20
-    assert np.nanmax(details["score"]) <= 1.0
-
-
-def test_heavy_rain_risk_features_include_level_core_and_dominant_factors():
-    lat, lon, lon2d, lat2d = _risk_grid()
-    score = np.zeros_like(lon2d) + 0.2
-    primary = (((lon2d - 113.0) / 3.0) ** 2 + ((lat2d - 27.0) / 2.4) ** 2) <= 1.0
-    secondary = (((lon2d - 120.0) / 1.7) ** 2 + ((lat2d - 32.0) / 1.4) ** 2) <= 1.0
-    score[primary] = 0.82
-    score[secondary] = 0.61
-
-    moisture_contribution = np.zeros_like(score)
-    lift_contribution = np.zeros_like(score)
-    moisture_contribution[primary] = 0.42
-    moisture_contribution[secondary] = 0.18
-    lift_contribution[primary] = 0.22
-    lift_contribution[secondary] = 0.28
-
-    features = detect_heavy_rain_risk(
-        score,
-        lat,
-        lon,
-        {
-            "heavy_rain_risk": {
-                "score_threshold": 0.55,
-                "high_score_threshold": 0.75,
-                "min_area_grid_points": 4,
-                "max_objects": 2,
-            }
-        },
-        factor_details={
-            "moisture_flux": {"label": "水汽通量", "weight": 0.25, "contribution": moisture_contribution},
-            "upward_motion": {"label": "700hPa 上升运动", "weight": 0.18, "contribution": lift_contribution},
-        },
-    )
-
-    assert len(features) == 2
-    assert [feature["properties"]["rank"] for feature in features] == [1, 2]
-    assert features[0]["properties"]["risk_level"] == "high"
-    assert features[0]["properties"]["core_point_count"] > 0
-    assert features[1]["properties"]["risk_level"] == "moderate"
-    assert features[1]["properties"]["core_point_count"] == 0
-    assert features[0]["properties"]["dominant_factors"][0]["factor"] == "moisture_flux"
-    assert "核心区" in "".join(features[0]["properties"]["evidence"])
-
-
-def test_convection_score_details_rewards_instability_shear_and_weak_inhibition():
-    lat, lon, lon2d, lat2d = _risk_grid()
-    core = np.exp(-(((lon2d - 115.0) / 3.0) ** 2 + ((lat2d - 29.0) / 2.0) ** 2))
-    details = convection_score_details(
-        {
-            "cape": 1800.0 * core,
-            "cin": -20.0 - 160.0 * (1.0 - core),
-            "k_index": 32.0 * core,
-            "shear_0_6km": 22.0 * core,
-            "div850": -2.5e-5 * core,
-            "moisture": 15.0 * core,
-        },
-        {
-            "convection_risk": {
-                "weights": {
-                    "cape": 0.28,
-                    "cin": 0.10,
-                    "k_index": 0.12,
-                    "shear_0_6km": 0.22,
-                    "low_level_convergence": 0.15,
-                    "moisture": 0.13,
-                }
-            }
-        },
-    )
-
-    assert details["score"].shape == lon2d.shape
-    assert details["available_weight"] == 1.0
-    assert details["factors"]["cin"]["score"].max() > details["factors"]["cin"]["score"].min()
-    assert details["factors"]["shear_0_6km"]["weight"] == 0.22
-    assert float(np.nanmax(details["score"])) > 0.75
+    np.testing.assert_allclose(result["score"], score)
+    np.testing.assert_allclose(result["confidence"], np.full_like(score, 0.7))
+    assert result["available_weight"] == 0.7
+    assert result["configured_weight"] == 1.0
+    assert set(result["factors"]) == {"available"}
 
 
 def test_pipeline_risk_features_include_dominant_factor_evidence(tmp_path):
@@ -143,16 +70,21 @@ def test_pipeline_risk_features_include_dominant_factor_evidence(tmp_path):
     risk_features = [
         feature
         for feature in features
-        if feature["properties"]["feature_type"] in {"heavy_rain_risk", "convection_risk"}
+        if str(feature["properties"].get("feature_type", "")).endswith("_risk")
     ]
 
-    assert {feature["properties"]["feature_type"] for feature in risk_features} == {
-        "heavy_rain_risk",
-        "convection_risk",
-    }
+    feature_types = {feature["properties"]["feature_type"] for feature in risk_features}
+    assert "heavy_rain_risk" not in feature_types
+    assert "convection_risk" not in feature_types
+    assert {
+        "persistent_heavy_rain_risk",
+        "short_duration_heavy_rain_risk",
+        "severe_convection_composite_risk",
+    } <= feature_types
     for feature in risk_features:
         props = feature["properties"]
         assert props["risk_level"] in {"moderate", "high"}
+        assert props["source_grid"].startswith("risk_")
         assert props["dominant_factors"]
         assert props["core_point_count"] >= 0
         assert props["supporting_systems"]
@@ -170,10 +102,8 @@ def test_pipeline_risk_features_include_dominant_factor_evidence(tmp_path):
 
     analysis = load_analysis("risk_feature_details_demo", 24)
     assert analysis["conclusions"]
-    assert {item["target_type"] for item in analysis["conclusions"]} >= {
-        "heavy_rain_risk",
-        "convection_risk",
-    }
+    assert "heavy_rain_risk" not in {item["target_type"] for item in analysis["conclusions"]}
+    assert "convection_risk" not in {item["target_type"] for item in analysis["conclusions"]}
     assert any("强降水" in item["headline"] for item in analysis["conclusions"])
 
 
@@ -193,6 +123,8 @@ def test_pipeline_writes_multi_hazard_risk_score_grids(tmp_path):
         assert name in ds
         assert ds[name].attrs["units"] == "0-1"
         assert float(ds[name].max()) <= 1.0
+    assert "heavy_rain_score" not in ds
+    assert "convection_score" not in ds
     assert "risk_precipitation_composite_score" not in ds
 
 
@@ -313,3 +245,150 @@ def test_multi_hazard_score_details_normalizes_partial_weight_hazard_scores():
     hail = details["scores"]["risk_hail_score"]
     assert float(np.nanmax(hail)) > 0.72
     assert float(np.nanmax(hail)) <= 1.0
+
+
+def test_persistent_heavy_rain_score_applies_moisture_and_lift_caps():
+    grid = np.ones((2, 2), dtype=float)
+    rich_environment = {
+        "q850": grid * 0.016,
+        "td2m": grid * 24.0,
+        "pw": grid * 55.0,
+        "rh850": grid * 90.0,
+        "rh700": grid * 90.0,
+        "rh500": grid * 80.0,
+        "moisture_flux": grid * 220.0,
+        "moisture_convergence": grid * 5.0,
+        "div850": grid * -4.0e-5,
+        "omega700": grid * -0.35,
+        "precipitation": grid * 90.0,
+    }
+    dry_no_lift = {
+        **rich_environment,
+        "q850": grid * 0.003,
+        "td2m": grid * 8.0,
+        "pw": grid * 15.0,
+        "rh850": grid * 35.0,
+        "rh700": grid * 25.0,
+        "rh500": grid * 20.0,
+        "moisture_flux": grid * 20.0,
+        "moisture_convergence": grid * 0.0,
+        "div850": grid * 1.0e-5,
+        "omega700": grid * 0.05,
+    }
+
+    rich = score_persistent_heavy_rain(rich_environment, {})
+    capped = score_persistent_heavy_rain(dry_no_lift, {})
+
+    assert rich["risk_type"] == "persistent_heavy_rain"
+    assert float(np.nanmin(rich["score_grid"])) >= 80.0
+    assert float(np.nanmax(capped["score_grid"])) <= 35.0
+    assert "moisture_transport" in capped["factor_scores"]
+    assert np.nanmin(capped["confidence_grid"]) > 0.0
+
+
+def test_short_duration_heavy_rain_has_precipitation_and_convective_views():
+    grid = np.ones((2, 2), dtype=float)
+    precip_fields = {
+        "q850": grid * 0.016,
+        "td2m": grid * 24.0,
+        "pw": grid * 55.0,
+        "rh850": grid * 90.0,
+        "moisture_flux": grid * 220.0,
+        "moisture_convergence": grid * 5.0,
+        "div850": grid * -4.0e-5,
+        "omega700": grid * -0.35,
+        "k_index": grid * 38.0,
+        "cape": grid * 120.0,
+        "cin": grid * -25.0,
+        "shear_0_6km": grid * 5.0,
+        "precipitation": grid * 90.0,
+    }
+    conv_fields = {
+        **precip_fields,
+        "cape": grid * 2500.0,
+        "shear_0_6km": grid * 25.0,
+        "moisture_convergence": grid * 5.0,
+    }
+
+    precip_view = score_precip_short_duration_heavy_rain(precip_fields, {})
+    conv_view = score_conv_short_duration_heavy_rain(precip_fields, {})
+    conv_rich_view = score_conv_short_duration_heavy_rain(conv_fields, {})
+
+    assert precip_view["risk_type"] == "precip_short_duration_heavy_rain"
+    assert float(np.nanmin(precip_view["score_grid"])) >= 65.0
+    assert float(np.nanmax(conv_view["score_grid"])) <= 50.0
+    assert float(np.nanmin(conv_rich_view["score_grid"])) > float(np.nanmax(conv_view["score_grid"]))
+    assert "convective_character" in conv_rich_view["factor_scores"]
+
+
+def test_rotating_storm_score_caps_when_srh_and_low_level_shear_are_missing():
+    grid = np.ones((2, 2), dtype=float)
+    missing_rotation = {
+        "cape": grid * 2500.0,
+        "shear_0_6km": grid * 25.0,
+        "div850": grid * -4.0e-5,
+        "cin": grid * -25.0,
+        "lcl": grid * 600.0,
+    }
+    rich_rotation = {
+        **missing_rotation,
+        "shear_0_1km": grid * 15.0,
+        "srh": grid * 300.0,
+    }
+
+    missing = score_rotating_storm_supercell(missing_rotation, {})
+    rich = score_rotating_storm_supercell(rich_rotation, {})
+
+    assert missing["risk_type"] == "rotating_storm_or_supercell"
+    assert float(np.nanmax(missing["score_grid"])) <= 55.0
+    assert float(np.nanmax(missing["confidence_grid"])) < float(np.nanmax(rich["confidence_grid"]))
+    assert float(np.nanmin(rich["score_grid"])) >= 80.0
+
+
+def test_multi_hazard_composite_uses_max_and_mean_top2_formula():
+    grid = np.ones((2, 2), dtype=float)
+    fields = {
+        "q850": grid * 0.016,
+        "td2m": grid * 24.0,
+        "pw": grid * 55.0,
+        "rh850": grid * 90.0,
+        "rh700": grid * 90.0,
+        "rh500": grid * 80.0,
+        "moisture_flux": grid * 220.0,
+        "moisture_convergence": grid * 5.0,
+        "div850": grid * -4.0e-5,
+        "omega700": grid * -0.35,
+        "k_index": grid * 38.0,
+        "cape": grid * 2500.0,
+        "cin": grid * -25.0,
+        "shear_0_6km": grid * 25.0,
+        "shear_0_1km": grid * 15.0,
+        "srh": grid * 300.0,
+        "dcape": grid * 1500.0,
+        "t500": grid * -18.0,
+        "precipitation": grid * 90.0,
+    }
+
+    details = multi_hazard_score_details(fields, {})
+    scores = details["scores"]
+    severe_members = np.stack(
+        [
+            scores["risk_short_duration_heavy_rain_score"],
+            scores["risk_thunderstorm_gale_score"],
+            scores["risk_hail_score"],
+            scores["risk_rotating_storm_score"],
+        ]
+    )
+    sorted_members = np.sort(severe_members, axis=0)
+    expected = sorted_members[-1] * 0.65 + np.nanmean(sorted_members[-2:], axis=0) * 0.35
+
+    np.testing.assert_allclose(scores["risk_severe_convection_composite_score"], expected)
+    assert set(details["scores"]) == {
+        "risk_persistent_heavy_rain_score",
+        "risk_short_duration_heavy_rain_score",
+        "risk_thunderstorm_gale_score",
+        "risk_hail_score",
+        "risk_rotating_storm_score",
+        "risk_severe_convection_composite_score",
+    }
+    assert "risk_precipitation_composite_score" not in details["scores"]
