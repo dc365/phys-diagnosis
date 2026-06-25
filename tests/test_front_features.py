@@ -49,6 +49,8 @@ def test_front_mask_requires_dynamic_support_when_wind_fields_are_available():
     assert supported["support_count"].max() >= 2
     assert np.nanmax(supported["frontogenesis"]) > 0
     assert np.nanmax(supported["wind_deformation"]) > 0
+    assert "cross_front_wind" in supported
+    assert "temperature_advection" in supported
 
 
 def test_front_detection_limits_output_to_strongest_objects():
@@ -77,3 +79,52 @@ def test_front_detection_limits_output_to_strongest_objects():
 
     assert len(features) == 2
     assert all(feature["properties"]["rank"] <= 2 for feature in features)
+
+
+def _typed_front(v_component: float):
+    lat = np.linspace(25.0, 45.0, 81)
+    lon = np.linspace(100.0, 125.0, 101)
+    _, lat2d = np.meshgrid(lon, lat)
+    t850 = 18.0 - 12.0 * np.tanh((lat2d - 35.0) / 0.9)
+    u850 = np.zeros_like(t850)
+    v850 = np.full_like(t850, v_component)
+    div850 = -2.5e-5 * np.exp(-((lat2d - 35.0) / 1.5) ** 2)
+    return detect_front_candidates(
+        t850,
+        div850,
+        None,
+        lat,
+        lon,
+        {
+            "front_candidate": {
+                "temp_gradient_percentile": 70,
+                "score_percentile": 70,
+                "min_area_grid_points": 8,
+                "max_objects": 1,
+                "cross_front_wind_min_ms": 1.0,
+                "front_type_consistency_min": 0.5,
+            }
+        },
+        u850=u850,
+        v850=v850,
+    )
+
+
+def test_front_type_classifies_cold_front_by_cross_front_wind():
+    features = _typed_front(-6.0)
+    assert features
+    props = features[0]["properties"]
+    assert props["front_type"] == "cold_front"
+    assert props["front_motion"] == "cold_air_advancing"
+    assert props["cross_front_wind_mean_ms"] > 0
+    assert props["temperature_advection_mean"] < 0
+
+
+def test_front_type_classifies_warm_front_by_cross_front_wind():
+    features = _typed_front(6.0)
+    assert features
+    props = features[0]["properties"]
+    assert props["front_type"] == "warm_front"
+    assert props["front_motion"] == "warm_air_overrunning"
+    assert props["cross_front_wind_mean_ms"] < 0
+    assert props["temperature_advection_mean"] > 0
