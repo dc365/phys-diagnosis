@@ -8,6 +8,7 @@ from time import perf_counter, time
 from typing import Any, Callable
 
 from weather_diag.data.nafp import parse_run_time
+from weather_diag.diagnosis.nafp_situation_integrated import extend_nafp_situation_result
 
 
 MAX_NAFP_SITUATION_CACHE_SIZE = 128
@@ -84,6 +85,22 @@ def _store_cache_entry(
     return entry
 
 
+def _extend_result_safely(
+    result: dict[str, Any],
+    key: NafpSituationCacheKey,
+) -> dict[str, Any]:
+    try:
+        return extend_nafp_situation_result(
+            result,
+            root=Path(key.root),
+            run_time=key.run_time,
+            forecast_hour=key.forecast_hour,
+        )
+    except Exception as exc:
+        result.setdefault("weather_system_integration", {})["error"] = str(exc)
+        return result
+
+
 def get_or_compute_nafp_situation(
     *,
     root: str | Path,
@@ -97,6 +114,7 @@ def get_or_compute_nafp_situation(
         entry = _cache.get(key)
         if entry is not None and not force:
             entry.hit_count += 1
+            entry.result = _extend_result_safely(entry.result, key)
             _cache.move_to_end(key)
             return entry.result, {
                 "cache_status": "hit",
@@ -110,6 +128,7 @@ def get_or_compute_nafp_situation(
         run_time=key.run_time,
         forecast_hour=key.forecast_hour,
     )
+    result = _extend_result_safely(result, key)
     compute_ms = (perf_counter() - start) * 1000
 
     with _lock:
