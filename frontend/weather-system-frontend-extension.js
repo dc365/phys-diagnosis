@@ -35,9 +35,7 @@
       value(callback, thisArg) {
         originalForEach.call(this, callback, thisArg);
         if (looksLikeWeatherTypePairs(this)) {
-          missingExtraPairs(this).forEach((item, index) => {
-            callback.call(thisArg, item, this.length + index, this);
-          });
+          missingExtraPairs(this).forEach((item, index) => callback.call(thisArg, item, this.length + index, this));
         }
       },
     });
@@ -65,14 +63,7 @@
     Object.defineProperty(Object, '__weatherSystemExtensionEntries', { value: true });
     Object.entries = function patchedEntries(obj) {
       const entries = originalEntries(obj);
-      if (
-        obj
-        && obj.high
-        && obj.low
-        && obj.subtropical_high
-        && obj.front_candidate
-        && obj.persistent_heavy_rain_risk
-      ) {
+      if (obj && obj.high && obj.low && obj.subtropical_high && obj.front_candidate && obj.persistent_heavy_rain_risk) {
         const existing = new Set(entries.map((item) => item[0]));
         EXTRA_TYPES.forEach((item) => {
           if (!existing.has(item.type)) entries.push([item.type, item.color]);
@@ -100,9 +91,7 @@
       const meta = EXTRA_BY_TYPE[type];
       if (meta) {
         const available = new Set(availableLayerIds || []);
-        const layerId = available.size
-          ? meta.candidates.find((candidate) => available.has(candidate))
-          : meta.candidates[0];
+        const layerId = available.size ? meta.candidates.find((candidate) => available.has(candidate)) : meta.candidates[0];
         return layerId ? { layerId, reason: meta.reason } : null;
       }
       return originalRecommendation(properties, availableLayerIds);
@@ -111,10 +100,10 @@
     utils.__weatherSystemExtensionPatched = true;
   }
 
-  function featureColorMatchExpression() {
+  function featureColorMatchExpression(fallbackExpression) {
     const expression = ['match', ['get', 'feature_type']];
     EXTRA_TYPES.forEach((item) => expression.push(item.type, item.color));
-    expression.push(['match', ['get', 'feature_type'], '#333333']);
+    expression.push(fallbackExpression || '#333333');
     return expression;
   }
 
@@ -124,10 +113,9 @@
     const originalAddLayer = maplibre.Map.prototype.addLayer;
     maplibre.Map.prototype.addLayer = function patchedAddLayer(layer, beforeId) {
       if (layer?.source === 'weather-features' && layer.paint) {
-        const expression = featureColorMatchExpression();
-        if (Object.prototype.hasOwnProperty.call(layer.paint, 'line-color')) layer.paint['line-color'] = expression;
-        if (Object.prototype.hasOwnProperty.call(layer.paint, 'fill-color')) layer.paint['fill-color'] = expression;
-        if (Object.prototype.hasOwnProperty.call(layer.paint, 'circle-color')) layer.paint['circle-color'] = expression;
+        if (Object.prototype.hasOwnProperty.call(layer.paint, 'line-color')) layer.paint['line-color'] = featureColorMatchExpression(layer.paint['line-color']);
+        if (Object.prototype.hasOwnProperty.call(layer.paint, 'fill-color')) layer.paint['fill-color'] = featureColorMatchExpression(layer.paint['fill-color']);
+        if (Object.prototype.hasOwnProperty.call(layer.paint, 'circle-color')) layer.paint['circle-color'] = featureColorMatchExpression(layer.paint['circle-color']);
       }
       return originalAddLayer.call(this, layer, beforeId);
     };
@@ -171,10 +159,7 @@
   patchWeatherMapUtils();
   patchMapLibreFeatureLayerColors();
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', watchToggleStyles, { once: true });
-  } else {
-    watchToggleStyles();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchToggleStyles, { once: true });
+  else watchToggleStyles();
   root.WeatherSystemFrontendExtension = { EXTRA_TYPES, EXTRA_BY_TYPE };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
