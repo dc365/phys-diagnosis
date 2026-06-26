@@ -9,13 +9,34 @@ from fastapi import APIRouter, Query
 
 from backend.app.responses import ApiError, ok
 from weather_diag.config import PROJECT_ROOT, load_layers
-from weather_diag.diagnosis.sounding import diagnose_sounding_situation
+from weather_diag.diagnosis.objective_analysis import mask_unsupported
+from weather_diag.diagnosis.sounding_optimized import diagnose_sounding_situation
 from weather_diag.diagnosis.sounding_features import parse_feature_types, sounding_situation_to_feature_collection
 from weather_diag.io.contours import contours_to_geojson
 from weather_diag.io.grid_geojson import grid_to_geojson
 
 
 router = APIRouter(prefix="/sounding", tags=["public-sounding"])
+
+
+SOUNDING_LAYER_DEFS = {
+    "z500": {
+        "field": "z500",
+        "title": "500hPa 位势高度",
+        "unit": "dagpm",
+        "scale": 0.1,
+        "contour_interval": 4.0,
+        "contour_min_length_km": 250.0,
+    },
+    "t500": {
+        "field": "t500",
+        "title": "500hPa 温度",
+        "unit": "degC",
+        "scale": 1.0,
+        "contour_interval": 4.0,
+        "contour_min_length_km": 200.0,
+    },
+}
 
 
 def _resolve_csv_path(value: str) -> Path:
@@ -28,6 +49,7 @@ def _resolve_csv_path(value: str) -> Path:
 def _field_public(field: dict[str, Any]) -> dict[str, Any]:
     values = np.asarray(field["values"], dtype=float)
     valid = values[np.isfinite(values)]
+    support = np.asarray(field.get("support_mask"), dtype=bool) if field.get("support_mask") is not None else None
     return {
         "unit": field.get("unit", ""),
         "quality": field.get("quality", {}),
@@ -35,6 +57,7 @@ def _field_public(field: dict[str, Any]) -> dict[str, Any]:
         "max": float(valid.max()) if valid.size else None,
         "lat_count": int(len(field.get("lat", []))),
         "lon_count": int(len(field.get("lon", []))),
+        "support_ratio": round(float(np.mean(support)), 3) if support is not None and support.size else None,
     }
 
 
@@ -66,18 +89,20 @@ def _public_payload(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sounding_layer(path: Path, pressure_level: int, layer_id: str) -> dict[str, Any]:
-    if int(pressure_level) != 500 or layer_id != "z500":
+    if int(pressure_level) != 500 or layer_id not in SOUNDING_LAYER_DEFS:
         raise KeyError(layer_id)
     result = _diagnose_sounding(path, pressure_level)
-    field = result["analysis_fields"]["z500"]
-    values = np.asarray(field["values"], dtype=float) / 10.0
+    layer_def = SOUNDING_LAYER_DEFS[layer_id]
+    field = result["analysis_fields"][layer_def["field"]]
+    values = np.asarray(field["values"], dtype=float) * float(layer_def["scale"])
+    values = mask_unsupported(values, field.get("support_mask"))
     valid = values[np.isfinite(values)]
-    cfg = load_layers().get("z500", {})
+    cfg = load_layers().get(layer_id, {})
     quality = field.get("quality") or {}
     return {
-        "layer_id": "z500",
-        "title": cfg.get("title", "500hPa 位势高度"),
-        "unit": "dagpm",
+        "layer_id": layer_id,
+        "title": cfg.get("title", layer_def["title"]),
+        "unit": layer_def["unit"],
         "values": values,
         "lat": np.asarray(field["lat"], dtype=float),
         "lon": np.asarray(field["lon"], dtype=float),
@@ -88,7 +113,14 @@ def _sounding_layer(path: Path, pressure_level: int, layer_id: str) -> dict[str,
         "analysis_level": result["analysis_level"],
         "analysis_method": quality.get("method"),
         "station_count": quality.get("station_count"),
-        "contour": cfg.get("contour") or {},
+        "support_ratio": quality.get("supported_grid_ratio"),
+        "mean_nearest_station_km": quality.get("mean_nearest_station_km"),
+        "station_residual_rmse": quality.get("station_residual_rmse"),
+        "contour": {
+            **(cfg.get("contour") or {}),
+            "interval": (cfg.get("contour") or {}).get("interval", layer_def["contour_interval"]),
+            "min_length_km": (cfg.get("contour") or {}).get("min_length_km", layer_def["contour_min_length_km"]),
+        },
     }
 
 
@@ -104,6 +136,9 @@ def _sounding_layer_metadata(layer: dict[str, Any]) -> dict[str, Any]:
         "analysis_level": layer["analysis_level"],
         "analysis_method": layer["analysis_method"],
         "station_count": layer["station_count"],
+        "support_ratio": layer.get("support_ratio"),
+        "mean_nearest_station_km": layer.get("mean_nearest_station_km"),
+        "station_residual_rmse": layer.get("station_residual_rmse"),
         "lat_min": float(np.nanmin(lat)),
         "lat_max": float(np.nanmax(lat)),
         "lon_min": float(np.nanmin(lon)),
@@ -209,6 +244,9 @@ def sounding_layer_contours(
                 levels=[float(item) for item in levels.split(",") if item.strip()] if levels else contour_cfg.get("levels"),
                 interval=interval or contour_cfg.get("interval"),
                 max_segments=max_segments or int(contour_cfg.get("max_segments", 12000)),
+                min_length_km=float(contour_cfg.get("min_length_km", 0.0)),
+                smooth=True,
+                smooth_iterations=int(contour_cfg.get("smooth_iterations", 1)),
             )
         )
     except KeyError as exc:
