@@ -42,7 +42,19 @@ def load_model_config(model: str) -> Dict[str, Any]:
 
 
 def load_thresholds() -> Dict[str, Any]:
-    return load_yaml("thresholds.yaml")
+    thresholds = load_yaml("thresholds.yaml")
+    try:
+        # Local import avoids a module-import cycle: the governance extension
+        # uses ADMIN_DIR from this module, while runtime feature algorithms call
+        # load_thresholds() only after config.py has been initialized.
+        from weather_diag.diagnosis.weather_system_governance import apply_governance_thresholds
+
+        return apply_governance_thresholds(thresholds)
+    except Exception:
+        # A malformed optional governance extension must not prevent the core
+        # diagnostic service from starting; the admin API reports the detailed
+        # matrix error while runtime falls back to repository YAML defaults.
+        return thresholds
 
 
 def load_layers() -> Dict[str, Any]:
