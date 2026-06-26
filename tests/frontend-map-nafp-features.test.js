@@ -41,6 +41,23 @@ test('map feature loading can use one NAFP features request for the selected typ
   assert.match(mapJs, /if \(shouldUseNafpLayerSource\(\)\) \{\s*await loadNafpFeatures\(selected, fh, featureLoadToken\);\s*return;\s*\}/);
 });
 
+test('map can load sounding observed systems and station risk points', () => {
+  assert.match(mapHtml, /id="soundingFileSelect"/);
+  assert.match(mapHtml, /id="btnLoadSoundingFeatures"/);
+  assert.doesNotMatch(mapHtml, /class="panel-subsection sounding-panel"/);
+  assert.match(mapJs, /buildSoundingFeaturesUrl/);
+  assert.match(mapJs, /async function loadSoundingFeatures\(selected = SOUNDING_DEFAULT_TYPES, featureLoadToken = \+\+state\.featureLoadToken\)/);
+  assert.match(mapJs, /buildSoundingFeaturesUrl\(selectedSoundingCsvPath\(\), 500, selected, Date\.now\(\)\)/);
+  assert.match(mapJs, /if \(selectedDataCategory\(\) === 'sounding'\) \{\s*await loadSoundingFeatures\(selected, featureLoadToken\);\s*return;\s*\}/);
+  assert.match(mapJs, /btnLoadSoundingFeatures'\)\.addEventListener\('click', \(\) => loadSoundingFeatures\(\)\)/);
+});
+
+test('map avoids dense text labels for sounding station risk points', () => {
+  assert.match(mapJs, /function isDenseSoundingRiskFeature\(feature\)/);
+  assert.match(mapJs, /\.filter\(\(feature\) => !isDenseSoundingRiskFeature\(feature\)\)/);
+  assert.match(mapJs, /props\.score_source === 'sounding_profile_indices'/);
+});
+
 test('map NAFP feature loading defaults to primary weather systems for display', () => {
   assert.match(mapJs, /primaryFeatureCollection/);
   assert.match(mapJs, /const displayFc = primaryFeatureCollection\(fc\)/);

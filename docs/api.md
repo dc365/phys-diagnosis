@@ -222,6 +222,45 @@ the requested point is outside the model domain. Each evidence item uses
 `rule_statistic`, so clients can distinguish point sampling from whole-domain
 percentile scoring while preserving threshold audit fields.
 
+## Public v1 Sounding Situation Diagnosis
+
+- `GET /api/v1/sounding/situation?csv_path=...&pressure_level=500`
+- `GET /api/v1/sounding/features?csv_path=...&pressure_level=500&types=trough,short_duration_heavy_rain_risk`
+
+Sounding uses observation time and pressure level, not model `run_time` or
+`forecast_hour`. The first implementation reads the regional sounding CSV test
+format, builds a 1-degree objective analysis field for 500hPa height,
+temperature and wind, then returns map-ready weather-system objects and station
+wind point features.
+
+The response `data` contains `data_type=sounding`, `observation_time`,
+`analysis_level`, `domain`, `analysis_fields`, `systems`, `station_features`,
+`station_diagnostics`, and `summary`. `analysis_fields` exposes metadata such as
+unit, min/max and quality; large grid arrays are intentionally not included in
+this response.
+
+`station_diagnostics` is computed with MetPy from each station profile. The
+first set of indices includes `cape_j_kg`, `cin_j_kg`, `lcl_pressure_hpa`,
+`lcl_temperature_c`, and `precipitable_water_mm`, plus a per-station quality
+flag and level count. `station_risk_diagnoses` converts these indices into
+station-level environment evidence for short-duration heavy rain, rotating storm
+or supercell potential, and severe-convection composite risk. These are
+`score_source=sounding_profile_indices` station diagnoses, not gridded
+`source_grid` risk areas; missing trigger, rainrate, shear and SRH factors are
+reported in `missing_critical_factors` and cap the score.
+
+Sounding weather systems currently include `height_high`, `height_low`,
+`warm_center`, `cold_center`, `trough_candidate`, and `ridge_candidate`. Each
+system includes `feature_type`, `confidence`, `geometry`, and `evidence`, so it
+can be compared visually with Central Meteorological Observatory analysis charts
+in the map UI.
+
+`sounding/features` returns GeoJSON for the map. It converts sounding systems to
+the existing map object types (`height_high` -> `high`, `height_low` -> `low`,
+`trough_candidate` -> `trough`, `ridge_candidate` -> `ridge`) and converts
+station-level risk diagnoses to point features using the corresponding
+multi-hazard risk `feature_type`.
+
 ## Public v1 Admin Algorithms
 
 - `GET /api/v1/admin/data-sources`
@@ -263,10 +302,12 @@ diagnosis with the same threshold IDs used by the running algorithm.
 - `40002`: unsupported model
 - `40003`: missing file reference
 - `40004`: invalid NAFP root
+- `40007`: invalid sounding request
 - `40401`: run not found
 - `40402`: job not found
 - `40403`: file not found
 - `40404`: required NAFP product not found
+- `40407`: sounding file not found
 - `50001`: diagnosis failed
 - `50002`: NAFP diagnosis failed
 

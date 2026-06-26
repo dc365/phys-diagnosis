@@ -20,3 +20,11 @@ test('map layer loading can use NAFP grid, metadata and contour endpoints', () =
   assert.match(mapJs, /buildNafpLayerGridUrl\(layer, selectedPointDataCode\(\), selectedPointRunTime\(\), fh, Date\.now\(\)\)/);
   assert.match(mapJs, /buildNafpLayerContourUrl\(layer, selectedPointDataCode\(\), selectedPointRunTime\(\), fh, Date\.now\(\)\)/);
 });
+
+test('map layer loading uses sounding analysis grids when category is observed', () => {
+  assert.match(mapJs, /async function loadSoundingLayerData\(layer\)/);
+  assert.match(mapJs, /if \(selectedDataCategory\(\) === 'sounding'\) \{\s*await loadSoundingLayerData\(layer, options\);\s*return;\s*\}/);
+  assert.match(mapJs, /buildSoundingLayerMetadataUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);
+  assert.match(mapJs, /buildSoundingLayerGridUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);
+  assert.match(mapJs, /buildSoundingLayerContourUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);
+});

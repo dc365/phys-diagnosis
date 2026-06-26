@@ -3,34 +3,11 @@ from __future__ import annotations
 from math import ceil, floor
 from typing import Any, Iterable
 
+import matplotlib
 import numpy as np
 
-
-EDGE_PAIRS = {
-    0: (0, 1),
-    1: (1, 2),
-    2: (3, 2),
-    3: (0, 3),
-}
-
-CASE_SEGMENTS = {
-    0: (),
-    1: ((3, 0),),
-    2: ((0, 1),),
-    3: ((3, 1),),
-    4: ((1, 2),),
-    5: ((3, 2), (0, 1)),
-    6: ((0, 2),),
-    7: ((3, 2),),
-    8: ((2, 3),),
-    9: ((0, 2),),
-    10: ((0, 3), (1, 2)),
-    11: ((1, 2),),
-    12: ((1, 3),),
-    13: ((0, 1),),
-    14: ((3, 0),),
-    15: (),
-}
+matplotlib.use("Agg", force=True)
+from matplotlib import pyplot as plt
 
 
 def _format_value(value: float, unit: str) -> str:
@@ -68,38 +45,27 @@ def _normalize_levels(valid: np.ndarray, levels: Iterable[float] | None, interva
     return [float(value) for value in np.linspace(float(valid.min()), float(valid.max()), 9)[1:-1]]
 
 
-def _edge_point(edge: int, corners: list[tuple[float, float]], values: list[float], level: float) -> list[float] | None:
-    left, right = EDGE_PAIRS[edge]
-    v1 = values[left]
-    v2 = values[right]
-    if not np.isfinite(v1) or not np.isfinite(v2) or np.isclose(v1, v2):
-        return None
-    if not ((v1 < level <= v2) or (v2 < level <= v1)):
-        return None
-    ratio = (level - v1) / (v2 - v1)
-    lon1, lat1 = corners[left]
-    lon2, lat2 = corners[right]
-    return [
-        float(lon1 + ratio * (lon2 - lon1)),
-        float(lat1 + ratio * (lat2 - lat1)),
-    ]
-
-
-def _cell_segments(corners: list[tuple[float, float]], values: list[float], level: float) -> list[list[list[float]]]:
-    if any(not np.isfinite(value) for value in values):
+def _matplotlib_contour_segments(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    data: np.ndarray,
+    levels: list[float],
+) -> list[tuple[float, list[list[float]]]]:
+    if not levels:
         return []
-    case = 0
-    for index, value in enumerate(values):
-        if value >= level:
-            case |= 1 << index
-    segments: list[list[list[float]]] = []
-    for edge_a, edge_b in CASE_SEGMENTS[case]:
-        point_a = _edge_point(edge_a, corners, values, level)
-        point_b = _edge_point(edge_b, corners, values, level)
-        if point_a is None or point_b is None or np.allclose(point_a, point_b):
-            continue
-        segments.append([point_a, point_b])
-    return segments
+    fig, ax = plt.subplots()
+    try:
+        contour_set = ax.contour(lon, lat, np.ma.masked_invalid(data), levels=levels)
+        segments: list[tuple[float, list[list[float]]]] = []
+        for level, level_segments in zip(contour_set.levels, contour_set.allsegs):
+            for segment in level_segments:
+                if len(segment) < 2:
+                    continue
+                coordinates = [[float(x), float(y)] for x, y in segment]
+                segments.append((float(level), coordinates))
+        return segments
+    finally:
+        plt.close(fig)
 
 
 def contours_to_geojson(
@@ -125,43 +91,22 @@ def contours_to_geojson(
     valid = arr[np.isfinite(arr)]
     contour_levels = _normalize_levels(valid, levels, interval) if valid.size else []
     features: list[dict[str, Any]] = []
-    for level in contour_levels:
-        for i in range(lat_values.size - 1):
-            for j in range(lon_values.size - 1):
-                corners = [
-                    (float(lon_values[j]), float(lat_values[i])),
-                    (float(lon_values[j + 1]), float(lat_values[i])),
-                    (float(lon_values[j + 1]), float(lat_values[i + 1])),
-                    (float(lon_values[j]), float(lat_values[i + 1])),
-                ]
-                values = [
-                    float(arr[i, j]),
-                    float(arr[i, j + 1]),
-                    float(arr[i + 1, j + 1]),
-                    float(arr[i + 1, j]),
-                ]
-                for segment in _cell_segments(corners, values, float(level)):
-                    features.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": segment,
-                        },
-                        "properties": {
-                            "layer_id": layer_id,
-                            "title": title,
-                            "unit": unit,
-                            "value": float(level),
-                            "value_text": _format_value(float(level), unit),
-                            "feature_type": "contour",
-                        },
-                    })
-                    if len(features) >= max_segments:
-                        break
-                if len(features) >= max_segments:
-                    break
-            if len(features) >= max_segments:
-                break
+    for level, coordinates in _matplotlib_contour_segments(lon_values, lat_values, arr, contour_levels):
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": coordinates,
+            },
+            "properties": {
+                "layer_id": layer_id,
+                "title": title,
+                "unit": unit,
+                "value": float(level),
+                "value_text": _format_value(float(level), unit),
+                "feature_type": "contour",
+            },
+        })
         if len(features) >= max_segments:
             break
 

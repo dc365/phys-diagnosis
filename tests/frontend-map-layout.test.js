@@ -61,6 +61,18 @@ test('map page exposes selectable local and China-accessible basemaps', () => {
   assert.match(mapJs, /basemapSelect'\)\.addEventListener\('change', applyBaseMap\)/);
 });
 
+test('map data category selector keeps forecast and sounding at the top level', () => {
+  assert.match(html, /id="dataCategorySelect"/);
+  assert.match(html, /<option value="forecast" selected>数值模式预报<\/option>/);
+  assert.match(html, /<option value="sounding">实况<\/option>/);
+  assert.ok(html.indexOf('id="dataCategorySelect"') < html.indexOf('class="layer-panel"'));
+  assert.ok(html.indexOf('id="soundingFileSelect"') < html.indexOf('class="layer-panel"'));
+  assert.doesNotMatch(html, /class="panel-subsection sounding-panel"/);
+  assert.match(mapJs, /function selectedDataCategory\(\)/);
+  assert.match(mapJs, /function syncDataCategoryControls\(\)/);
+  assert.match(mapJs, /dataCategorySelect'\)\.addEventListener\('change'/);
+});
+
 test('map page does not expose demo-data generation controls', () => {
   assert.doesNotMatch(html, /示例数据/);
   assert.doesNotMatch(html, /id="btnDemo"/);
@@ -70,11 +82,11 @@ test('map page does not expose demo-data generation controls', () => {
 });
 
 test('product run selector is hidden unless the product data source is selected', () => {
-  assert.match(html, /class="control-field run-field" hidden/);
+  assert.match(html, /class="control-field run-field forecast-control" hidden/);
   assert.match(html, /class="layer-source-control" hidden/);
   assert.match(html, />诊断产品</);
   assert.match(mapJs, /function syncProductRunVisibility\(\)/);
-  assert.match(mapJs, /field\.hidden = shouldUseNafpLayerSource\(\)/);
+  assert.match(mapJs, /field\.hidden = selectedDataCategory\(\) === 'sounding' \|\| shouldUseNafpLayerSource\(\)/);
   assert.match(mapJs, /syncProductRunVisibility\(\);\s*if \(shouldUseNafpLayerSource\(\)\)/);
 });
 
@@ -206,6 +218,17 @@ test('contour overlay uses local MapLibre glyphs for collision-aware labels', ()
   assert.match(mapJs, /map\.on\('click', CONTOUR_LAYER_ID/);
   assert.match(mapJs, /function selectContour\(feature, lngLat\)/);
   assert.doesNotMatch(mapJs, /\.sort\(\(a, b\) => b\.length - a\.length\)\s*\.slice\(0, MAX_CONTOUR_LABELS\)/);
+});
+
+test('sounding z500 contour display is line-priority and NMC-like', () => {
+  assert.match(mapJs, /const SOUNDING_GRID_FILL_OPACITY = 0\.18/);
+  assert.match(mapJs, /const Z500_CONTOUR_COLOR = '#3155d4'/);
+  assert.match(mapJs, /function contourColorExpression\(\)/);
+  assert.match(mapJs, /'line-color': contourColorExpression\(\)/);
+  assert.match(mapJs, /'line-cap': 'round'/);
+  assert.match(mapJs, /'line-join': 'round'/);
+  assert.match(mapJs, /map\.setPaintProperty\(GRID_FILL_LAYER_ID, 'fill-opacity', SOUNDING_GRID_FILL_OPACITY\)/);
+  assert.match(mapJs, /map\.setPaintProperty\(GRID_FILL_LAYER_ID, 'fill-opacity', GRID_FILL_OPACITY\)/);
 });
 
 test('contour values avoid dense DOM marker labels', () => {

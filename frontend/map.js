@@ -5,10 +5,12 @@ const GRID_SOURCE_ID = 'diagnostic-grid';
 const GRID_FILL_LAYER_ID = 'diagnostic-grid-fill';
 const REFERENCE_OVERLAY_LAYER_ID = 'map-reference-overlay';
 const GRID_FILL_OPACITY = 0.5;
+const SOUNDING_GRID_FILL_OPACITY = 0.18;
 const CONTOUR_SOURCE_ID = 'diagnostic-contours';
 const CONTOUR_LAYER_ID = 'diagnostic-contour-lines';
 const CONTOUR_LABEL_SOURCE_ID = 'diagnostic-contour-label-points';
 const CONTOUR_LABEL_LAYER_ID = 'diagnostic-contour-labels';
+const Z500_CONTOUR_COLOR = '#3155d4';
 const MAX_CONTOUR_LABELS = 36;
 const CONTOUR_LABEL_BOUNDS_PADDING_DEGREES = 1.5;
 const CONTOUR_LABEL_MIN_DISTANCE_DEGREES = 2.4;
@@ -28,6 +30,18 @@ const AREA_RISK_LAYER_IDS = {
   selectedBbox: 'area-risk-selected-bbox',
 };
 const AREA_RISK_API_PATH = '/api/v1/diagnosis/nafp/area-risks';
+const DEFAULT_SOUNDING_CSV_PATH = 'test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv';
+const SOUNDING_DEFAULT_TYPES = [
+  'high',
+  'low',
+  'warm_center',
+  'cold_center',
+  'trough',
+  'ridge',
+  'short_duration_heavy_rain_risk',
+  'rotating_storm_risk',
+  'severe_convection_composite_risk',
+];
 const BASEMAP_SOURCE_ID = 'base-map-raster';
 const BASEMAP_LABEL_SOURCE_ID = 'base-map-label-raster';
 const BASEMAP_LAYER_ID = 'base-map-raster';
@@ -45,6 +59,7 @@ const state = {
   runId: 'ecmwf_demo',
   forecastHour: 24,
   forecastHours: [],
+  dataCategory: 'forecast',
   layerSource: 'nafp',
   layers: {},
   contours: null,
@@ -124,6 +139,8 @@ const featureColors = {
   pv_anomaly: '#6741d9',
   surface_front_candidate: '#f03e3e',
   dryline_candidate: '#a16207',
+  warm_center: '#e03131',
+  cold_center: '#364fc7',
   persistent_heavy_rain_risk: '#b02a37',
   short_duration_heavy_rain_risk: '#1971c2',
   thunderstorm_gale_risk: '#5f3dc4',
@@ -163,12 +180,18 @@ const featureLegendKinds = {
   upper_divergence_axis: 'line',
   cold_vortex: 'point',
   mid_level_vortex: 'point',
+  warm_center: 'point',
+  cold_center: 'point',
   upper_jet: 'line',
   surface_front_candidate: 'line',
   dryline_candidate: 'line',
 };
 
-const featureTypeNames = Object.fromEntries(featureTypes);
+const featureTypeNames = {
+  ...Object.fromEntries(featureTypes),
+  warm_center: '暖中心',
+  cold_center: '冷中心',
+};
 const pointTargetNames = {
   heavy_rain_potential: '强降水',
   convection_potential: '强对流',
@@ -245,6 +268,10 @@ const {
   buildLayerGridUrl,
   buildNafpAreaRiskUrl,
   buildNafpFeaturesUrl,
+  buildSoundingFeaturesUrl,
+  buildSoundingLayerContourUrl,
+  buildSoundingLayerGridUrl,
+  buildSoundingLayerMetadataUrl,
   buildNafpLayerContourUrl,
   buildNafpLayerGridUrl,
   buildNafpLayerMetadataUrl,
@@ -338,6 +365,10 @@ function areaRiskColorExpression() {
   Object.entries(areaRiskColors).forEach(([type, color]) => expression.push(type, color));
   expression.push('#32d5e7');
   return expression;
+}
+
+function contourColorExpression() {
+  return ['match', ['get', 'layer_id'], 'z500', Z500_CONTOUR_COLOR, '#162231'];
 }
 
 function featureLegendKind(type) {
@@ -875,6 +906,18 @@ function selectedLayerSource() {
   return source === 'product' ? 'product' : 'nafp';
 }
 
+function selectedDataCategory() {
+  return $('dataCategorySelect')?.value === 'sounding' ? 'sounding' : 'forecast';
+}
+
+function syncDataCategoryControls() {
+  state.dataCategory = selectedDataCategory();
+  const isSounding = state.dataCategory === 'sounding';
+  document.querySelectorAll('.forecast-control').forEach((el) => { el.hidden = isSounding; });
+  document.querySelectorAll('.sounding-control').forEach((el) => { el.hidden = !isSounding; });
+  if (isSounding && state.pointProbeActive) setPointProbeActive(false);
+}
+
 function shouldUseNafpLayerSource() {
   return selectedLayerSource() === 'nafp';
 }
@@ -928,7 +971,7 @@ async function waitForNafpPrecompute(forecastHour) {
 
 function syncProductRunVisibility() {
   const field = document.querySelector('.run-field');
-  if (field) field.hidden = shouldUseNafpLayerSource();
+  if (field) field.hidden = selectedDataCategory() === 'sounding' || shouldUseNafpLayerSource();
 }
 
 function setForecastHourOptions(hours) {
@@ -1152,10 +1195,14 @@ function ensureContourLayer() {
     id: CONTOUR_LAYER_ID,
     type: 'line',
     source: CONTOUR_SOURCE_ID,
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
-      'line-color': '#162231',
-      'line-width': ['interpolate', ['linear'], ['zoom'], 2, 0.8, 6, 1.8],
-      'line-opacity': 0.78,
+      'line-color': contourColorExpression(),
+      'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.1, 6, 2.2],
+      'line-opacity': 0.86,
     },
   });
   map.addLayer({
@@ -1925,6 +1972,10 @@ async function loadLayer(options = {}) {
   const fh = Number($('fhSelect').value);
   if (!layer || Number.isNaN(fh)) return;
   state.forecastHour = fh;
+  if (selectedDataCategory() === 'sounding') {
+    await loadSoundingLayerData(layer, options);
+    return;
+  }
   if (shouldUseNafpLayerSource()) {
     await loadNafpLayerData(layer, fh, options);
     return;
@@ -1945,6 +1996,7 @@ async function loadLayer(options = {}) {
   const palette = paletteForLayer(layer);
   const domain = colorRampDomainForLayer(layer, md);
   map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-opacity', GRID_FILL_OPACITY);
   await loadContours();
   updateLegend(md, palette, domain);
   renderLayerChips();
@@ -1975,11 +2027,37 @@ async function loadNafpLayerData(layer, fh) {
   const palette = paletteForLayer(layer);
   const domain = colorRampDomainForLayer(layer, md);
   map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-opacity', GRID_FILL_OPACITY);
   await loadContours();
   updateLegend(md, palette, domain);
   renderLayerChips();
   if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
   status(`已加载 NAFP 原始格点：${md.title || layer} +${fh}h`);
+}
+
+async function loadSoundingLayerData(layer) {
+  const options = arguments[1] || {};
+  if (layer !== 'z500') {
+    selectDefaultSoundingLayer();
+    layer = 'z500';
+  }
+  const title = state.layers[layer]?.title || layer;
+  status(`正在加载 sounding 实况分析场：${title}`);
+
+  const md = await getEnvelope(buildSoundingLayerMetadataUrl(layer, selectedSoundingCsvPath(), 500, Date.now()));
+  state.currentBounds = metadataToBounds(md);
+  const grid = await getEnvelope(buildSoundingLayerGridUrl(layer, selectedSoundingCsvPath(), 500, Date.now()));
+  const source = map.getSource(GRID_SOURCE_ID);
+  source.setData(grid);
+  const palette = paletteForLayer(layer);
+  const domain = colorRampDomainForLayer(layer, md);
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
+  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-opacity', SOUNDING_GRID_FILL_OPACITY);
+  await loadContours();
+  updateLegend(md, palette, domain);
+  renderLayerChips();
+  if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
+  status(`已加载 sounding 实况分析场：${md.title || layer}`);
 }
 
 function clearContours() {
@@ -1998,28 +2076,34 @@ async function loadContours() {
   }
   const layer = $('layerSelect').value;
   const fh = Number($('fhSelect').value);
+  const useSounding = selectedDataCategory() === 'sounding';
   const useNafp = shouldUseNafpLayerSource();
   const runId = $('runSelect').value;
   if (!layer || Number.isNaN(fh)) {
     clearContours();
     return;
   }
-  if (useNafp && !selectedPointRunTime()) {
+  if (!useSounding && useNafp && !selectedPointRunTime()) {
     clearContours();
     return;
   }
-  if (useNafp && selectedPointRunIsSynthetic()) {
+  if (!useSounding && useNafp && selectedPointRunIsSynthetic()) {
     clearContours();
     return;
   }
-  if (!useNafp && !runId) {
+  if (!useSounding && !useNafp && !runId) {
     clearContours();
     return;
   }
   try {
-    const contours = useNafp
-      ? await getEnvelope(buildNafpLayerContourUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()))
-      : await api(buildLayerContourUrl(layer, runId, fh, Date.now()));
+    let contours;
+    if (useSounding) {
+      contours = await getEnvelope(buildSoundingLayerContourUrl(layer, selectedSoundingCsvPath(), 500, Date.now()));
+    } else if (useNafp) {
+      contours = await getEnvelope(buildNafpLayerContourUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
+    } else {
+      contours = await api(buildLayerContourUrl(layer, runId, fh, Date.now()));
+    }
     state.contours = contours;
     map.getSource(CONTOUR_SOURCE_ID).setData(contours);
     map.getSource(CONTOUR_LABEL_SOURCE_ID).setData(contourLabelFeatureCollection(contours));
@@ -2580,6 +2664,24 @@ function selectedFeatureTypes() {
     .map((input) => input.value);
 }
 
+function selectedSoundingCsvPath() {
+  return $('soundingFileSelect')?.value || DEFAULT_SOUNDING_CSV_PATH;
+}
+
+function selectDefaultSoundingLayer() {
+  if (!$('layerSelect') || !state.layers.z500) return;
+  if ($('layerSelect').value !== 'z500') {
+    $('layerSelect').value = 'z500';
+    renderLayerChips();
+  }
+}
+
+function isDenseSoundingRiskFeature(feature) {
+  const props = feature?.properties || {};
+  return props.score_source === 'sounding_profile_indices'
+    && String(props.feature_type || '').endsWith('_risk');
+}
+
 function clearWeatherFeatures(message = '未选择天气系统，仅显示地图') {
   state.featureLoadToken += 1;
   state.features = [];
@@ -2620,6 +2722,7 @@ function renderPointMarkers(features) {
   clearPointMarkers();
   features
     .filter((feature) => feature.geometry?.type === 'Point')
+    .filter((feature) => !isDenseSoundingRiskFeature(feature))
     .forEach((feature) => {
       const props = feature.properties || {};
       const [lon, lat] = feature.geometry.coordinates;
@@ -2683,6 +2786,38 @@ async function loadNafpFeatures(selected, fh, featureLoadToken) {
   }
 }
 
+async function loadSoundingFeatures(selected = SOUNDING_DEFAULT_TYPES, featureLoadToken = ++state.featureLoadToken) {
+  if (!map || !state.mapReady) return;
+  status('正在加载 sounding 实况天气系统...');
+  try {
+    const fc = await getEnvelope(buildSoundingFeaturesUrl(selectedSoundingCsvPath(), 500, selected, Date.now()));
+    if (featureLoadToken !== state.featureLoadToken) return;
+    const displayFc = primaryFeatureCollection(fc);
+    const smoothedFc = smoothFeatureCollectionForDisplay(displayFc);
+    state.features = displayFc.features || [];
+    state.selectedFeatureId = '';
+    map.getSource(FEATURE_SOURCE_ID).setData(smoothedFc);
+    renderPointMarkers(state.features);
+    renderFeatureIndex();
+    if (displayFc.properties?.summary) $('analysisText').textContent = displayFc.properties.summary;
+    const domain = displayFc.properties?.domain || {};
+    if (Number.isFinite(Number(domain.lon_min)) && Number.isFinite(Number(domain.lat_min))) {
+      state.currentBounds = [domain.lon_min, domain.lat_min, domain.lon_max, domain.lat_max].map(Number);
+      fitCurrentBounds({ maxZoom: 4.4 });
+    }
+    status(`已加载 ${state.features.length} 个 sounding 实况对象`);
+  } catch (error) {
+    if (featureLoadToken !== state.featureLoadToken) return;
+    console.warn('sounding feature load failed', error);
+    state.features = [];
+    state.selectedFeatureId = '';
+    map.getSource(FEATURE_SOURCE_ID).setData({ type: 'FeatureCollection', features: [] });
+    clearPointMarkers();
+    renderFeatureIndex();
+    status(`sounding 实况加载失败：${error.message}`);
+  }
+}
+
 async function loadFeatures() {
   if (!map || !state.mapReady) return;
   const featureLoadToken = ++state.featureLoadToken;
@@ -2691,6 +2826,10 @@ async function loadFeatures() {
   const selected = selectedFeatureTypes();
   if (!selected.length) {
     clearWeatherFeatures();
+    return;
+  }
+  if (selectedDataCategory() === 'sounding') {
+    await loadSoundingFeatures(selected, featureLoadToken);
     return;
   }
   if (shouldUseNafpLayerSource()) {
@@ -2745,11 +2884,18 @@ async function runDiagnose() {
 
 function wireEvents() {
   $('btnDiagnose').addEventListener('click', runDiagnose);
+  $('dataCategorySelect').addEventListener('change', () => {
+    syncDataCategoryControls();
+    syncProductRunVisibility();
+    if (state.dataCategory === 'sounding') selectDefaultSoundingLayer();
+    clearWeatherFeatures(state.dataCategory === 'sounding' ? '已切换到实况，可加载 sounding 实况对象' : '已切换到数值模式预报');
+  });
   $('btnPointProbe').addEventListener('click', () => {
     setPointProbeActive(!state.pointProbeActive);
   });
   $('btnLoadLayer').addEventListener('click', loadLayer);
   $('btnLoadAreaRisk').addEventListener('click', () => loadAreaRisks({ fitBounds: true }));
+  $('btnLoadSoundingFeatures').addEventListener('click', () => loadSoundingFeatures());
   $('areaRiskScopeSelect').addEventListener('change', () => {
     if (state.areaRiskLoaded) loadAreaRisks({ fitBounds: true });
   });
@@ -2815,6 +2961,7 @@ async function init() {
   setupBasemapControl();
   setupAreaRiskControls();
   setupFeatureIndexControls();
+  syncDataCategoryControls();
   wireEvents();
   syncProductRunVisibility();
   initializeMap();

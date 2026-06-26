@@ -7,6 +7,10 @@ const {
   buildLayerContourUrl,
   buildLayerGridUrl,
   buildNafpFeaturesUrl,
+  buildSoundingFeaturesUrl,
+  buildSoundingLayerContourUrl,
+  buildSoundingLayerGridUrl,
+  buildSoundingLayerMetadataUrl,
   buildNafpAreaRiskUrl,
   buildNafpLayerContourUrl,
   buildNafpLayerGridUrl,
@@ -78,6 +82,33 @@ test('NAFP features URL builder sends selected system types in one request', () 
       12345,
     ),
     '/api/v1/diagnosis/nafp/features?data_code=NAFP_ECTHIN_NC&run_time=2026-06-17T20%3A00%3A00&forecast_hour=24&types=low_pressure_convergence%2Chigh_pressure_divergence&_=12345',
+  );
+});
+
+test('sounding features URL builder sends selected observed system and risk types', () => {
+  assert.equal(
+    buildSoundingFeaturesUrl(
+      'test_datas/regional_sounding/sample.csv',
+      500,
+      ['trough', 'short_duration_heavy_rain_risk'],
+      12345,
+    ),
+    '/api/v1/sounding/features?csv_path=test_datas%2Fregional_sounding%2Fsample.csv&pressure_level=500&types=trough%2Cshort_duration_heavy_rain_risk&_=12345',
+  );
+});
+
+test('sounding layer URL builders target observed analysis grids and contours', () => {
+  assert.equal(
+    buildSoundingLayerMetadataUrl('z500', 'test_datas/regional_sounding/sample.csv', 500, 12345),
+    '/api/v1/sounding/layers/z500/metadata?csv_path=test_datas%2Fregional_sounding%2Fsample.csv&pressure_level=500&_=12345',
+  );
+  assert.equal(
+    buildSoundingLayerGridUrl('z500', 'test_datas/regional_sounding/sample.csv', 500, 12345),
+    '/api/v1/sounding/layers/z500/grid?csv_path=test_datas%2Fregional_sounding%2Fsample.csv&pressure_level=500&_=12345',
+  );
+  assert.equal(
+    buildSoundingLayerContourUrl('z500', 'test_datas/regional_sounding/sample.csv', 500, 12345),
+    '/api/v1/sounding/layers/z500/contours?csv_path=test_datas%2Fregional_sounding%2Fsample.csv&pressure_level=500&_=12345',
   );
 });
 

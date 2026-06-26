@@ -160,9 +160,11 @@ select:disabled { color: var(--radar-dim); background: var(--cloud-inset); }
   font-size: 11px;
   line-height: 1;
 }
+.data-category-field select { min-width: 118px; }
 .run-field select { min-width: min(260px, 28vw); }
 .point-data-field select { min-width: min(190px, 20vw); }
 .point-run-field select { min-width: 138px; }
+.sounding-time-field select { min-width: 138px; }
 .basemap-field select { min-width: 118px; }
 .topbar #btnDiagnose {
   border-color: oklch(42% 0.09 216 / .2);
@@ -172,6 +174,14 @@ select:disabled { color: var(--radar-dim); background: var(--cloud-inset); }
   box-shadow: 0 9px 20px oklch(42% 0.09 216 / .18);
 }
 .topbar #btnDiagnose:hover { background: var(--radar-cyan-deep); }
+.topbar #btnLoadSoundingFeatures {
+  border-color: oklch(42% 0.09 216 / .2);
+  background: var(--radar-cyan);
+  color: #fff;
+  font-weight: 760;
+  box-shadow: 0 9px 20px oklch(42% 0.09 216 / .18);
+}
+.topbar #btnLoadSoundingFeatures:hover { background: var(--radar-cyan-deep); }
 .secondary-action {
   background: var(--cloud-panel-raised);
   border: 1px solid var(--radar-line);
@@ -1563,11 +1573,15 @@ pre {
     justify-content: flex-start;
   }
   .run-field { flex: 1 1 220px; }
+  .data-category-field { flex: 1 1 118px; }
   .point-data-field { flex: 1 1 190px; }
   .point-run-field { flex: 1 1 138px; }
+  .sounding-time-field { flex: 1 1 138px; }
   .run-field select,
+  .data-category-field select,
   .point-data-field select,
-  .point-run-field select { width: 100%; min-width: 0; }
+  .point-run-field select,
+  .sounding-time-field select { width: 100%; min-width: 0; }
   .map-status {
     top: 138px;
     max-width: calc(100% - 24px);

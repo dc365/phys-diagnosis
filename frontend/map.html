@@ -16,17 +16,33 @@
         <span>地图研判 / 物理量图层 / 点位证据链</span>
       </div>
       <div class="mode-strip" aria-label="模式与运行控制">
-        <label class="control-field">
+        <label class="control-field data-category-field">
+          <span>类别</span>
+          <select id="dataCategorySelect" aria-label="数据类别">
+            <option value="forecast" selected>数值模式预报</option>
+            <option value="sounding">实况</option>
+          </select>
+        </label>
+        <label class="control-field point-data-field forecast-control">
           <span>模式</span>
           <select id="pointDataCodeSelect" aria-label="模式"></select>
         </label>
-        <label class="control-field run-field" hidden>
+        <label class="control-field run-field forecast-control" hidden>
           <span>诊断产品</span>
           <select id="runSelect"></select>
         </label>
-        <label class="control-field point-run-field">
+        <label class="control-field point-run-field forecast-control">
           <span>起报</span>
           <select id="pointRunTimeSelect" aria-label="点位诊断起报时次"></select>
+        </label>
+        <label class="control-field sounding-time-field sounding-control" hidden>
+          <span>时次</span>
+          <select id="soundingFileSelect" aria-label="Sounding 实况时次">
+            <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv" selected>06/25 20:00</option>
+            <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_08BJT.csv">06/25 08:00</option>
+            <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv">06/24 20:00</option>
+            <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_08BJT.csv">06/24 08:00</option>
+          </select>
         </label>
         <label class="control-field basemap-field">
           <span>底图</span>
@@ -37,8 +53,9 @@
             <option value="tdt-image">天地图影像</option>
           </select>
         </label>
-        <button id="btnPointProbe" class="point-probe-toggle" type="button" aria-pressed="false">点位诊断</button>
-        <button id="btnDiagnose">运行诊断</button>
+        <button id="btnPointProbe" class="point-probe-toggle forecast-control" type="button" aria-pressed="false">点位诊断</button>
+        <button id="btnDiagnose" class="forecast-control">运行诊断</button>
+        <button id="btnLoadSoundingFeatures" class="sounding-control" type="button" hidden>加载实况</button>
       </div>
     </header>
 

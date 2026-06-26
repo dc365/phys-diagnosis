@@ -37,7 +37,7 @@ def test_contours_to_geojson_generates_line_segments_from_grid_crossing():
     assert feature["geometry"]["type"] == "LineString"
     assert feature["properties"]["value"] == 1.0
     assert feature["properties"]["value_text"] == "1 hPa"
-    assert feature["geometry"]["coordinates"] == [[100.5, 0.0], [100.5, 1.0]]
+    assert sorted(feature["geometry"]["coordinates"], key=lambda item: item[1]) == [[100.5, 0.0], [100.5, 1.0]]
 
 
 def test_risk_contour_value_text_omits_score_range_unit():
@@ -60,6 +60,32 @@ def test_risk_contour_value_text_omits_score_range_unit():
     assert feature["properties"]["unit"] == "0-1"
     assert feature["properties"]["value"] == 0.5
     assert feature["properties"]["value_text"] == "0.50"
+
+
+def test_contours_to_geojson_merges_cell_segments_into_continuous_lines():
+    contours = importlib.import_module("weather_diag.io.contours")
+    data = np.array([
+        [0.0, 2.0, 4.0],
+        [0.0, 2.0, 4.0],
+        [0.0, 2.0, 4.0],
+    ])
+    lat = np.array([0.0, 1.0, 2.0])
+    lon = np.array([100.0, 101.0, 102.0])
+
+    result = contours.contours_to_geojson(
+        "z500",
+        "500hPa 位势高度",
+        "dagpm",
+        data,
+        lat=lat,
+        lon=lon,
+        levels=[1.0],
+    )
+
+    assert len(result["features"]) == 1
+    line = result["features"][0]["geometry"]
+    assert line["type"] == "LineString"
+    assert len(line["coordinates"]) >= 3
 
 
 def test_layer_contours_endpoint_returns_configured_isobars(monkeypatch):

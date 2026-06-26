@@ -15,6 +15,7 @@ from backend.app.api.v1.diagnosis import router as public_diagnosis_router
 from backend.app.api.v1.files import router as public_files_router
 from backend.app.api.v1.jobs import router as public_jobs_router
 from backend.app.api.v1.runs import router as public_runs_router
+from backend.app.api.v1.sounding import router as public_sounding_router
 from backend.app.responses import ApiError, api_error_handler, strip_private_paths, validation_error_handler
 from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
@@ -34,6 +35,7 @@ app.include_router(public_diagnosis_router, prefix="/api/v1")
 app.include_router(public_files_router, prefix="/api/v1")
 app.include_router(public_jobs_router, prefix="/api/v1")
 app.include_router(public_runs_router, prefix="/api/v1")
+app.include_router(public_sounding_router, prefix="/api/v1")
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 if FRONTEND_DIR.exists():

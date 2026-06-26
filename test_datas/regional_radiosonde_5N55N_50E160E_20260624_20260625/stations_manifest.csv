@@ -1,0 +1,232 @@
+station_id,station_name,station_name_en,lat,lon,sources,available_datetimes_bjt
+28695,"Omsk, Russia","Omsk, Russia",54.93,73.4,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+28722,"Ufa-Dioma, Russian Federation (In Asia)","Ufa-Dioma, Russian Federation (In Asia)",54.71,55.83,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+28951,"Kostanai, Kazakhstan","Kostanai, Kazakhstan",53.23,63.62,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+29634,"Novosibirsk, Russian Federation (In Asia)","Novosibirsk, Russian Federation (In Asia)",54.96,82.95,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+29698,"Nizhneudinsk, Russian Federation (In Asia)","Nizhneudinsk, Russian Federation (In Asia)",54.88,99.03,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+29839,"Barnaul, Russian Federation (In Asia)","Barnaul, Russian Federation (In Asia)",53.35,83.81,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+29862,"Hakasskaja, Russian Federation (In Asia)","Hakasskaja, Russian Federation (In Asia)",53.76,91.31,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+30557,"Bagdarin, Russia","Bagdarin, Russia",54.47,113.58,FM35,2026-06-24 20:00:00
+30635,"Ust'-Barguzin, Russian Federation (In Asia)","Ust'-Barguzin, Russian Federation (In Asia)",53.41,109.01,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+30673,"Mogoca, Russian Federation (In Asia)","Mogoca, Russian Federation (In Asia)",53.75,119.73,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+30715,"Angarsk, Russian Federation (In Asia)","Angarsk, Russian Federation (In Asia)",52.48,103.85,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+30758,"Chita, Russian Federation (In Asia)","Chita, Russian Federation (In Asia)",52.08,113.48,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+30935,"Krasnyj Chikoj, Russian Federation (In Asia)","Krasnyj Chikoj, Russian Federation (In Asia)",50.36,108.75,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+30965,"Borzya, Russian Federation (In Asia)","Borzya, Russian Federation (In Asia)",50.4,116.51,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+31300,"Zeja, Russian Federation (In Asia)","Zeja, Russian Federation (In Asia)",53.7,127.3,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+31369,"Nikolaevsk-Na-Amure, Russian Federation (In Asia)","Nikolaevsk-Na-Amure, Russian Federation (In Asia)",53.15,140.7,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+31510,"Blagovescensk, Russian Federation (In Asia)","Blagovescensk, Russian Federation (In Asia)",50.53,127.5,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+31736,"Habarovsk, Russian Federation (In Asia)","Habarovsk, Russian Federation (In Asia)",48.53,135.23,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+31770,"Sovetskay Gavan, Russia","Sovetskay Gavan, Russia",49.0,140.27,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+31873,"Dal'Nerechensk, Russian Federation (In Asia)","Dal'Nerechensk, Russian Federation (In Asia)",45.86,133.73,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+31977,"Vladivostok (Sad Gorod), Russian Federation (In Asia)","Vladivostok (Sad Gorod), Russian Federation (In Asia)",43.26,132.05,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+32061,"Aleksandrovsk-Sahalinskij, Russian Federation (In Asia)","Aleksandrovsk-Sahalinskij, Russian Federation (In Asia)",50.9,142.16,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+32098,"Poronajsk, Russian Federation (In Asia)","Poronajsk, Russian Federation (In Asia)",49.22,143.1,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+32215,"Severo-Kuril'Sk, Russian Federation (In Asia)","Severo-Kuril'Sk, Russian Federation (In Asia)",50.68,156.13,FM35,2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+32477,"Sobolevo, Russia","Sobolevo, Russia",54.3,155.97,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+32540,"Petropavlovsk-Kamchatskij, Russian Federation (In Asia)","Petropavlovsk-Kamchatskij, Russian Federation (In Asia)",53.08,158.58,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+35121,"Orenburg, Russian Federation (In Asia)","Orenburg, Russian Federation (In Asia)",51.68,55.1,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+35229,"Aktobe, Kazakhstan","Aktobe, Kazakhstan",50.28,57.15,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+35394,"Karaganda, Kazakhstan","Karaganda, Kazakhstan",49.8,73.15,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+35671,"Zhezkazgan, Kazakhstan","Zhezkazgan, Kazakhstan",47.8,67.71,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+35700,"Atyrau, Kazakhstan","Atyrau, Kazakhstan",47.11,51.91,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+36003,"Pavlodar, Kazakhstan","Pavlodar, Kazakhstan",52.3,76.93,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+36096,"Kyzyl, Russia","Kyzyl, Russia",51.71,94.5,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+36872,"Almaty, Russia","Almaty, Russia",43.36,77.0,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+37860,"Mashtaga, Azerbaijan","Mashtaga, Azerbaijan",40.53,50.0,FM35,2026-06-24 20:00:00
+38064,"Kyzylorda, Kazakhstan","Kyzylorda, Kazakhstan",44.77,65.52,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+38341,"Zhambyl, Kazakhstan","Zhambyl, Kazakhstan",42.85,71.38,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+40738,"Gorgan, Iran","Gorgan, Iran",36.82,54.47,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+40800,"Esfahan, Iran, Islamic Republic Of","Esfahan, Iran, Islamic Republic Of",32.46,51.71,FM35,2026-06-25 08:00:00
+40809,"Birjand, Iran, Islamic Republic Of","Birjand, Iran, Islamic Republic Of",32.86,59.2,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+40841,"Kerman, Iran, Islamic Republic Of","Kerman, Iran, Islamic Republic Of",30.25,56.96,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+40848,"Shiraz, Iran, Islamic Republic Of","Shiraz, Iran, Islamic Republic Of",29.53,52.58,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+41256,"Seeb, Int'L Airport, Oman","Seeb, Int'L Airport, Oman",23.58,58.28,FM35,2026-06-24 08:00:00|2026-06-25 20:00:00
+41316,"Salalah, Oman","Salalah, Oman",17.03,54.08,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+41883,"Bogra, Bangladesh","Bogra, Bangladesh",24.85,89.36,FM35,2026-06-24 08:00:00
+41923,"Dhaka, Bangladesh","Dhaka, Bangladesh",23.76,90.38,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00
+42027,"Srinagar, India (Stations North Of Latitude 20~N)","Srinagar, India (Stations North Of Latitude 20~N)",34.08,74.83,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42056,"Jammu, India","Jammu, India",32.67,74.83,FM35,2026-06-24 20:00:00
+42101,"Patiala, India (Stations North Of Latitude 20~N)","Patiala, India (Stations North Of Latitude 20~N)",30.33,76.46,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42111,"Dehradun, India (Stations North Of Latitude 20~N)","Dehradun, India (Stations North Of Latitude 20~N)",30.31,78.03,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42182,"New Delhi/Safdarjung, India (Stations North Of Latitude 20~N)","New Delhi/Safdarjung, India (Stations North Of Latitude 20~N)",28.58,77.2,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42314,"Dibrugarh /Mohanbari, India (Stations North Of Latitude 20~N)","Dibrugarh /Mohanbari, India (Stations North Of Latitude 20~N)",27.48,95.01,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+42339,"Jodhpur, India (Stations North Of Latitude 20~N)","Jodhpur, India (Stations North Of Latitude 20~N)",26.3,73.01,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42361,"Gwalior, India (Stations North Of Latitude 20~N)","Gwalior, India (Stations North Of Latitude 20~N)",26.2114,78.20269,BUFR|FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42369,"Lucknow/Amausi, India (Stations North Of Latitude 20~N)","Lucknow/Amausi, India (Stations North Of Latitude 20~N)",26.75,80.88,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42379,"Gorakhpur, India (Stations North Of Latitude 20~N)","Gorakhpur, India (Stations North Of Latitude 20~N)",26.75,83.36,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42410,"Gauhati, India (Stations North Of Latitude 20~N)","Gauhati, India (Stations North Of Latitude 20~N)",26.1,91.58,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42492,"Patna, India (Stations North Of Latitude 20~N)","Patna, India (Stations North Of Latitude 20~N)",25.6,85.1,FM35,2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42647,"Ahmadabad, India (Stations North Of Latitude 20~N)","Ahmadabad, India (Stations North Of Latitude 20~N)",23.06,72.63,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42667,"Bhopal/Bairagarh, India (Stations North Of Latitude 20~N)","Bhopal/Bairagarh, India (Stations North Of Latitude 20~N)",23.28,77.35,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+42675,"Jabalpur, India (Stations North Of Latitude 20~N)","Jabalpur, India (Stations North Of Latitude 20~N)",23.2,79.95,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+42701,"M.O. Ranchi, India (Stations North Of Latitude 20~N)","M.O. Ranchi, India (Stations North Of Latitude 20~N)",23.31,85.31,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+42724,"Agartala, India (Stations North Of Latitude 20~N)","Agartala, India (Stations North Of Latitude 20~N)",23.88,91.25,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+42727,,,23.73,92.76,BUFR,2026-06-24 08:00:00|2026-06-25 08:00:00
+42809,"Calcutta/Dum Dum, India (Stations North Of Latitude 20~N)","Calcutta/Dum Dum, India (Stations North Of Latitude 20~N)",22.65,88.45,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42867,"Nagpur Sonegaon, India (Stations North Of Latitude 20~N)","Nagpur Sonegaon, India (Stations North Of Latitude 20~N)",21.1,79.05,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 20:00:00
+42874,"Pbo Raipur, India (Stations North Of Latitude 20~N)","Pbo Raipur, India (Stations North Of Latitude 20~N)",21.23,81.65,FM35,2026-06-25 08:00:00
+42886,"Jharsuguda, India (Stations North Of Latitude 20~N)","Jharsuguda, India (Stations North Of Latitude 20~N)",21.91,84.08,BUFR|FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+42971,"Bhubaneswar, India (Stations North Of Latitude 20~N)","Bhubaneswar, India (Stations North Of Latitude 20~N)",20.25144,85.82,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+43003,"Bombay / Santacruz, India (Stations South Of Latitude 20~N)","Bombay / Santacruz, India (Stations South Of Latitude 20~N)",19.11,72.85,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+43014,"Aurangabad Chikalthan Aerodrome, India (Stations South Of Latitude 20~N)","Aurangabad Chikalthan Aerodrome, India (Stations South Of Latitude 20~N)",19.85,75.4,FM35,2026-06-25 08:00:00
+43041,"Jagdalpur, India (Stations South Of Latitude 20~N)","Jagdalpur, India (Stations South Of Latitude 20~N)",19.0436,82.0223,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+43049,"Gopalpur, India (Stations South Of Latitude 20~N)","Gopalpur, India (Stations South Of Latitude 20~N)",19.26,84.88,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+43128,"Hyderabad Airport, India (Stations South Of Latitude 20~N)","Hyderabad Airport, India (Stations South Of Latitude 20~N)",17.45,78.46,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+43150,"Cwc Vishakhapatnam/Waltair, India (Stations South Of Latitude 20~N)","Cwc Vishakhapatnam/Waltair, India (Stations South Of Latitude 20~N)",17.722,83.3295,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+43185,"Machilipatnam, India (Stations South Of Latitude 20~N)","Machilipatnam, India (Stations South Of Latitude 20~N)",16.18499,81.214,BUFR|FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+43192,"Goa/Panjim, India (Stations South Of Latitude 20~N)","Goa/Panjim, India (Stations South Of Latitude 20~N)",15.48,73.81,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+43243,"Kavali, India","Kavali, India",14.906,79.992,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+43279,"Madras/Minambakkam, India (Stations South Of Latitude 20~N)","Madras/Minambakkam, India (Stations South Of Latitude 20~N)",13.0,80.18,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 20:00:00
+43285,"Mangalore/Panambur, India (Stations South Of Latitude 20~N)","Mangalore/Panambur, India (Stations South Of Latitude 20~N)",12.95,74.83,FM35,2026-06-25 08:00:00
+43295,"Bangalore, India (Stations South Of Latitude 20~N)","Bangalore, India (Stations South Of Latitude 20~N)",12.96,77.58,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+43353,"Cochin/Willingdon, India (Stations South Of Latitude 20~N)","Cochin/Willingdon, India (Stations South Of Latitude 20~N)",9.95,76.26,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+43369,"Minicoy, India (Stations South Of Latitude 20~N)","Minicoy, India (Stations South Of Latitude 20~N)",8.3,73.15,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+43371,"Thiruvananthapuram, India (Stations South Of Latitude 20~N)","Thiruvananthapuram, India (Stations South Of Latitude 20~N)",8.48,76.95,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+44212,"Ulaangom, Mongolia","Ulaangom, Mongolia",49.59,92.05,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+44231,"Muren, Mongolia","Muren, Mongolia",49.56,100.16,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+44288,"Arvaiheer, Mongolia","Arvaiheer, Mongolia",46.26,102.78,FM35,2026-06-24 20:00:00|2026-06-25 20:00:00
+44292,"Ulaanbaatar, Mongolia","Ulaanbaatar, Mongolia",47.55,106.52,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+45004,香港京士柏,"Kowloon, Hong Kong, China",22.31153,114.17274,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47102,"Baengnyeongdo, Republic Of Korea","Baengnyeongdo, Republic Of Korea",37.97437,124.71177,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47104,"Bukgangneung, Republic Of Korea","Bukgangneung, Republic Of Korea",37.80467,128.85437,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47135,,,36.22042,127.99413,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47138,"Pohang, Republic Of Korea","Pohang, Republic Of Korea",36.03179,129.38023,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47155,"Changwon, Republic Of Korea","Changwon, Republic Of Korea",35.1699,128.57274,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47169,"Heuksando, Republic Of Korea","Heuksando, Republic Of Korea",34.68719,125.45103,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47186,"National Typhoon Centre, Republic Of Korea","National Typhoon Centre, Republic Of Korea",33.33035,126.67955,BUFR|FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47230,"Incheon, Republic Of Korea","Incheon, Republic Of Korea",37.26341,126.10238,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47269,"Songido Island, Republic Of Korea","Songido Island, Republic Of Korea",35.34695,126.03025,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47401,"Wakkanai, Japan","Wakkanai, Japan",45.41,141.68,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47412,"Sapporo, Japan","Sapporo, Japan",43.05,141.33,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47418,,,42.98,144.4,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47582,"Akita, Japan","Akita, Japan",39.71,140.1,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47600,"Wajima, Japan","Wajima, Japan",37.38,136.9,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47646,"Tateno, Japan","Tateno, Japan",36.05,140.13,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47678,"Hachijojima/Omure, Japan","Hachijojima/Omure, Japan",33.11,139.78,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47741,"Matsue, Japan","Matsue, Japan",35.45,133.07,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47778,"Shionomisaki, Japan","Shionomisaki, Japan",33.45,135.76,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00
+47807,"Fukuoka, Japan","Fukuoka, Japan",33.58,130.38,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47827,"Kagoshima, Japan","Kagoshima, Japan",31.55,130.55,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47909,"Naze/Funchatoge, Japan","Naze/Funchatoge, Japan",28.38,129.55,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47918,"Ishigakijima, Japan","Ishigakijima, Japan",24.33,124.16,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47945,"Minamidaitojima, Japan","Minamidaitojima, Japan",25.83,131.23,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47971,"Chichijima, Japan","Chichijima, Japan",27.08,142.18,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+47991,"Minamitorishima, Japan","Minamitorishima, Japan",24.3,153.96,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+48327,"Chiang Mai, Thailand","Chiang Mai, Thailand",18.78,98.98,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48378,"Phitsanulok, Thailand","Phitsanulok, Thailand",16.78,100.26,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48381,"Khon Kaen, Thailand","Khon Kaen, Thailand",16.43,102.83,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48407,"Ubon Ratchathani, Thailand","Ubon Ratchathani, Thailand",15.25,104.86,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48431,"Nakhon Ratchasima, Thailand","Nakhon Ratchasima, Thailand",14.96,102.08,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48453,"Bangna, Thailand","Bangna, Thailand",13.67,100.6,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48480,"Chanthaburi, Thailand","Chanthaburi, Thailand",12.6,102.11,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48500,"Prachuap Khirikhan, Thailand","Prachuap Khirikhan, Thailand",11.83,99.83,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48565,"Phuket Airport, Thailand","Phuket Airport, Thailand",8.11,98.31,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48568,"Songkhla, Thailand","Songkhla, Thailand",7.2,100.6,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+48615,"Kota Bharu, Malaysia (Peninsular Malaysia)","Kota Bharu, Malaysia (Peninsular Malaysia)",6.16333,102.30053,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+48820,"Ha Noi, Vietnam","Ha Noi, Vietnam",21.01,105.8,FM35,2026-06-24 08:00:00|2026-06-25 20:00:00
+48839,"Bach Longvi, Vietnam","Bach Longvi, Vietnam",20.13,107.72,FM35,2026-06-25 08:00:00
+48845,"Vinh, Vietnam","Vinh, Vietnam",18.67,105.68,FM35,2026-06-24 08:00:00
+48855,"Da Nang, Vietnam","Da Nang, Vietnam",16.03,108.2,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 20:00:00
+48900,"Tan Son Hoa, Vietnam","Tan Son Hoa, Vietnam",10.81,106.66,FM35,2026-06-24 20:00:00|2026-06-25 08:00:00
+50527,海拉尔,"Hailar, China",49.25,119.7,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+50557,嫩江,"Nenjiang, China",49.17,125.23,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+50774,伊春,"Yichun, China",47.72,128.83,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+50953,哈尔滨,"Harbin, China",45.93,126.57,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51076,阿勒泰,"Altay, China",47.73,88.08,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51431,伊宁,"Yining, China",43.95,81.33,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51463,乌鲁木齐,"Wu Lu Mu Qi, China",43.78,87.62,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51644,库车,"Kuqa, China",41.72,82.95,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51709,喀什,"Kashi, China",39.48,75.75,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51777,若羌,"Ruoqiang, China",39.03,88.17,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51828,和田,"Hotan, China",37.13,79.93,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+51839,民丰,"Minfeng, China",37.07,82.72,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52203,哈密,"Hami, China",42.82,93.52,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52267,额济纳旗,"Ejin Qi, China",41.95,101.07,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52323,马鬃山,"Mazong Shan, China",41.8,97.03,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52418,敦煌,"Dunhuang, China",40.15,94.68,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52533,酒泉,"Jiuquan, China",39.77,98.48,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52681,民勤,"Minqin, China",38.63,103.08,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52818,格尔木,"Golmud, China",36.42,94.9,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52836,都兰,"Dulan, China",36.3,98.1,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52866,西宁,"Xining, China",36.65,101.72,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+52983,榆中,"Yuzhong, China",35.87,104.15,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53068,二连浩特,"Erenhot, China",43.63,111.95,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53463,呼和浩特,"Hohhot, China",40.85,111.57,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53513,临河,"Linhe, China",40.73,107.37,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53614,银川,"Yinchuan, China",38.47,106.2,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53772,太原,"Taiyuan, China",37.62,112.58,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53845,延安,"Yan An, China",36.57,109.45,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+53915,平凉,"Pingliang, China",35.53,106.67,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54102,锡林浩特,"Xilin Hot, China",43.95,116.12,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54135,通辽,"Tongliao, China",43.6,122.27,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54161,长春,"Changchun, China",43.9,125.22,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54218,赤峰,"Chifeng, China",42.3,118.83,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54292,延吉,"Yanji, China",42.87,129.5,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54340,沈阳,"Shenyang, China",41.54,123.61,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54374,临江,"Linjiang, China",41.8,126.88,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54511,北京,"Beijing, China",39.93,116.28,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54662,大连,"Dalian, China",38.9,121.63,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54727,章丘,"Zhangqiu, China",36.65,117.5,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+54857,青岛,"Qingdao, China",36.07,120.33,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+55299,那曲,"Nagqu, China",31.48,92.07,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+55591,拉萨,"Lhasa, China",29.67,91.13,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56029,玉树,"Yushu, China",33.0,96.95,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56080,合作,"Hezuo, China",35.0,102.9,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56137,昌都,"Qamdo, China",31.15,97.17,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56146,甘孜,"Garze, China",31.62,100.0,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56187,温江,"Wenjiang, China",30.75,103.87,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56571,西昌,"Xichang, China",27.9,102.27,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56691,威宁,"Weining, China",26.87,104.28,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56739,腾冲,"Tengchong, China",24.98,98.51,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56778,昆明,"Kunming, China",25.02,102.68,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56964,思茅,"Simao, China",22.77,100.98,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+56985,蒙自,"Mengzi, China",23.44,103.33,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57083,郑州,"Zhengzhou, China",34.72,113.65,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57127,汉中,"Hanzhong, China",33.07,107.03,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57131,泾河,"Jinjhe, China",34.43,108.97,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57178,南阳,"Nanyang, China",33.1,112.48,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57461,宜昌,"Yichang, China",30.73,111.37,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57494,武汉,"Wuhan, China",30.6,114.05,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57516,重庆,"Chongqing, China",29.6,106.4,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57541,竹山,"Zhushan, China",29.99,109.47,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57687,长沙,"Changsha, China",28.11,112.79,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57749,怀化,"Huaihua, China",27.57,110.0,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57816,贵阳,"Guiyang, China",26.48,106.65,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57957,桂林,"Guilin, China",25.33,110.3,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57972,郴州,"Chenzhou, China",25.74,112.97,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+57993,赣州,"Ganzhou, China",25.87,115.0,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58027,徐州,"Xuzhou, China",34.28,117.15,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58150,射阳,"Sheyang, China",33.75,120.3,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58203,阜阳,"Fuyang, China",32.87,115.73,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58238,南京,"Nanjing, China",31.93,118.9,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58362,上海,"Shanghai, China",31.42,121.45,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58424,安庆,"Anqing, China",30.62,116.97,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58457,杭州,"Hangzhou, China",30.23,120.17,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58606,南昌,"Nanchang, China",28.6,115.92,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58633,衢州,"Qu Xian, China",28.97,118.87,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58665,洪家,"Hongjia, China",28.62,121.42,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58725,邵武,"Shaowu, China",27.33,117.47,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+58847,福州,"Fuzhou, China",26.08,119.28,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59134,厦门,"Xiamen, China",24.48,118.08,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59211,百色,"Baise, China",23.9,106.6,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59265,梧州,"Wuzhou, China",23.48,111.3,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59280,清远,"Qing Yuan, China",23.72,113.08,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59316,汕头,"Shantou, China",23.35,116.67,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59431,南宁,"Nanning, China",22.78,108.55,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59758,海口,"Haikou, China",20.0,110.25,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+59981,西沙,"Xisha Dao, China",16.83,112.33,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+91212,"Nwso Agana, Guam, Mariana Is., Islands In The Pacific Ocean North Of The Equator","Nwso Agana, Guam, Mariana Is., Islands In The Pacific Ocean North Of The Equator",13.47761,144.79381,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+91334,"Chuuk, Eci, Islands In The Pacific Ocean North Of The Equator","Chuuk, Eci, Islands In The Pacific Ocean North Of The Equator",7.45693,151.8398,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+91348,"Pohnpei, Caroline Is., Islands In The Pacific Ocean North Of The Equator","Pohnpei, Caroline Is., Islands In The Pacific Ocean North Of The Equator",6.96017,158.21008,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+91408,"Koror, Palau Wci., Islands In The Pacific Ocean North Of The Equator","Koror, Palau Wci., Islands In The Pacific Ocean North Of The Equator",7.3365,134.47691,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+91413,"Yap, Caroline Is., Islands In The Pacific Ocean North Of The Equator","Yap, Caroline Is., Islands In The Pacific Ocean North Of The Equator",9.49705,138.08149,BUFR,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+96471,"Kota Kinabalu, Malaysia (Sabah And Sarawak)","Kota Kinabalu, Malaysia (Sabah And Sarawak)",5.93,116.05,BUFR|FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98223,"Laoag, Philippines","Laoag, Philippines",18.18,120.53,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98233,"Tuguegarao, Philippines","Tuguegarao, Philippines",17.62,121.73,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+98433,"Tanay, Philippines","Tanay, Philippines",14.56,121.36,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98444,"Legaspi, Philippines","Legaspi, Philippines",13.13,123.73,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98558,"Guiuan, Philippines","Guiuan, Philippines",11.03,126.73,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00
+98618,"Puerto Princesa, Philippines","Puerto Princesa, Philippines",9.75,118.73,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98646,"Mactan, Philippines","Mactan, Philippines",10.3,123.96,FM35,2026-06-24 08:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00
+98753,"Davao Airport, Philippines","Davao Airport, Philippines",7.11,125.65,FM35,2026-06-24 08:00:00|2026-06-24 20:00:00|2026-06-25 08:00:00|2026-06-25 20:00:00

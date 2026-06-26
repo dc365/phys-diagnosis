@@ -87,6 +87,36 @@
     return `/api/v1/diagnosis/nafp/features?${query}`;
   }
 
+  function buildSoundingFeaturesUrl(csvPath, pressureLevel, types, cacheBust) {
+    const query = buildQuery([
+      ['csv_path', csvPath],
+      ['pressure_level', pressureLevel],
+      ['types', (types || []).join(',')],
+      ['_', cacheBust],
+    ]);
+    return `/api/v1/sounding/features?${query}`;
+  }
+
+  function buildSoundingLayerQuery(csvPath, pressureLevel, cacheBust) {
+    return buildQuery([
+      ['csv_path', csvPath],
+      ['pressure_level', pressureLevel],
+      ['_', cacheBust],
+    ]);
+  }
+
+  function buildSoundingLayerMetadataUrl(layerId, csvPath, pressureLevel, cacheBust) {
+    return `/api/v1/sounding/layers/${encodeURIComponent(layerId)}/metadata?${buildSoundingLayerQuery(csvPath, pressureLevel, cacheBust)}`;
+  }
+
+  function buildSoundingLayerGridUrl(layerId, csvPath, pressureLevel, cacheBust) {
+    return `/api/v1/sounding/layers/${encodeURIComponent(layerId)}/grid?${buildSoundingLayerQuery(csvPath, pressureLevel, cacheBust)}`;
+  }
+
+  function buildSoundingLayerContourUrl(layerId, csvPath, pressureLevel, cacheBust) {
+    return `/api/v1/sounding/layers/${encodeURIComponent(layerId)}/contours?${buildSoundingLayerQuery(csvPath, pressureLevel, cacheBust)}`;
+  }
+
   function parseLooseDateTime(value) {
     const text = String(value || '').trim();
     const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2})(?::?(\d{2}))?(?::?(\d{2}))?)?/);
@@ -679,6 +709,10 @@
     buildLayerImageUrl,
     buildLayerGridUrl,
     buildNafpFeaturesUrl,
+    buildSoundingFeaturesUrl,
+    buildSoundingLayerContourUrl,
+    buildSoundingLayerGridUrl,
+    buildSoundingLayerMetadataUrl,
     buildNafpLayerContourUrl,
     buildNafpLayerGridUrl,
     buildNafpLayerMetadataUrl,
