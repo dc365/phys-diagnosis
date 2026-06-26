@@ -5,6 +5,7 @@ from typing import Any, Iterable
 
 import matplotlib
 import numpy as np
+from scipy import ndimage
 
 matplotlib.use("Agg", force=True)
 from matplotlib import pyplot as plt
@@ -44,6 +45,22 @@ def _normalize_levels(valid: np.ndarray, levels: Iterable[float] | None, interva
     return [float(value) for value in np.linspace(float(valid.min()), float(valid.max()), 9)[1:-1]]
 
 
+def _smooth_nan_grid(field: np.ndarray, sigma: float) -> np.ndarray:
+    if sigma <= 0:
+        return np.asarray(field, dtype=float)
+    arr = np.asarray(field, dtype=float)
+    finite = np.isfinite(arr)
+    if not finite.any():
+        return arr
+    filled = np.where(finite, arr, 0.0)
+    weights = finite.astype(float)
+    smoothed = ndimage.gaussian_filter(filled, sigma=float(sigma), mode="nearest")
+    weight_sum = ndimage.gaussian_filter(weights, sigma=float(sigma), mode="nearest")
+    out = np.full_like(arr, np.nan, dtype=float)
+    np.divide(smoothed, weight_sum, out=out, where=weight_sum > 1.0e-6)
+    return out
+
+
 def _matplotlib_contour_segments(lon: np.ndarray, lat: np.ndarray, data: np.ndarray, levels: list[float]) -> list[tuple[float, list[list[float]]]]:
     if not levels:
         return []
@@ -79,14 +96,40 @@ def _chaikin(coords: list[list[float]], iterations: int = 1) -> list[list[float]
     for _ in range(max(0, int(iterations))):
         if len(out) < 3:
             return out
+        closed = np.allclose(out[0], out[-1], atol=1.0e-9, rtol=0.0)
         next_coords = [out[0]]
-        for p0, p1 in zip(out[:-1], out[1:]):
+        pairs = list(zip(out[:-1], out[1:]))
+        for p0, p1 in pairs:
             q = [0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]
             r = [0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]
             next_coords.extend([q, r])
-        next_coords.append(out[-1])
+        if closed:
+            next_coords[-1] = next_coords[0]
+        else:
+            next_coords.append(out[-1])
         out = next_coords
     return out
+
+
+def _rdp(coords: list[list[float]], tolerance: float) -> list[list[float]]:
+    if len(coords) < 3 or tolerance <= 0:
+        return coords
+    arr = np.asarray(coords, dtype=float)
+    start = arr[0]
+    end = arr[-1]
+    vec = end - start
+    denom = float(np.dot(vec, vec))
+    if denom <= 1.0e-12:
+        distances = np.hypot(*(arr - start).T)
+    else:
+        t = np.clip(((arr - start) @ vec) / denom, 0.0, 1.0)
+        proj = start + t[:, None] * vec
+        distances = np.hypot(*(arr - proj).T)
+    idx = int(np.nanargmax(distances))
+    max_dist = float(distances[idx])
+    if max_dist <= tolerance:
+        return [coords[0], coords[-1]]
+    return _rdp(coords[: idx + 1], tolerance)[:-1] + _rdp(coords[idx:], tolerance)
 
 
 def _style_props(layer_id: str, unit: str, level: float) -> dict[str, Any]:
@@ -117,6 +160,8 @@ def contours_to_geojson(
     min_length_km: float = 0.0,
     smooth: bool = False,
     smooth_iterations: int = 1,
+    data_smoothing_sigma: float = 0.0,
+    simplify_tolerance_deg: float = 0.0,
 ) -> dict[str, Any]:
     arr = np.asarray(data, dtype=float)
     lat_values = np.asarray(lat, dtype=float)
@@ -125,6 +170,9 @@ def contours_to_geojson(
         raise ValueError("data shape must match lat/lon coordinate lengths")
     if lat_values.size < 2 or lon_values.size < 2:
         raise ValueError("contours require at least two latitudes and two longitudes")
+
+    if data_smoothing_sigma > 0:
+        arr = _smooth_nan_grid(arr, data_smoothing_sigma)
 
     valid = arr[np.isfinite(arr)]
     contour_levels = _normalize_levels(valid, levels, interval) if valid.size else []
@@ -135,6 +183,8 @@ def contours_to_geojson(
             continue
         if smooth:
             coordinates = _chaikin(coordinates, iterations=smooth_iterations)
+        if simplify_tolerance_deg > 0:
+            coordinates = _rdp(coordinates, simplify_tolerance_deg)
         props = {
             "layer_id": layer_id,
             "title": title,
@@ -165,6 +215,9 @@ def contours_to_geojson(
             "count": len(features),
             "min_length_km": float(min_length_km),
             "smooth": bool(smooth),
+            "smooth_iterations": int(smooth_iterations),
+            "data_smoothing_sigma": float(data_smoothing_sigma),
+            "simplify_tolerance_deg": float(simplify_tolerance_deg),
         },
         "features": features,
     }
