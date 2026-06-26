@@ -26,7 +26,14 @@ SOUNDING_LAYER_DEFS = {
         "unit": "dagpm",
         "scale": 0.1,
         "contour_interval": 4.0,
-        "contour_min_length_km": 250.0,
+        "contour_min_length_km": 520.0,
+        "contour_smooth_iterations": 2,
+        "contour_data_smoothing_sigma": 0.45,
+        "contour_simplify_tolerance_deg": 0.018,
+        # CMA/NMC H500 charts keep synoptic contours across the whole domain.
+        # Keep support metadata, but do not clip z500 contours by station-distance
+        # mask; otherwise contour segments break near sparse western/ocean areas.
+        "apply_support_mask": False,
     },
     "t500": {
         "field": "t500",
@@ -34,7 +41,11 @@ SOUNDING_LAYER_DEFS = {
         "unit": "degC",
         "scale": 1.0,
         "contour_interval": 4.0,
-        "contour_min_length_km": 200.0,
+        "contour_min_length_km": 420.0,
+        "contour_smooth_iterations": 2,
+        "contour_data_smoothing_sigma": 0.35,
+        "contour_simplify_tolerance_deg": 0.015,
+        "apply_support_mask": False,
     },
 }
 
@@ -95,9 +106,11 @@ def _sounding_layer(path: Path, pressure_level: int, layer_id: str) -> dict[str,
     layer_def = SOUNDING_LAYER_DEFS[layer_id]
     field = result["analysis_fields"][layer_def["field"]]
     values = np.asarray(field["values"], dtype=float) * float(layer_def["scale"])
-    values = mask_unsupported(values, field.get("support_mask"))
+    if bool(layer_def.get("apply_support_mask", True)):
+        values = mask_unsupported(values, field.get("support_mask"))
     valid = values[np.isfinite(values)]
     cfg = load_layers().get(layer_id, {})
+    contour_cfg = cfg.get("contour") or {}
     quality = field.get("quality") or {}
     return {
         "layer_id": layer_id,
@@ -116,10 +129,14 @@ def _sounding_layer(path: Path, pressure_level: int, layer_id: str) -> dict[str,
         "support_ratio": quality.get("supported_grid_ratio"),
         "mean_nearest_station_km": quality.get("mean_nearest_station_km"),
         "station_residual_rmse": quality.get("station_residual_rmse"),
+        "apply_support_mask": bool(layer_def.get("apply_support_mask", True)),
         "contour": {
-            **(cfg.get("contour") or {}),
-            "interval": (cfg.get("contour") or {}).get("interval", layer_def["contour_interval"]),
-            "min_length_km": (cfg.get("contour") or {}).get("min_length_km", layer_def["contour_min_length_km"]),
+            **contour_cfg,
+            "interval": contour_cfg.get("interval", layer_def["contour_interval"]),
+            "min_length_km": contour_cfg.get("min_length_km", layer_def["contour_min_length_km"]),
+            "smooth_iterations": contour_cfg.get("smooth_iterations", layer_def["contour_smooth_iterations"]),
+            "data_smoothing_sigma": contour_cfg.get("data_smoothing_sigma", layer_def["contour_data_smoothing_sigma"]),
+            "simplify_tolerance_deg": contour_cfg.get("simplify_tolerance_deg", layer_def["contour_simplify_tolerance_deg"]),
         },
     }
 
@@ -139,6 +156,7 @@ def _sounding_layer_metadata(layer: dict[str, Any]) -> dict[str, Any]:
         "support_ratio": layer.get("support_ratio"),
         "mean_nearest_station_km": layer.get("mean_nearest_station_km"),
         "station_residual_rmse": layer.get("station_residual_rmse"),
+        "apply_support_mask": layer.get("apply_support_mask"),
         "lat_min": float(np.nanmin(lat)),
         "lat_max": float(np.nanmax(lat)),
         "lon_min": float(np.nanmin(lon)),
@@ -247,6 +265,8 @@ def sounding_layer_contours(
                 min_length_km=float(contour_cfg.get("min_length_km", 0.0)),
                 smooth=True,
                 smooth_iterations=int(contour_cfg.get("smooth_iterations", 1)),
+                data_smoothing_sigma=float(contour_cfg.get("data_smoothing_sigma", 0.0)),
+                simplify_tolerance_deg=float(contour_cfg.get("simplify_tolerance_deg", 0.0)),
             )
         )
     except KeyError as exc:
