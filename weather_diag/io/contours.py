@@ -26,7 +26,6 @@ def _levels_from_interval(valid: np.ndarray, interval: float) -> list[float]:
     end = floor(float(valid.max()) / interval) * interval
     levels: list[float] = []
     value = start
-    # Keep dynamic contour generation bounded for map interactivity.
     while value <= end and len(levels) < 80:
         levels.append(float(round(value, 10)))
         value += interval
@@ -45,12 +44,7 @@ def _normalize_levels(valid: np.ndarray, levels: Iterable[float] | None, interva
     return [float(value) for value in np.linspace(float(valid.min()), float(valid.max()), 9)[1:-1]]
 
 
-def _matplotlib_contour_segments(
-    lon: np.ndarray,
-    lat: np.ndarray,
-    data: np.ndarray,
-    levels: list[float],
-) -> list[tuple[float, list[list[float]]]]:
+def _matplotlib_contour_segments(lon: np.ndarray, lat: np.ndarray, data: np.ndarray, levels: list[float]) -> list[tuple[float, list[list[float]]]]:
     if not levels:
         return []
     fig, ax = plt.subplots()
@@ -68,6 +62,47 @@ def _matplotlib_contour_segments(
         plt.close(fig)
 
 
+def _line_length_km(coords: list[list[float]]) -> float:
+    if len(coords) < 2:
+        return 0.0
+    total = 0.0
+    for (lon0, lat0), (lon1, lat1) in zip(coords[:-1], coords[1:]):
+        mean_lat = (lat0 + lat1) / 2.0
+        dx = (lon1 - lon0) * 111.32 * max(np.cos(np.deg2rad(mean_lat)), 0.2)
+        dy = (lat1 - lat0) * 111.32
+        total += float(np.hypot(dx, dy))
+    return total
+
+
+def _chaikin(coords: list[list[float]], iterations: int = 1) -> list[list[float]]:
+    out = [[float(x), float(y)] for x, y in coords]
+    for _ in range(max(0, int(iterations))):
+        if len(out) < 3:
+            return out
+        next_coords = [out[0]]
+        for p0, p1 in zip(out[:-1], out[1:]):
+            q = [0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]
+            r = [0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]
+            next_coords.extend([q, r])
+        next_coords.append(out[-1])
+        out = next_coords
+    return out
+
+
+def _style_props(layer_id: str, unit: str, level: float) -> dict[str, Any]:
+    layer = str(layer_id)
+    if layer.startswith("z") or unit == "dagpm":
+        return {"line_color": "#3155d4", "line_width": 1.6, "line_dash": [], "label_color": "#3155d4"}
+    if layer.startswith("t") or unit in {"degC", "℃"}:
+        return {
+            "line_color": "#d9480f",
+            "line_width": 1.4,
+            "line_dash": [4, 3] if float(level) < 0 else [],
+            "label_color": "#d9480f",
+        }
+    return {}
+
+
 def contours_to_geojson(
     layer_id: str,
     title: str,
@@ -79,6 +114,9 @@ def contours_to_geojson(
     levels: Iterable[float] | None = None,
     interval: float | None = None,
     max_segments: int = 12000,
+    min_length_km: float = 0.0,
+    smooth: bool = False,
+    smooth_iterations: int = 1,
 ) -> dict[str, Any]:
     arr = np.asarray(data, dtype=float)
     lat_values = np.asarray(lat, dtype=float)
@@ -92,20 +130,25 @@ def contours_to_geojson(
     contour_levels = _normalize_levels(valid, levels, interval) if valid.size else []
     features: list[dict[str, Any]] = []
     for level, coordinates in _matplotlib_contour_segments(lon_values, lat_values, arr, contour_levels):
+        length_km = _line_length_km(coordinates)
+        if length_km < float(min_length_km):
+            continue
+        if smooth:
+            coordinates = _chaikin(coordinates, iterations=smooth_iterations)
+        props = {
+            "layer_id": layer_id,
+            "title": title,
+            "unit": unit,
+            "value": float(level),
+            "value_text": _format_value(float(level), unit),
+            "feature_type": "contour",
+            "length_km": round(float(length_km), 1),
+            **_style_props(layer_id, unit, float(level)),
+        }
         features.append({
             "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": coordinates,
-            },
-            "properties": {
-                "layer_id": layer_id,
-                "title": title,
-                "unit": unit,
-                "value": float(level),
-                "value_text": _format_value(float(level), unit),
-                "feature_type": "contour",
-            },
+            "geometry": {"type": "LineString", "coordinates": coordinates},
+            "properties": props,
         })
         if len(features) >= max_segments:
             break
@@ -120,6 +163,8 @@ def contours_to_geojson(
             "min": float(valid.min()) if valid.size else None,
             "max": float(valid.max()) if valid.size else None,
             "count": len(features),
+            "min_length_km": float(min_length_km),
+            "smooth": bool(smooth),
         },
         "features": features,
     }
