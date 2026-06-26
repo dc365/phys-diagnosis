@@ -11,6 +11,7 @@ from weather_diag.diagnosis.algorithm_rules import (
 from weather_diag.diagnosis.weather_system_governance import (
     EXTRA_THRESHOLD_ENTRY_IDS,
     WeatherSystemGovernanceError,
+    _merge_extra_entries,
     augment_catalog_payload,
     augment_rule_explanations_payload,
     default_extra_threshold_entries,
@@ -97,6 +98,9 @@ def save_threshold_matrix(payload: dict) -> dict:
             submitted_by_id.get(str(entry.get("entry_id") or ""), entry)
             for entry in extra_defaults
         ]
+        # Validate extension parameters before the base matrix is written so an
+        # invalid request cannot partially persist only the base portion.
+        normalized_extra_entries = _merge_extra_entries(merged_extra_entries)
         base_payload = {
             **payload,
             "entries": merged_base_entries,
@@ -104,7 +108,7 @@ def save_threshold_matrix(payload: dict) -> dict:
         }
         saved_base = _save_threshold_matrix(base_payload)
         save_extra_threshold_entries(
-            merged_extra_entries,
+            normalized_extra_entries,
             updated_by=payload.get("updated_by"),
             remark=payload.get("remark"),
         )
