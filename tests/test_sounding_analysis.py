@@ -18,9 +18,9 @@ SOUNDING_FILE = Path(
 
 def _diagnose_sounding_situation():
     try:
-        from weather_diag.diagnosis.sounding import diagnose_sounding_situation
+        from weather_diag.diagnosis.sounding_optimized import diagnose_sounding_situation
     except ModuleNotFoundError as exc:
-        pytest.fail(f"sounding diagnosis module is missing: {exc}")
+        pytest.fail(f"optimized sounding diagnosis module is missing: {exc}")
     return diagnose_sounding_situation
 
 
@@ -39,7 +39,10 @@ def test_sounding_500hpa_analysis_uses_sounding_contract():
     assert z500["values"].shape == (51, 111)
     assert np.isfinite(z500["values"]).any()
     assert z500["quality"]["station_count"] > 150
-    assert z500["quality"]["method"] == "linear_with_nearest_fill"
+    assert z500["quality"]["method"] == "barnes_successive_correction"
+    assert 0.0 < z500["quality"]["supported_grid_ratio"] <= 1.0
+    assert "support_distance_km" in z500
+    assert "support_mask" in z500
 
 
 def test_sounding_situation_outputs_weather_systems_and_station_winds():
@@ -102,6 +105,7 @@ def test_public_sounding_situation_api_returns_map_ready_objects():
     assert "radiosonde" not in payload.lower()
     assert body["data"]["data_type"] == "sounding"
     assert "values" not in body["data"]["analysis_fields"]["z500"]
+    assert body["data"]["analysis_fields"]["z500"]["quality"]["method"] == "barnes_successive_correction"
     assert body["data"]["systems"]
     assert body["data"]["station_features"]["features"]
     assert body["data"]["station_diagnostics"]
@@ -189,9 +193,10 @@ def test_public_sounding_z500_layer_grid_and_contours_reuse_map_contract():
     assert md["title"] == "500hPa 位势高度"
     assert md["unit"] == "dagpm"
     assert md["data_type"] == "sounding"
-    assert md["analysis_method"] == "linear_with_nearest_fill"
+    assert md["analysis_method"] == "barnes_successive_correction"
     assert md["station_count"] > 150
     assert 500 <= md["min"] <= md["max"] <= 600
+    assert 0.0 < md["support_ratio"] <= 1.0
 
     assert grid.status_code == 200
     grid_data = grid.json()["data"]
@@ -204,4 +209,31 @@ def test_public_sounding_z500_layer_grid_and_contours_reuse_map_contract():
     contour_data = contours.json()["data"]
     assert contour_data["type"] == "FeatureCollection"
     assert contour_data["properties"]["layer_id"] == "z500"
+    assert contour_data["properties"]["smooth"] is True
     assert contour_data["features"]
+    first = contour_data["features"][0]["properties"]
+    assert first["line_color"] == "#3155d4"
+    assert first["length_km"] >= 0
+
+
+def test_public_sounding_t500_layer_and_contours_are_available():
+    client = TestClient(app)
+    params = {"csv_path": str(SOUNDING_FILE), "pressure_level": 500}
+
+    metadata = client.get("/api/v1/sounding/layers/t500/metadata", params=params)
+    contours = client.get("/api/v1/sounding/layers/t500/contours", params=params)
+
+    assert metadata.status_code == 200
+    md = metadata.json()["data"]
+    assert md["layer_id"] == "t500"
+    assert md["unit"] == "degC"
+    assert md["analysis_method"] == "barnes_successive_correction"
+    assert -40 <= md["min"] <= md["max"] <= 20
+
+    assert contours.status_code == 200
+    contour_data = contours.json()["data"]
+    assert contour_data["properties"]["layer_id"] == "t500"
+    assert contour_data["features"]
+    first = contour_data["features"][0]["properties"]
+    assert first["line_color"] == "#d9480f"
+    assert "line_dash" in first
