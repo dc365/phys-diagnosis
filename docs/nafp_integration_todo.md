@@ -1,6 +1,6 @@
 # NAFP integration status
 
-The new weather-system feature algorithms are now connected through the NAFP situation cache path.
+The new weather-system feature algorithms are connected through the NAFP situation cache path.
 
 Integration files:
 
@@ -18,15 +18,19 @@ Connected objects:
 7. pv_anomaly
 8. surface_front_candidate and dryline_candidate
 
-Also updated:
+Completed follow-up work:
 
 - display ranking and primary flags
 - evidence-chain supporting systems
 - risk diagnosis supporting systems
 - support weights for the new weather systems
+- MapLibre frontend feature types, colors, legends and layer recommendations
+- algorithm catalog, rule explanations and threshold-matrix governance entries
+- runtime application of saved governance parameters
+- NAFP cache invalidation after threshold changes
 
-Follow-up work:
+Remaining work:
 
-- add the new entries to the algorithm governance threshold matrix
-- group MapLibre layers into default systems, supporting diagnostics, risk layers and debug layers
+- split MapLibre controls into default systems, supporting diagnostics, risk layers and debug layers
 - calibrate thresholds with test_datas/NAFP_ECTHIN_NC and manually checked weather cases
+- add objective verification metrics for axis distance, center hit rate and false alarms
