@@ -3,10 +3,10 @@ layers:
     title: 500hPa 位势高度
     variable: z500
     kind: raster
-    unit: gpm
+    unit: dagpm
     contour:
       enabled: true
-      interval: 40
+      interval: 4
       max_segments: 16000
   mslp:
     title: 海平面气压

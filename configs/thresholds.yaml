@@ -112,8 +112,8 @@ vortex:
   smoothing_sigma_grid: 1.2
   min_distance_grid: 8
   max_objects: 8
-  min_height_prominence: 20.0
-  closed_height_interval: 20.0
+  min_height_prominence: 2.0
+  closed_height_interval: 2.0
   min_closed_area_km2: 40000
   vorticity_min: 1.0e-5
 

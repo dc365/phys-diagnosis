@@ -63,6 +63,7 @@ const state = {
   areaRiskFeatures: [],
   selectedAreaRiskId: '',
   areaRiskLoaded: false,
+  featureLoadToken: 0,
   basemap: 'offline',
 };
 
@@ -71,6 +72,12 @@ const weatherSystemFeatureTypes = [
   ['trough', '槽线候选'], ['ridge', '脊线候选'], ['low_level_convergence', '低层辐合区'],
   ['upper_divergence', '高空辐散区'], ['low_level_jet', '低空急流'],
   ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面轴线'],
+  ['shear_line', '切变线'], ['front_with_shear', '锋区切变线'],
+  ['low_level_convergence_axis', '低层辐合轴'], ['upper_divergence_axis', '高空辐散轴'],
+  ['cold_vortex', '冷涡候选'], ['mid_level_vortex', '低涡候选'],
+  ['upper_jet', '高空急流'], ['upper_jet_exit_region', '急流出口辐散区'],
+  ['pv_anomaly', '高空PV异常'], ['surface_front_candidate', '地面锋区候选'],
+  ['dryline_candidate', '干线候选'],
 ];
 
 const riskFeatureTypes = [
@@ -106,6 +113,17 @@ const featureColors = {
   low_level_jet: '#d9480f',
   moisture_transport: '#228be6',
   front_candidate: '#495057',
+  shear_line: '#2f9e44',
+  front_with_shear: '#7950f2',
+  low_level_convergence_axis: '#087f5b',
+  upper_divergence_axis: '#1098ad',
+  cold_vortex: '#364fc7',
+  mid_level_vortex: '#1971c2',
+  upper_jet: '#c2255c',
+  upper_jet_exit_region: '#e64980',
+  pv_anomaly: '#6741d9',
+  surface_front_candidate: '#f03e3e',
+  dryline_candidate: '#a16207',
   persistent_heavy_rain_risk: '#b02a37',
   short_duration_heavy_rain_risk: '#1971c2',
   thunderstorm_gale_risk: '#5f3dc4',
@@ -139,6 +157,15 @@ const featureLegendKinds = {
   low_level_jet: 'line',
   moisture_transport: 'line',
   front_candidate: 'line',
+  shear_line: 'line',
+  front_with_shear: 'line',
+  low_level_convergence_axis: 'line',
+  upper_divergence_axis: 'line',
+  cold_vortex: 'point',
+  mid_level_vortex: 'point',
+  upper_jet: 'line',
+  surface_front_candidate: 'line',
+  dryline_candidate: 'line',
 };
 
 const featureTypeNames = Object.fromEntries(featureTypes);
@@ -2554,6 +2581,7 @@ function selectedFeatureTypes() {
 }
 
 function clearWeatherFeatures(message = '未选择天气系统，仅显示地图') {
+  state.featureLoadToken += 1;
   state.features = [];
   state.selectedFeatureId = '';
   const featureSource = map?.getSource(FEATURE_SOURCE_ID);
@@ -2618,7 +2646,7 @@ function renderPointMarkers(features) {
     });
 }
 
-async function loadNafpFeatures(selected, fh) {
+async function loadNafpFeatures(selected, fh, featureLoadToken) {
   if (!selectedPointRunTime()) {
     clearWeatherFeatures(`NAFP 对象未就绪：${selectedPointDataCode()} 未发现起报时次`);
     return;
@@ -2631,6 +2659,7 @@ async function loadNafpFeatures(selected, fh) {
   try {
     await waitForNafpPrecompute(fh);
     const fc = await getEnvelope(buildNafpFeaturesUrl(selected, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
+    if (featureLoadToken !== state.featureLoadToken) return;
     const displayFc = primaryFeatureCollection(fc);
     const smoothedFc = smoothFeatureCollectionForDisplay(displayFc);
     state.features = displayFc.features || [];
@@ -2643,6 +2672,7 @@ async function loadNafpFeatures(selected, fh) {
     const displayedFeatures = displayFc.properties?.displayed_features ?? state.features.length;
     status(`已加载 ${displayedFeatures}/${totalFeatures} 个 NAFP 天气系统对象`);
   } catch (error) {
+    if (featureLoadToken !== state.featureLoadToken) return;
     console.warn('NAFP feature load failed', error);
     state.features = [];
     state.selectedFeatureId = '';
@@ -2655,6 +2685,7 @@ async function loadNafpFeatures(selected, fh) {
 
 async function loadFeatures() {
   if (!map || !state.mapReady) return;
+  const featureLoadToken = ++state.featureLoadToken;
   const runId = $('runSelect').value;
   const fh = Number($('fhSelect').value);
   const selected = selectedFeatureTypes();
@@ -2663,7 +2694,7 @@ async function loadFeatures() {
     return;
   }
   if (shouldUseNafpLayerSource()) {
-    await loadNafpFeatures(selected, fh);
+    await loadNafpFeatures(selected, fh, featureLoadToken);
     return;
   }
   status(`正在加载 ${selected.length} 类天气系统对象...`);
@@ -2678,6 +2709,7 @@ async function loadFeatures() {
   }));
 
   const fc = mergeFeatureCollections(responses);
+  if (featureLoadToken !== state.featureLoadToken) return;
   state.features = fc.features;
   state.selectedFeatureId = '';
   map.getSource(FEATURE_SOURCE_ID).setData(fc);

@@ -313,6 +313,12 @@ test('featureDisplayLabel uses classified front labels for front axes', () => {
   );
 });
 
+test('featureDisplayLabel names extended weather system types directly', () => {
+  assert.equal(featureDisplayLabel({ feature_type: 'shear_line' }), '切变线');
+  assert.equal(featureDisplayLabel({ feature_type: 'upper_jet' }), '高空急流');
+  assert.equal(featureDisplayLabel({ feature_type: 'low_level_convergence_axis' }), '低层辐合轴');
+});
+
 test('featureQuality maps confidence into duty-review labels', () => {
   assert.deepEqual(featureQuality({ confidence: 0.81 }), {
     level: 'high',
@@ -422,6 +428,14 @@ test('recommendedFeatureLayer maps weather systems to operational diagnostic lay
   assert.deepEqual(
     recommendedFeatureLayer({ feature_type: 'moisture_transport' }, available),
     { layerId: 'moisture_flux850', reason: 'moisture-transport' },
+  );
+  assert.deepEqual(
+    recommendedFeatureLayer({ feature_type: 'upper_jet' }, ['wind300_speed']),
+    { layerId: 'wind300_speed', reason: 'upper-jet' },
+  );
+  assert.deepEqual(
+    recommendedFeatureLayer({ feature_type: 'shear_line' }, ['wind850_speed']),
+    { layerId: 'wind850_speed', reason: 'wind-shear-line' },
   );
   assert.equal(recommendedFeatureLayer({ feature_type: 'heavy_rain_risk' }, ['heavy_rain_score']), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'convection_risk' }, ['convection_score']), null);

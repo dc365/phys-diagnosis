@@ -32,7 +32,7 @@ def test_vortex_detector_returns_cold_vortex_point():
         z,
         lat,
         lon,
-        {"vortex": {"min_height_prominence": 10, "min_closed_area_km2": 1000, "vorticity_min": 1.0e-8}},
+        {"vortex": {"min_height_prominence": 1, "closed_height_interval": 1, "min_closed_area_km2": 1000, "vorticity_min": 1.0e-8}},
         u=u,
         v=v,
         temperature=t,
@@ -41,6 +41,29 @@ def test_vortex_detector_returns_cold_vortex_point():
     assert features
     assert features[0]["geometry"]["type"] == "Point"
     assert features[0]["properties"]["feature_type"] in {"cold_vortex", "mid_level_vortex"}
+
+
+def test_vortex_detector_uses_dagpm_thresholds_for_dagpm_height():
+    lat = np.linspace(30.0, 50.0, 61)
+    lon = np.linspace(105.0, 130.0, 71)
+    lon2d, lat2d = np.meshgrid(lon, lat)
+    r2 = ((lon2d - 118.0) / 5.0) ** 2 + ((lat2d - 40.0) / 4.0) ** 2
+    z_dagpm = (5600.0 + 2.0 * (lat2d - 40.0) - 120.0 * np.exp(-r2)) / 10.0
+    u = -(lat2d - 40.0) * 1.2
+    v = (lon2d - 118.0) * 1.2
+
+    features = detect_cold_vortex(
+        z_dagpm,
+        lat,
+        lon,
+        {"vortex": {"min_height_prominence": 2, "closed_height_interval": 2, "min_closed_area_km2": 1000, "vorticity_min": 1.0e-8}},
+        u=u,
+        v=v,
+        level=500,
+    )
+
+    assert features
+    assert features[0]["properties"]["height_unit"] == "dagpm"
 
 
 def test_upper_jet_returns_axis_linestring():

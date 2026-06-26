@@ -36,7 +36,7 @@ def test_contours_to_geojson_generates_line_segments_from_grid_crossing():
     feature = result["features"][0]
     assert feature["geometry"]["type"] == "LineString"
     assert feature["properties"]["value"] == 1.0
-    assert feature["properties"]["value_text"] == "1.00 hPa"
+    assert feature["properties"]["value_text"] == "1 hPa"
     assert feature["geometry"]["coordinates"] == [[100.5, 0.0], [100.5, 1.0]]
 
 
@@ -89,4 +89,4 @@ def test_layer_contours_endpoint_returns_configured_isobars(monkeypatch):
     assert body["properties"]["layer_id"] == "mslp"
     assert body["properties"]["levels"] == [1002.0]
     assert len(body["features"]) == 1
-    assert body["features"][0]["properties"]["value_text"] == "1002.00 hPa"
+    assert body["features"][0]["properties"]["value_text"] == "1002 hPa"

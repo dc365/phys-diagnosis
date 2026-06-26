@@ -28,6 +28,19 @@ def _finite_percentile(values: np.ndarray, percentile: float, default: float = 0
     return float(np.nanpercentile(valid, percentile))
 
 
+def _dagpm_to_input_scale(height: np.ndarray) -> tuple[float, str]:
+    valid = np.asarray(height, dtype=float)
+    valid = valid[np.isfinite(valid)]
+    if valid.size == 0:
+        return 1.0, "dagpm"
+    median_abs = float(np.nanmedian(np.abs(valid)))
+    if median_abs > 20000.0:
+        return 98.0665, "m2 s-2"
+    if median_abs < 1000.0:
+        return 1.0, "dagpm"
+    return 10.0, "gpm"
+
+
 def _grid_area_km2(mask: np.ndarray, lat, lon) -> float:
     ys, _ = np.where(mask)
     lat_arr = np.asarray(lat, dtype=float)
@@ -73,7 +86,8 @@ def detect_cold_vortex(
     sigma = float(cfg.get("smoothing_sigma_grid", 1.2))
     min_distance_grid = int(cfg.get("min_distance_grid", 8))
     max_objects = int(cfg.get("max_objects", 8))
-    min_prominence = float(cfg.get("min_height_prominence", 20.0))
+    height_scale, height_unit = _dagpm_to_input_scale(height)
+    min_prominence = float(cfg.get("min_height_prominence", 2.0)) * height_scale
     min_area_km2 = float(cfg.get("min_closed_area_km2", 40000.0))
     vort_min = float(cfg.get("vorticity_min", 1.0e-5))
 
@@ -101,7 +115,7 @@ def detect_cold_vortex(
         prominence = float(np.nanmean(local) - z[y, x])
         if prominence < min_prominence:
             continue
-        threshold = z[y, x] + max(min_prominence, float(cfg.get("closed_height_interval", min_prominence)))
+        threshold = z[y, x] + max(min_prominence, float(cfg.get("closed_height_interval", 2.0)) * height_scale)
         component_mask = z <= threshold
         labels, _ = ndimage.label(component_mask)
         label_id = int(labels[y, x])
@@ -150,6 +164,7 @@ def detect_cold_vortex(
             "level": f"{level}hPa",
             "rank": rank,
             "height": round(item["height"], 2),
+            "height_unit": height_unit,
             "height_anomaly": round(item["height_anomaly"], 2),
             "height_prominence": round(item["prominence"], 2),
             "relative_vorticity": item["vorticity"],
@@ -157,7 +172,7 @@ def detect_cold_vortex(
             "closed_area_km2": round(item["closed_area_km2"], 1),
             "confidence": round(item["confidence"], 2),
             "evidence": [
-                "位势高度场存在天气尺度闭合低值中心",
+                f"位势高度场存在天气尺度闭合低值中心，阈值已按 {height_unit} 换算",
                 "相对涡度为正并支撑气旋性环流" if u is not None and v is not None else "未提供风场，未做相对涡度约束",
                 "温度距平偏冷，支持冷涡性质" if item.get("cold_core_anomaly") is not None and item.get("cold_core_anomaly") < 0 else "未确认冷心结构",
             ],

@@ -35,6 +35,8 @@ CASE_SEGMENTS = {
 
 def _format_value(value: float, unit: str) -> str:
     text = f"{float(value):.2f}"
+    if text.endswith(".00"):
+        text = text[:-3]
     if str(unit).strip() in {"0-1", "risk_score"}:
         return text
     return f"{text} {unit}" if unit else text

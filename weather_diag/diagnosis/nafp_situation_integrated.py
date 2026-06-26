@@ -153,6 +153,18 @@ def _supporting_role(feature_type: str) -> str:
     return "supporting_diagnosis"
 
 
+def _system_evidence(items: Any) -> list[dict[str, Any]]:
+    if isinstance(items, str):
+        items = [items]
+    evidence = []
+    for index, item in enumerate(items or [], start=1):
+        if isinstance(item, dict):
+            evidence.append(item)
+        else:
+            evidence.append({"signal": str(item), "value": "", "raw_value": 0.0, "rank": index})
+    return evidence
+
+
 def _feature_to_system(feature: dict[str, Any], index: int) -> dict[str, Any] | None:
     if not feature or feature.get("type") != "Feature":
         return None
@@ -160,9 +172,6 @@ def _feature_to_system(feature: dict[str, Any], index: int) -> dict[str, Any] | 
     props = dict(feature.get("properties") or {})
     feature_type = str(props.get("feature_type") or "weather_system")
     source_id = str(props.get("id") or f"{feature_type}_{index:03d}")
-    evidence = props.get("evidence") or []
-    if isinstance(evidence, str):
-        evidence = [evidence]
     system: dict[str, Any] = {
         "id": f"system-{source_id}",
         "type": feature_type,
@@ -173,7 +182,7 @@ def _feature_to_system(feature: dict[str, Any], index: int) -> dict[str, Any] | 
         "geometry": _geojson_to_system_geometry(geometry),
         "confidence": float(props.get("confidence") or 0.6),
         "diagnosis": props.get("classification_reason") or props.get("title") or feature_type,
-        "evidence": evidence,
+        "evidence": _system_evidence(props.get("evidence")),
         "supporting_role": _supporting_role(feature_type),
         "source_algorithm": "nafp_integrated_weather_systems",
     }

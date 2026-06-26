@@ -61,7 +61,7 @@ def _scaled_gh(values: np.ndarray) -> np.ndarray:
 
 
 DIRECT_LAYERS: dict[str, tuple[str, str, str, ValueTransform | None]] = {
-    "z500": ("gh", "500", "gh", _scaled_gh),
+    "z500": ("gh", "500", "gh", None),
     "mslp": ("seap", "999", "seap", None),
     "t850": ("tt", "850", "tt", None),
     "div850": ("div", "850", "div", None),

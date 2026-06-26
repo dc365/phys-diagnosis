@@ -348,7 +348,20 @@
       };
       return properties?.front_type_label || frontLabels[properties?.front_type] || properties?.label || '锋面轴线';
     }
-    return properties?.label || type || '对象';
+    const labels = {
+      shear_line: '切变线',
+      front_with_shear: '锋区切变线',
+      low_level_convergence_axis: '低层辐合轴',
+      upper_divergence_axis: '高空辐散轴',
+      cold_vortex: '冷涡候选',
+      mid_level_vortex: '低涡候选',
+      upper_jet: '高空急流',
+      upper_jet_exit_region: '急流出口辐散区',
+      pv_anomaly: '高空PV异常',
+      surface_front_candidate: '地面锋区候选',
+      dryline_candidate: '干线候选',
+    };
+    return properties?.label || labels[type] || type || '对象';
   }
 
   function featureQuality(properties) {
@@ -463,6 +476,17 @@
     low_level_jet: { candidates: ['wind850_speed'], reason: 'low-level-wind' },
     moisture_transport: { candidates: ['moisture_flux850', 'moisture_conv850'], reason: 'moisture-transport' },
     front_candidate: { candidates: ['t850', 'temp_adv850', 'div850'], reason: 'thermal-front' },
+    shear_line: { candidates: ['div850', 'wind850_speed', 'vort500'], reason: 'wind-shear-line' },
+    front_with_shear: { candidates: ['t850', 'div850', 'temp_adv850'], reason: 'front-with-shear' },
+    low_level_convergence_axis: { candidates: ['div850', 'moisture_conv850'], reason: 'low-level-convergence-axis' },
+    upper_divergence_axis: { candidates: ['div200', 'div300', 'omega700'], reason: 'upper-divergence-axis' },
+    cold_vortex: { candidates: ['z500', 'vort500', 't500'], reason: 'cold-vortex' },
+    mid_level_vortex: { candidates: ['z500', 'z700', 'vort500'], reason: 'mid-level-vortex' },
+    upper_jet: { candidates: ['wind200_speed', 'wind300_speed', 'div200', 'div300'], reason: 'upper-jet' },
+    upper_jet_exit_region: { candidates: ['div200', 'div300', 'wind200_speed'], reason: 'jet-exit-divergence' },
+    pv_anomaly: { candidates: ['pv300', 'pvadv300', 'rh500'], reason: 'upper-pv-anomaly' },
+    surface_front_candidate: { candidates: ['t2m', 'td2m', 'mslp'], reason: 'surface-front-boundary' },
+    dryline_candidate: { candidates: ['td2m', 't2m', 'wind10_speed'], reason: 'dryline-boundary' },
     persistent_heavy_rain_risk: { candidates: ['risk_persistent_heavy_rain_score'], reason: 'risk-score' },
     short_duration_heavy_rain_risk: { candidates: ['risk_short_duration_heavy_rain_score'], reason: 'risk-score' },
     thunderstorm_gale_risk: { candidates: ['risk_thunderstorm_gale_score', 'risk_severe_convection_composite_score'], reason: 'risk-score' },

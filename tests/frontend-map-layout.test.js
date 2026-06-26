@@ -19,8 +19,8 @@ test('map page cache-busts static assets after interface changes', () => {
   assert.match(html, /href="\/static\/map\.css\?v=front-axis-20260625"/);
   const utilsVersion = html.match(/src="\/static\/maplibre-utils\.js\?v=([^"]+)"/)?.[1];
   const mapVersion = html.match(/src="\/static\/map\.js\?v=([^"]+)"/)?.[1];
-  assert.equal(utilsVersion, 'front-axis-20260625');
-  assert.equal(mapVersion, 'front-axis-20260625');
+  assert.equal(utilsVersion, 'map-feature-race-20260626');
+  assert.equal(mapVersion, 'map-feature-race-20260626');
   assert.equal(utilsVersion, mapVersion);
 });
 

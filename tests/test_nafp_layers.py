@@ -26,12 +26,31 @@ def test_load_nafp_layer_reads_configured_height_field():
 
     assert layer["layer_id"] == "z500"
     assert layer["title"] == "500hPa 位势高度"
-    assert layer["unit"] == "gpm"
+    assert layer["unit"] == "dagpm"
     assert layer["values"].shape == (241, 361)
-    assert float(layer["max"]) > 5000.0
+    assert 500.0 < float(layer["max"]) < 700.0
     assert layer["lat"].shape == (241,)
     assert layer["lon"].shape == (361,)
     assert layer["source_paths"][0].endswith("/gh/500/2026/06/17/20/26061720.024")
+
+
+def test_nafp_z500_contours_use_dagpm_values():
+    response = client.get(
+        "/api/v1/diagnosis/nafp/layers/z500/contours",
+        params={
+            "data_code": "NAFP_ECTHIN_NC",
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hour": 24,
+            "levels": "588",
+        },
+    )
+
+    data = envelope(response.json())
+    assert data["features"]
+    props = data["features"][0]["properties"]
+    assert props["unit"] == "dagpm"
+    assert props["value"] == 588.0
+    assert props["value_text"] == "588 dagpm"
 
 
 def test_nafp_layers_do_not_expose_legacy_two_class_risk_scores():

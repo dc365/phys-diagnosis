@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 
+const mapHtml = fs.readFileSync('frontend/map.html', 'utf8');
 const mapJs = fs.readFileSync('frontend/map.js', 'utf8');
 const mapCss = fs.readFileSync('frontend/map.css', 'utf8');
 
@@ -10,6 +11,17 @@ test('map feature toggles focus on primary weather systems', () => {
   assert.doesNotMatch(mapJs, /\['high_pressure_divergence', '高压辐散区'\]/);
   assert.match(mapJs, /\['low_level_convergence', '低层辐合区'\]/);
   assert.match(mapJs, /\['upper_divergence', '高空辐散区'\]/);
+});
+
+test('map carries extended weather system types without global prototype patches', () => {
+  assert.doesNotMatch(mapHtml, /weather-system-frontend-extension/);
+  assert.doesNotMatch(mapJs, /Array\.prototype/);
+  assert.doesNotMatch(mapJs, /Object\.entries =/);
+  assert.doesNotMatch(mapJs, /Object\.fromEntries =/);
+  assert.match(mapJs, /\['shear_line', '切变线'\]/);
+  assert.match(mapJs, /\['upper_jet', '高空急流'\]/);
+  assert.match(mapJs, /\['low_level_convergence_axis', '低层辐合轴'\]/);
+  assert.match(mapJs, /upper_jet: 'line'/);
 });
 
 test('map front axis display follows classified front algorithm output', () => {
@@ -24,9 +36,9 @@ test('map front axis display follows classified front algorithm output', () => {
 
 test('map feature loading can use one NAFP features request for the selected types', () => {
   assert.match(mapJs, /buildNafpFeaturesUrl/);
-  assert.match(mapJs, /async function loadNafpFeatures\(selected, fh\)/);
+  assert.match(mapJs, /async function loadNafpFeatures\(selected, fh, featureLoadToken\)/);
   assert.match(mapJs, /buildNafpFeaturesUrl\(selected, selectedPointDataCode\(\), selectedPointRunTime\(\), fh, Date\.now\(\)\)/);
-  assert.match(mapJs, /if \(shouldUseNafpLayerSource\(\)\) \{\s*await loadNafpFeatures\(selected, fh\);\s*return;\s*\}/);
+  assert.match(mapJs, /if \(shouldUseNafpLayerSource\(\)\) \{\s*await loadNafpFeatures\(selected, fh, featureLoadToken\);\s*return;\s*\}/);
 });
 
 test('map NAFP feature loading defaults to primary weather systems for display', () => {
@@ -56,13 +68,21 @@ test('map precomputes NAFP situation cache before weather system toggles need it
 });
 
 test('map feature checkboxes reload weather systems immediately on change', () => {
-  const mapHtml = fs.readFileSync('frontend/map.html', 'utf8');
   assert.doesNotMatch(mapHtml, /id="btnLoadFeatures"/);
   assert.match(mapJs, /async function handleFeatureToggleChange\(event\)/);
   assert.match(mapJs, /event\.target\.matches\('#featureToggles input\[type="checkbox"\]'\)/);
   assert.doesNotMatch(mapJs, /riskFeatureToggles'\)\.addEventListener\('change', handleFeatureToggleChange\)/);
   assert.match(mapJs, /await loadFeatures\(\)/);
   assert.match(mapJs, /featureToggles'\)\.addEventListener\('change', handleFeatureToggleChange\)/);
+});
+
+test('map ignores stale weather-system loads after toggles are cleared', () => {
+  assert.match(mapJs, /featureLoadToken: 0/);
+  assert.match(mapJs, /function clearWeatherFeatures[\s\S]*state\.featureLoadToken \+= 1/);
+  assert.match(mapJs, /const featureLoadToken = \+\+state\.featureLoadToken/);
+  assert.match(mapJs, /loadNafpFeatures\(selected, fh, featureLoadToken\)/);
+  assert.match(mapJs, /if \(featureLoadToken !== state\.featureLoadToken\) return;[\s\S]*primaryFeatureCollection/);
+  assert.match(mapJs, /const fc = mergeFeatureCollections\(responses\);[\s\S]*if \(featureLoadToken !== state\.featureLoadToken\) return;/);
 });
 
 test('map feature detail formats structured NAFP evidence entries without data paths', () => {
@@ -102,7 +122,6 @@ test('map object detail shifts the legend away from the evidence panel', () => {
 });
 
 test('map page omits the weather object index controls', () => {
-  const mapHtml = fs.readFileSync('frontend/map.html', 'utf8');
   assert.doesNotMatch(mapHtml, /id="featureIndexTypeFilter"/);
   assert.doesNotMatch(mapHtml, /id="featureIndexQualityFilter"/);
   assert.doesNotMatch(mapHtml, /id="featureIndexList"/);
