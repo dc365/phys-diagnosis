@@ -11,10 +11,17 @@ from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, o
 from weather_diag.features.shear_line import detect_shear_lines
 
 
+# Tuned against the four local sounding-vs-CMA H500 screenshots under
+# test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625.
+# Compared with the first Barnes version this uses broader first/second-pass
+# radii and a slightly stronger final smoothing, so 4-dagpm contours look closer
+# to operational 500hPa hand analysis instead of following every station-scale
+# wiggle.  The support mask is also relaxed: NMC charts keep the full synoptic
+# domain visible, so we mask only very weakly supported far-edge areas.
 SOUNDING_ANALYSIS_CONFIG = ObjectiveAnalysisConfig(
-    radii_km=(720.0, 480.0, 300.0),
-    smoothing_sigma_grid=0.65,
-    max_support_distance_km=520.0,
+    radii_km=(850.0, 600.0, 360.0),
+    smoothing_sigma_grid=0.95,
+    max_support_distance_km=780.0,
 )
 
 
@@ -49,27 +56,27 @@ def _selected_frame(csv_path: str | Path, level: str, pressure_level: int) -> pd
 def _system_confidence(quality: dict[str, Any]) -> float:
     count_score = min(1.0, float(quality.get("station_count") or 0) / 220.0)
     support_score = min(1.0, float(quality.get("supported_grid_ratio") or 0.0))
-    distance = float(quality.get("mean_nearest_station_km") or 260.0)
-    distance_score = max(0.0, min(1.0, (300.0 - distance) / 250.0))
+    distance = float(quality.get("mean_nearest_station_km") or 320.0)
+    distance_score = max(0.0, min(1.0, (420.0 - distance) / 360.0))
     residual = quality.get("station_residual_rmse")
-    residual_score = 0.7 if residual is None else max(0.0, min(1.0, (20.0 - float(residual)) / 20.0))
-    return round(0.38 + 0.26 * count_score + 0.16 * distance_score + 0.12 * support_score + 0.08 * residual_score, 2)
+    residual_score = 0.7 if residual is None else max(0.0, min(1.0, (24.0 - float(residual)) / 24.0))
+    return round(0.36 + 0.24 * count_score + 0.16 * distance_score + 0.16 * support_score + 0.08 * residual_score, 2)
 
 
 def _shear_systems(u: np.ndarray, v: np.ndarray, t: np.ndarray, lat: np.ndarray, lon: np.ndarray, confidence: float) -> list[dict[str, Any]]:
     thresholds = {
         "shear_line": {
-            "score_percentile": 88.0,
-            "dynamic_percentile": 82.0,
-            "vorticity_min": 0.6e-5,
+            "score_percentile": 90.0,
+            "dynamic_percentile": 84.0,
+            "vorticity_min": 0.8e-5,
             "convergence_min": 0.0,
             "min_support_components": 1,
-            "min_area_grid_points": 8,
-            "min_length_km": 420.0,
-            "max_objects": 3,
-            "smoothing_sigma_grid": 1.0,
+            "min_area_grid_points": 10,
+            "min_length_km": 520.0,
+            "max_objects": 4,
+            "smoothing_sigma_grid": 1.35,
             "separate_front_with_shear": True,
-            "front_gradient_percentile": 86.0,
+            "front_gradient_percentile": 88.0,
         }
     }
     try:
@@ -95,6 +102,7 @@ def _shear_systems(u: np.ndarray, v: np.ndarray, t: np.ndarray, lat: np.ndarray,
                 "axis_length_km": props.get("axis_length_km"),
                 "evidence": [
                     "500hPa wind shear, positive vorticity and deformation support",
+                    "NMC-tuned smoothing and length gates reduce station-scale noisy shear axes",
                     "temperature-gradient support marks front_with_shear when applicable",
                 ],
             }
@@ -160,5 +168,5 @@ def diagnose_sounding_situation(
         "v500": _field_payload(v, unit="m/s", lat=lat, lon=lon),
     }
     result["systems"] = systems
-    result["summary"] = f"{result['observation_time']} {level} Barnes sounding objective analysis generated {len(systems)} weather systems."
+    result["summary"] = f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis generated {len(systems)} weather systems."
     return result
