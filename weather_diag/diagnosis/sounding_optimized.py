@@ -9,6 +9,7 @@ import pandas as pd
 from weather_diag.config import PROJECT_ROOT
 from weather_diag.diagnosis import sounding as legacy
 from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
+from weather_diag.diagnosis.sounding_multilevel import augment_sounding_result
 from weather_diag.diagnosis.sounding_preprocess import preprocess_sounding_csv
 from weather_diag.features.shear_line import detect_shear_lines
 
@@ -305,5 +306,10 @@ def diagnose_sounding_situation(
     result["systems"] = systems
     result["station_features"] = legacy._station_features(frame, level)
     result["preprocess_report"] = preprocess_report
-    result["summary"] = f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis generated {len(systems)} weather systems."
+    result = augment_sounding_result(result, analysis_csv, lat, lon)
+    result["summary"] = (
+        f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis "
+        f"generated {len(result.get('systems') or [])} weather systems; "
+        f"multilevel fields {result.get('multilevel_summary', {}).get('added_field_count', 0)}."
+    )
     return result
