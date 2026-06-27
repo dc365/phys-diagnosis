@@ -56,7 +56,7 @@ risk_rotating_storm_score
 risk_severe_convection_composite_score
 ```
 
-风险评分是“环境潜势”而不是预警结论。它不使用模式降水，因此强降水相关风险需要结合实况、雷达和模式降水进一步订正。
+风险评分是“环境潜势”而不是预警结论。它不使用模式降水，因此强降水相关风险需要结合数值预报、雷达和实况订正。
 
 ## 站点风险增强
 
@@ -79,9 +79,32 @@ GET /api/v1/sounding/layers/{layer_id}/contours
 
 `/layers` 会返回当前探空时次可用的所有图层，包括多层物理量、派生量和风险评分。
 
+## Map 动态图层接入
+
+新增：
+
+```text
+frontend/sounding-map-extension.js
+```
+
+地图页 `/map` 会在 `map.js` 之后加载这个扩展脚本。切换到“实况”后，前端会请求：
+
+```text
+/api/v1/sounding/layers?csv_path=...
+```
+
+然后把当前探空时次可用的多层要素和风险评分动态合并进图层选择中。现在实况模式不再只限制 `z500`，可以直接加载：
+
+```text
+rh850 / q850 / wind850_speed / div850 / vort500 / wind300_speed / shear_850_500
+risk_short_duration_heavy_rain_score / risk_hail_score / risk_severe_convection_composite_score
+```
+
+实况天气系统复选框也会复用数值预报天气系统类型，能够加载低空急流、水汽输送带、低层辐合、高空辐散、高空急流、冷涡、锋面候选和风险点。
+
 ## 注意事项
 
 - 探空站空间密度有限，低层辐合、涡度、散度等导数字段只适合作为环境诊断参考；
 - 850hPa 水汽通量由比湿和风速估算，单位为 `g/kg*m/s`，与数值预报积分水汽通量不同；
 - 风险网格不等价于模式风险，需要与数值预报、雷达、实况降水结合使用；
-- 下一步建议把 Map 前端实况图层选择从默认 z500 扩展到 `/api/v1/sounding/layers` 动态图层目录。
+- 后续建议把探空风险评分参数纳入算法治理阈值矩阵。
