@@ -6,8 +6,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from weather_diag.config import PROJECT_ROOT
 from weather_diag.diagnosis import sounding as legacy
 from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
+from weather_diag.diagnosis.sounding_preprocess import preprocess_sounding_csv
 from weather_diag.features.shear_line import detect_shear_lines
 
 
@@ -37,6 +39,27 @@ def _field_payload(obj, *, unit: str, lat: np.ndarray, lon: np.ndarray) -> dict[
         "support_distance_km": obj.support_distance_km,
         "support_mask": obj.support_mask,
     }
+
+
+def _resolve_project_path(value: str | Path) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
+
+
+def _preprocessed_csv(csv_path: str | Path) -> tuple[Path, dict[str, Any] | None]:
+    source = _resolve_project_path(csv_path)
+    if ".clean" in source.name:
+        return source, {"skipped": True, "reason": "already_preprocessed", "cleaned_csv_path": str(source)}
+    try:
+        report = preprocess_sounding_csv(source, force=False, write_outputs=True)
+        cleaned = _resolve_project_path(report.get("cleaned_csv_path") or source)
+        if cleaned.exists():
+            return cleaned, report
+        return source, report
+    except Exception as exc:
+        return source, {"error": str(exc), "error_type": type(exc).__name__, "fallback_to_raw": True}
 
 
 def _poly_terms(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
@@ -219,9 +242,10 @@ def diagnose_sounding_situation(
     pressure_level: int = 500,
     domain: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    result = legacy.diagnose_sounding_situation(csv_path, pressure_level=pressure_level, domain=domain)
+    analysis_csv, preprocess_report = _preprocessed_csv(csv_path)
+    result = legacy.diagnose_sounding_situation(analysis_csv, pressure_level=pressure_level, domain=domain)
     level = legacy._level_name(pressure_level)
-    frame = _selected_frame(csv_path, level, pressure_level)
+    frame = _selected_frame(analysis_csv, level, pressure_level)
     lat = np.asarray(result["analysis_fields"]["z500"]["lat"], dtype=float)
     lon = np.asarray(result["analysis_fields"]["z500"]["lon"], dtype=float)
 
@@ -280,5 +304,6 @@ def diagnose_sounding_situation(
     }
     result["systems"] = systems
     result["station_features"] = legacy._station_features(frame, level)
+    result["preprocess_report"] = preprocess_report
     result["summary"] = f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis generated {len(systems)} weather systems."
     return result
