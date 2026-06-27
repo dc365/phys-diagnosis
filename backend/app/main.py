@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.v1.admin import router as public_admin_router
@@ -62,11 +62,25 @@ def layer_image_title(layer_id: str, cfg: dict) -> str:
     return str(cfg.get("variable") or layer_id)
 
 
+def _admin_index_html() -> HTMLResponse | FileResponse:
+    index_path = FRONTEND_DIR / "index.html"
+    if not index_path.exists():
+        raise HTTPException(404, "admin view not found")
+    html = index_path.read_text(encoding="utf-8")
+    script = '<script src="/static/precompute-admin-extension.js?v=nafp-precompute-20260627"></script>'
+    if script not in html:
+        marker = '<script src="/static/app.js?v=hide-source-paths-20260625"></script>'
+        if marker in html:
+            html = html.replace(marker, f"{marker}\n  {script}")
+        else:
+            html = html.replace("</body>", f"  {script}\n</body>")
+    return HTMLResponse(html)
+
+
 @app.get("/")
 def index():
-    index_path = FRONTEND_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(index_path)
+    if FRONTEND_DIR.exists():
+        return _admin_index_html()
     return {"message": "Weather Diagnosis MVP API"}
 
 
