@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NAFP 预计算任务监控</title>
+  <link rel="stylesheet" href="/static/styles.css?v=hide-source-paths-20260625" />
+  <style>
+    body { background: #eef5f8; }
+    .precompute-shell { max-width: 1180px; margin: 24px auto; padding: 0 18px 40px; }
+    .precompute-grid { display: grid; grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.2fr); gap: 18px; align-items: start; }
+    .precompute-form { display: grid; gap: 12px; }
+    .precompute-form label { display: grid; gap: 6px; font-size: 13px; color: #3d5966; }
+    .precompute-form input, .precompute-form select { border: 1px solid #c7d7df; border-radius: 10px; padding: 10px 12px; background: white; font: inherit; }
+    .precompute-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .progress-bar { height: 12px; border-radius: 999px; overflow: hidden; background: #d7e4ea; }
+    .progress-bar span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #228be6, #12b886); transition: width 0.25s ease; }
+    .job-card { border: 1px solid #d9e6eb; border-radius: 14px; padding: 14px; background: white; display: grid; gap: 10px; }
+    .job-list { display: grid; gap: 10px; }
+    .entry-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .entry-table th, .entry-table td { padding: 8px 7px; border-bottom: 1px solid #e5eef2; text-align: left; }
+    .muted { color: #6b818a; }
+    @media (max-width: 860px) { .precompute-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="precompute-shell">
+    <header class="module-head compact-head overview-head">
+      <div class="title-stack">
+        <span class="eyebrow">后台预计算</span>
+        <h1>NAFP 数值预报诊断任务监控</h1>
+        <p>后端会自动预计算最新起报时次；地图页面只读取预计算结果。这里可查看进度，也可手动强制重新计算。</p>
+      </div>
+      <a class="primary-action" href="/">返回后台</a>
+      <a class="primary-action" href="/map">打开地图</a>
+    </header>
+
+    <div class="precompute-grid">
+      <section class="section-panel">
+        <div class="section-head">
+          <div>
+            <span class="panel-kicker">手动任务</span>
+            <h2>重新预计算</h2>
+          </div>
+          <span id="statusBadge" class="count-badge">idle</span>
+        </div>
+        <form id="precomputeForm" class="precompute-form">
+          <label>
+            <span>资料编码</span>
+            <select id="dataCodeSelect"></select>
+          </label>
+          <label>
+            <span>起报时次</span>
+            <select id="runTimeSelect"></select>
+          </label>
+          <label>
+            <span>预报时效，逗号分隔</span>
+            <input id="forecastHoursInput" value="0,24,48,72" />
+          </label>
+          <label>
+            <span>强制重算</span>
+            <select id="forceSelect">
+              <option value="false" selected>否，已有结果则复用</option>
+              <option value="true">是，覆盖已有结果</option>
+            </select>
+          </label>
+          <div class="precompute-actions">
+            <button class="primary-action" type="submit">提交预计算任务</button>
+            <button id="refreshButton" class="ghost-button" type="button">刷新状态</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="section-panel">
+        <div class="section-head">
+          <div>
+            <span class="panel-kicker">当前状态</span>
+            <h2>进度与结果</h2>
+          </div>
+          <span id="resultCountBadge" class="count-badge">0 文件</span>
+        </div>
+        <div id="latestJob" class="job-card">
+          <div class="empty-state">加载预计算状态</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="section-panel" style="margin-top: 18px;">
+      <div class="section-head">
+        <div>
+          <span class="panel-kicker">历史任务</span>
+          <h2>最近任务</h2>
+        </div>
+      </div>
+      <div id="jobList" class="job-list"></div>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_DATA_CODE = 'NAFP_ECTHIN_NC';
+    const API = '/api/v1/diagnosis/nafp/precompute';
+    const $ = (id) => document.getElementById(id);
+
+    async function getJson(url) {
+      const response = await fetch(url);
+      const body = await response.json().catch(() => null);
+      if (!response.ok || body?.code !== 0) throw new Error(body?.msg || response.statusText);
+      return body.data;
+    }
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || body?.code !== 0) throw new Error(body?.msg || response.statusText);
+      return body.data;
+    }
+
+    function parseHours(value) {
+      return [...new Set(String(value || '').split(',').map((item) => Number(item.trim())).filter(Number.isFinite))]
+        .sort((a, b) => a - b);
+    }
+
+    function formatTime(value) {
+      const text = String(value || '');
+      const match = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})/);
+      return match ? `${match[2]}-${match[3]} ${match[4]}时` : text || '-';
+    }
+
+    function statusText(job) {
+      if (!job) return 'idle';
+      const status = job.status || 'unknown';
+      return `${status} ${job.completed_count || 0}/${job.total_count || 0}`;
+    }
+
+    function entryRows(entries = []) {
+      if (!entries.length) return '<tr><td colspan="5" class="muted">暂无结果</td></tr>';
+      return entries.map((entry) => `
+        <tr>
+          <td>+${entry.forecast_hour}h</td>
+          <td>${entry.cache_status || '-'}</td>
+          <td>${entry.compute_ms ?? '-'} ms</td>
+          <td>${entry.system_count ?? '-'}</td>
+          <td>${entry.risk_count ?? '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderJob(job) {
+      if (!job) return '<div class="empty-state">暂无预计算任务</div>';
+      const percent = Math.round(Number(job.progress || 0) * 100);
+      return `
+        <strong>${job.data_code || DEFAULT_DATA_CODE} · ${formatTime(job.run_time)}</strong>
+        <span class="muted">任务 ${job.job_id} · ${job.status}</span>
+        <div class="progress-bar"><span style="width:${percent}%"></span></div>
+        <div class="detail-grid compact-detail-grid">
+          <div class="detail-item"><span>进度</span><strong>${percent}%</strong></div>
+          <div class="detail-item"><span>完成</span><strong>${job.completed_count || 0}/${job.total_count || 0}</strong></div>
+          <div class="detail-item"><span>失败</span><strong>${job.failed_count || 0}</strong></div>
+          <div class="detail-item"><span>命中/复用</span><strong>${job.hit_count || 0}</strong></div>
+        </div>
+        <table class="entry-table">
+          <thead><tr><th>时效</th><th>状态</th><th>耗时</th><th>系统</th><th>风险</th></tr></thead>
+          <tbody>${entryRows(job.entries || [])}</tbody>
+        </table>
+        ${(job.failed || []).length ? `<p class="status-message error">失败：${(job.failed || []).map((item) => `+${item.forecast_hour}h ${item.error}`).join('；')}</p>` : ''}
+      `;
+    }
+
+    async function refreshStatus() {
+      const payload = await getJson(`${API}/status?_=${Date.now()}`);
+      $('statusBadge').textContent = payload.status || 'idle';
+      $('resultCountBadge').textContent = `${payload.result_file_count || 0} 文件`;
+      $('latestJob').innerHTML = renderJob(payload.latest_job);
+      $('jobList').innerHTML = (payload.jobs || []).length
+        ? (payload.jobs || []).map((job) => `<article class="job-card">${renderJob(job)}</article>`).join('')
+        : '<div class="empty-state">暂无历史任务</div>';
+    }
+
+    async function loadDataSources() {
+      const select = $('dataCodeSelect');
+      try {
+        const payload = await getJson('/api/v1/admin/data-sources');
+        const items = (payload.items || []).filter((item) => item.enabled !== false);
+        select.innerHTML = items.map((item) => `<option value="${item.code}">${item.label || item.code}</option>`).join('');
+        select.value = payload.default_code || items[0]?.code || DEFAULT_DATA_CODE;
+      } catch (error) {
+        select.innerHTML = `<option value="${DEFAULT_DATA_CODE}">${DEFAULT_DATA_CODE}</option>`;
+      }
+      await loadRunTimes();
+    }
+
+    async function loadRunTimes() {
+      const dataCode = $('dataCodeSelect').value || DEFAULT_DATA_CODE;
+      const select = $('runTimeSelect');
+      try {
+        const payload = await getJson(`/api/v1/admin/data-sources/${encodeURIComponent(dataCode)}/nafp-runs?_=${Date.now()}`);
+        const runs = payload.run_times || [];
+        select.innerHTML = runs.map((run) => `<option value="${run.run_time}" data-hours="${(run.forecast_hours || []).join(',')}">${formatTime(run.run_time)}</option>`).join('');
+        if (payload.default_run_time) select.value = payload.default_run_time;
+        const hours = select.selectedOptions[0]?.dataset.hours;
+        if (hours) $('forecastHoursInput').value = hours;
+      } catch (error) {
+        select.innerHTML = '<option value="">未发现起报时次</option>';
+      }
+    }
+
+    $('dataCodeSelect').addEventListener('change', loadRunTimes);
+    $('runTimeSelect').addEventListener('change', () => {
+      const hours = $('runTimeSelect').selectedOptions[0]?.dataset.hours;
+      if (hours) $('forecastHoursInput').value = hours;
+    });
+    $('refreshButton').addEventListener('click', () => refreshStatus().catch((error) => alert(error.message)));
+    $('precomputeForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const forecast_hours = parseHours($('forecastHoursInput').value);
+      if (!forecast_hours.length) {
+        alert('请填写至少一个预报时效');
+        return;
+      }
+      await postJson(`${API}/run`, {
+        data_code: $('dataCodeSelect').value || DEFAULT_DATA_CODE,
+        run_time: $('runTimeSelect').value,
+        forecast_hours,
+        force: $('forceSelect').value === 'true',
+      });
+      await refreshStatus();
+    });
+
+    loadDataSources().then(refreshStatus).catch((error) => alert(error.message));
+    setInterval(() => refreshStatus().catch(() => {}), 3000);
+  </script>
+</body>
+</html>
