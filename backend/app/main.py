@@ -17,6 +17,7 @@ from backend.app.api.v1.jobs import router as public_jobs_router
 from backend.app.api.v1.precompute import router as public_precompute_router
 from backend.app.api.v1.runs import router as public_runs_router
 from backend.app.api.v1.sounding import router as public_sounding_router
+from backend.app.api.v1.sounding_preprocess import router as public_sounding_preprocess_router
 from backend.app.responses import ApiError, api_error_handler, strip_private_paths, validation_error_handler
 from backend.app.services.data_sources import list_data_sources
 from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers
@@ -43,6 +44,7 @@ app.include_router(public_files_router, prefix="/api/v1")
 app.include_router(public_jobs_router, prefix="/api/v1")
 app.include_router(public_runs_router, prefix="/api/v1")
 app.include_router(public_sounding_router, prefix="/api/v1")
+app.include_router(public_sounding_preprocess_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
@@ -67,9 +69,14 @@ def _admin_index_html() -> HTMLResponse | FileResponse:
     if not index_path.exists():
         raise HTTPException(404, "admin view not found")
     html = index_path.read_text(encoding="utf-8")
-    script = '<script src="/static/precompute-admin-extension.js?v=nafp-precompute-20260627"></script>'
-    if script not in html:
-        marker = '<script src="/static/app.js?v=hide-source-paths-20260625"></script>'
+    scripts = [
+        '<script src="/static/precompute-admin-extension.js?v=nafp-precompute-20260627"></script>',
+        '<script src="/static/sounding-preprocess-admin-extension.js?v=sounding-preprocess-20260627"></script>',
+    ]
+    marker = '<script src="/static/app.js?v=hide-source-paths-20260625"></script>'
+    for script in scripts:
+        if script in html:
+            continue
         if marker in html:
             html = html.replace(marker, f"{marker}\n  {script}")
         else:
