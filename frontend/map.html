@@ -134,7 +134,7 @@
 
         <aside class="analysis-panel" aria-label="诊断信息">
           <h2 id="analysisTitle">自动形势分析</h2>
-          <pre id="analysisText">暂无分析。选择起报时次后点击“运行诊断”。</pre>
+          <pre id="analysisText">后台会预计算数值预报诊断。地图加载天气系统时只读取预计算结果。</pre>
           <div class="detail-heading">
             <h2 id="detailTitle">对象详情</h2>
             <span id="pointProbeBadge" class="probe-badge" hidden>点位诊断</span>
@@ -168,6 +168,7 @@
 
   <script src="/static/vendor/maplibre-gl/maplibre-gl.js?v=5.24.0"></script>
   <script src="/static/maplibre-utils.js?v=map-feature-race-20260626"></script>
+  <script src="/static/precompute-map-extension.js?v=nafp-precompute-20260627"></script>
   <script>
     window.WEATHER_MAP_CONFIG = {
       basemap: 'tdt-vector',
