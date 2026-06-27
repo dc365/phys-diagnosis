@@ -11,18 +11,20 @@ from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, o
 from weather_diag.features.shear_line import detect_shear_lines
 
 
-# Tuned against the four local sounding-vs-CMA H500 screenshots under
-# test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625.
-# Compared with the first Barnes version this uses broader first/second-pass
-# radii and a slightly stronger final smoothing, so 4-dagpm contours look closer
-# to operational 500hPa hand analysis instead of following every station-scale
-# wiggle.  The support mask is also relaxed: NMC charts keep the full synoptic
-# domain visible, so we mask only very weakly supported far-edge areas.
+# Tuned for the 2026-06-24/25 radiosonde H500 comparisons against the CMA/NMC
+# 500hPa weather charts.  This version makes two important changes:
+# 1) z500 uses a broad polynomial first guess plus station increments, so the
+#    subtropical 588-dagpm belt is preserved better over South China/Hainan.
+# 2) obvious 500hPa height outliers are filtered before Barnes analysis, which
+#    suppresses unrealistically dense closed contours over the northern domain.
 SOUNDING_ANALYSIS_CONFIG = ObjectiveAnalysisConfig(
-    radii_km=(850.0, 600.0, 360.0),
-    smoothing_sigma_grid=0.95,
-    max_support_distance_km=780.0,
+    radii_km=(800.0, 560.0, 340.0),
+    smoothing_sigma_grid=0.80,
+    max_support_distance_km=850.0,
 )
+
+Z500_HARD_MIN_M = 5400.0
+Z500_HARD_MAX_M = 6020.0
 
 
 def _field_payload(obj, *, unit: str, lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
@@ -37,6 +39,106 @@ def _field_payload(obj, *, unit: str, lat: np.ndarray, lon: np.ndarray) -> dict[
     }
 
 
+def _poly_terms(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
+    lon = np.asarray(lon, dtype=float)
+    lat = np.asarray(lat, dtype=float)
+    lon0 = 105.0
+    lat0 = 30.0
+    x = (lon - lon0) / 35.0
+    y = (lat - lat0) / 18.0
+    return np.column_stack(
+        [
+            np.ones_like(x),
+            x,
+            y,
+            x * y,
+            x * x,
+            y * y,
+        ]
+    )
+
+
+def _robust_polyfit(lon: np.ndarray, lat: np.ndarray, values: np.ndarray) -> tuple[np.ndarray | None, np.ndarray]:
+    values = np.asarray(values, dtype=float)
+    valid = np.isfinite(lon) & np.isfinite(lat) & np.isfinite(values)
+    if valid.sum() < 12:
+        return None, valid
+
+    keep = valid.copy()
+    coeff = None
+    for _ in range(4):
+        design = _poly_terms(lon[keep], lat[keep])
+        try:
+            coeff, *_ = np.linalg.lstsq(design, values[keep], rcond=None)
+        except np.linalg.LinAlgError:
+            return None, valid
+        estimate = _poly_terms(lon[valid], lat[valid]) @ coeff
+        residual = values[valid] - estimate
+        med = float(np.nanmedian(residual))
+        mad = float(np.nanmedian(np.abs(residual - med)))
+        scale = max(1.4826 * mad, 25.0)
+        new_valid_indices = np.where(valid)[0][np.abs(residual - med) <= max(150.0, 4.0 * scale)]
+        new_keep = np.zeros_like(valid, dtype=bool)
+        new_keep[new_valid_indices] = True
+        if np.array_equal(new_keep, keep):
+            break
+        keep = new_keep
+    return coeff, keep
+
+
+def _background_surface(frame: pd.DataFrame, value_column: str, lat: np.ndarray, lon: np.ndarray) -> np.ndarray | None:
+    rows = frame[["station_lon", "station_lat", value_column]].apply(pd.to_numeric, errors="coerce").dropna()
+    if len(rows) < 12:
+        return None
+    coeff, keep = _robust_polyfit(
+        rows["station_lon"].to_numpy(dtype=float),
+        rows["station_lat"].to_numpy(dtype=float),
+        rows[value_column].to_numpy(dtype=float),
+    )
+    if coeff is None:
+        return None
+    lon2d, lat2d = np.meshgrid(np.asarray(lon, dtype=float), np.asarray(lat, dtype=float))
+    background = (_poly_terms(lon2d.ravel(), lat2d.ravel()) @ coeff).reshape(lon2d.shape)
+    return background.astype(float)
+
+
+def _qc_500_height(frame: pd.DataFrame) -> pd.DataFrame:
+    """Filter obvious z500 station outliers before objective analysis.
+
+    The northern red-box issue was caused by unrealistically deep 500hPa height
+    pockets.  A single or small cluster of bad heights can create 516/532-dagpm
+    nested contours.  This filter keeps the QC conservative: coherent lows are
+    retained by the buddy/polynomial check, while hard physically implausible
+    June H500 values are rejected.
+    """
+    if frame.empty or "geopotential_height_m" not in frame:
+        return frame
+    work = frame.copy()
+    z = pd.to_numeric(work["geopotential_height_m"], errors="coerce")
+    hard = z.between(Z500_HARD_MIN_M, Z500_HARD_MAX_M)
+
+    lon = pd.to_numeric(work["station_lon"], errors="coerce").to_numpy(dtype=float)
+    lat = pd.to_numeric(work["station_lat"], errors="coerce").to_numpy(dtype=float)
+    values = z.to_numpy(dtype=float)
+    coeff, robust_keep = _robust_polyfit(lon[hard.to_numpy()], lat[hard.to_numpy()], values[hard.to_numpy()])
+    if coeff is not None:
+        expected = _poly_terms(lon, lat) @ coeff
+        residual = values - expected
+        finite = np.isfinite(residual)
+        med = float(np.nanmedian(residual[finite])) if finite.any() else 0.0
+        mad = float(np.nanmedian(np.abs(residual[finite] - med))) if finite.any() else 0.0
+        threshold = max(130.0, min(230.0, 4.2 * max(1.4826 * mad, 20.0)))
+        buddy = np.abs(residual - med) <= threshold
+    else:
+        buddy = np.ones(len(work), dtype=bool)
+
+    keep = hard.to_numpy(dtype=bool) & buddy & np.isfinite(values)
+    out = work.loc[keep].copy()
+    out.attrs["height_qc_removed"] = int((~keep).sum())
+    out.attrs["height_qc_kept"] = int(keep.sum())
+    return out
+
+
 def _selected_frame(csv_path: str | Path, level: str, pressure_level: int) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     frame = df[df["requested_level"].astype(str) == level].copy()
@@ -45,6 +147,7 @@ def _selected_frame(csv_path: str | Path, level: str, pressure_level: int) -> pd
     frame = frame.dropna(subset=["station_lat", "station_lon", "geopotential_height_m", "temperature_c"])
     if int(pressure_level) == 500:
         frame = frame[frame["geopotential_height_m"].between(4500.0, 6500.0)]
+        frame = _qc_500_height(frame)
     if frame.empty:
         raise ValueError(f"no quality-controlled sounding rows for {level}")
     u, v = legacy._wind_components(frame["wind_direction_degree"].to_numpy(), frame["wind_speed_m_s"].to_numpy())
@@ -122,7 +225,15 @@ def diagnose_sounding_situation(
     lat = np.asarray(result["analysis_fields"]["z500"]["lat"], dtype=float)
     lon = np.asarray(result["analysis_fields"]["z500"]["lon"], dtype=float)
 
-    z = objective_analysis_field(frame, "geopotential_height_m", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
+    z_background = _background_surface(frame, "geopotential_height_m", lat, lon)
+    z = objective_analysis_field(
+        frame,
+        "geopotential_height_m",
+        lat,
+        lon,
+        config=SOUNDING_ANALYSIS_CONFIG,
+        background=z_background,
+    )
     t = objective_analysis_field(frame, "temperature_c", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
     u = objective_analysis_field(frame, "u_wind_m_s", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
     v = objective_analysis_field(frame, "v_wind_m_s", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
@@ -168,5 +279,6 @@ def diagnose_sounding_situation(
         "v500": _field_payload(v, unit="m/s", lat=lat, lon=lon),
     }
     result["systems"] = systems
+    result["station_features"] = legacy._station_features(frame, level)
     result["summary"] = f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis generated {len(systems)} weather systems."
     return result

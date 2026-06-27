@@ -26,10 +26,12 @@ SOUNDING_LAYER_DEFS = {
         "unit": "dagpm",
         "scale": 0.1,
         "contour_interval": 4.0,
-        "contour_min_length_km": 520.0,
+        # Keep short-to-medium 588-dagpm subtropical-high arcs near Hainan, but
+        # still filter small isolated contour fragments.
+        "contour_min_length_km": 360.0,
         "contour_smooth_iterations": 2,
-        "contour_data_smoothing_sigma": 0.45,
-        "contour_simplify_tolerance_deg": 0.018,
+        "contour_data_smoothing_sigma": 0.30,
+        "contour_simplify_tolerance_deg": 0.012,
         # CMA/NMC H500 charts keep synoptic contours across the whole domain.
         # Keep support metadata, but do not clip z500 contours by station-distance
         # mask; otherwise contour segments break near sparse western/ocean areas.
@@ -41,10 +43,10 @@ SOUNDING_LAYER_DEFS = {
         "unit": "degC",
         "scale": 1.0,
         "contour_interval": 4.0,
-        "contour_min_length_km": 420.0,
+        "contour_min_length_km": 320.0,
         "contour_smooth_iterations": 2,
-        "contour_data_smoothing_sigma": 0.35,
-        "contour_simplify_tolerance_deg": 0.015,
+        "contour_data_smoothing_sigma": 0.25,
+        "contour_simplify_tolerance_deg": 0.012,
         "apply_support_mask": False,
     },
 }
