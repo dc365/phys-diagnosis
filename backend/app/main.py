@@ -14,12 +14,15 @@ from backend.app.api.v1.data_sources import router as public_data_sources_router
 from backend.app.api.v1.diagnosis import router as public_diagnosis_router
 from backend.app.api.v1.files import router as public_files_router
 from backend.app.api.v1.jobs import router as public_jobs_router
+from backend.app.api.v1.precompute import router as public_precompute_router
 from backend.app.api.v1.runs import router as public_runs_router
 from backend.app.api.v1.sounding import router as public_sounding_router
 from backend.app.responses import ApiError, api_error_handler, strip_private_paths, validation_error_handler
+from backend.app.services.data_sources import list_data_sources
 from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 from weather_diag.data.reader import inspect_netcdf
+from weather_diag.diagnosis.nafp_precompute import autostart_precompute_for_latest
 from weather_diag.pipeline import diagnose_file, load_run_index, load_diagnostics, load_features, load_analysis
 from weather_diag.io.contours import contours_to_geojson
 from weather_diag.io.grid_geojson import grid_to_geojson
@@ -31,11 +34,21 @@ app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(public_admin_router, prefix="/api/v1")
 app.include_router(public_data_sources_router, prefix="/api/v1")
+# Register precompute routes before the legacy diagnosis router so POST
+# /api/v1/diagnosis/nafp/precompute schedules async work instead of blocking the
+# request thread with a full synchronous calculation.
+app.include_router(public_precompute_router, prefix="/api/v1")
 app.include_router(public_diagnosis_router, prefix="/api/v1")
 app.include_router(public_files_router, prefix="/api/v1")
 app.include_router(public_jobs_router, prefix="/api/v1")
 app.include_router(public_runs_router, prefix="/api/v1")
 app.include_router(public_sounding_router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+def start_nafp_precompute() -> None:
+    autostart_precompute_for_latest(list_data_sources())
+
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 if FRONTEND_DIR.exists():
