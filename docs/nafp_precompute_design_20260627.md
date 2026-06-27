@@ -5,7 +5,7 @@
 ## 目标
 
 - 后端启动后自动为最新 NAFP 起报时次预计算诊断结果。
-- 预计算进度和历史结果可在后台页面查看。
+- 预计算进度和历史结果集成在主后台“服务状态”页查看。
 - 支持手动点击重新计算，可选择时效并强制覆盖已有结果。
 - MapLibre 地图加载天气系统对象时不再触发同步诊断计算，只读取预计算结果。
 
@@ -24,7 +24,7 @@
 可用环境变量：
 
 ```text
-WEATHER_DIAG_AUTO_PRECOMPUTE=1       # 默认开启；设为 0/false/no 可关闭
+WEATHER_DIAG_AUTO_PRECOMPUTE=1        # 默认开启；设为 0/false/no 可关闭
 WEATHER_DIAG_PRECOMPUTE_MAX_HOURS=999 # 限制自动预计算时效个数
 ```
 
@@ -46,7 +46,8 @@ GET  /api/v1/diagnosis/nafp/precompute/ready
 ### `backend/app/main.py`
 
 - 在 legacy diagnosis router 前注册 precompute router；
-- 启动时调用 `autostart_precompute_for_latest(...)`。
+- 启动时调用 `autostart_precompute_for_latest(...)`；
+- `/` 返回主后台页面时自动注入 `precompute-admin-extension.js`，不再提供独立 `/static/precompute.html` 页面。
 
 ## 前端结构
 
@@ -64,18 +65,18 @@ WeatherMapUtils.buildNafpFeaturesUrl
 /api/v1/diagnosis/nafp/precompute/features
 ```
 
-### `frontend/precompute.html`
+### `frontend/precompute-admin-extension.js`
 
-独立后台预计算监控页面，可通过：
+该脚本由 `/` 后台首页自动注入，并把预计算监控卡片挂载到：
 
 ```text
-/static/precompute.html
+#service-status .service-grid
 ```
 
-打开。功能包括：
+后台“服务状态”页现在可以直接查看和操作：
 
-- 查看最新任务状态、进度、结果文件数；
-- 查看最近任务列表和各时效计算结果；
+- 最新任务状态、进度、结果文件数；
+- 最近任务列表和各时效计算结果；
 - 手动提交预计算；
 - 强制重新计算。
 
@@ -98,7 +99,6 @@ WeatherMapUtils.buildNafpFeaturesUrl
 
 ## 后续建议
 
-- 将 `/static/precompute.html` 合入主后台“服务状态”页面；
 - 给预计算任务增加取消按钮；
 - 增加定时扫描新起报时次的后台 scheduler；
 - 将区域风险也改成读取预计算 result，避免区域风险查询触发隐式诊断。
