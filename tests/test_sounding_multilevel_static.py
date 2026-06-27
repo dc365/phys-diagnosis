@@ -41,3 +41,17 @@ def test_sounding_optimized_uses_multilevel_augmenter():
     assert "from weather_diag.diagnosis.sounding_multilevel import augment_sounding_result" in text
     assert "augment_sounding_result(result, analysis_csv, lat, lon)" in text
     assert "multilevel fields" in text
+
+
+def test_map_loads_dynamic_sounding_layer_extension():
+    html = Path("frontend/map.html").read_text(encoding="utf-8")
+    extension = Path("frontend/sounding-map-extension.js").read_text(encoding="utf-8")
+    assert "sounding-map-extension.js" in html
+    assert html.index("/static/map.js") < html.index("sounding-map-extension.js")
+    for token in [
+        "/api/v1/sounding/layers",
+        "patchSoundingLayerLoader",
+        "wind850_speed",
+        "risk_severe_convection_composite_score",
+    ]:
+        assert token in extension
