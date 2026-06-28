@@ -1,36 +1,7 @@
 (function attachSoundingMapExtension() {
-  const DEFAULT_SOUNDING_LAYERS = {
-    z500: { title: '500hPa 位势高度', unit: 'dagpm' },
-    t500: { title: '500hPa 温度', unit: 'degC' },
-    wind500_speed: { title: '500hPa 风速', unit: 'm/s' },
-    vort500: { title: '500hPa 相对涡度', unit: 's^-1' },
-    div500: { title: '500hPa 散度', unit: 's^-1' },
-    t850: { title: '850hPa 温度', unit: 'degC' },
-    td850: { title: '850hPa 露点', unit: 'degC' },
-    rh850: { title: '850hPa 相对湿度', unit: '%' },
-    q850: { title: '850hPa 比湿', unit: 'g/kg' },
-    wind850_speed: { title: '850hPa 风速', unit: 'm/s' },
-    div850: { title: '850hPa 散度', unit: 's^-1' },
-    vort850: { title: '850hPa 相对涡度', unit: 's^-1' },
-    moisture_flux850: { title: '850hPa 水汽通量', unit: 'g/kg*m/s' },
-    t700: { title: '700hPa 温度', unit: 'degC' },
-    rh700: { title: '700hPa 相对湿度', unit: '%' },
-    wind700_speed: { title: '700hPa 风速', unit: 'm/s' },
-    div700: { title: '700hPa 散度', unit: 's^-1' },
-    lapse_rate_700_500: { title: '700-500hPa 温度递减率', unit: 'degC/km' },
-    wind300_speed: { title: '300hPa 风速', unit: 'm/s' },
-    div300: { title: '300hPa 散度', unit: 's^-1' },
-    wind200_speed: { title: '200hPa 风速', unit: 'm/s' },
-    div200: { title: '200hPa 散度', unit: 's^-1' },
-    shear_850_500: { title: '850-500hPa 垂直风切变', unit: 'm/s' },
-    risk_persistent_heavy_rain_score: { title: '探空持续性强降水风险', unit: '0-1' },
-    risk_short_duration_heavy_rain_score: { title: '探空短时强降水风险', unit: '0-1' },
-    risk_thunderstorm_gale_score: { title: '探空雷暴大风风险', unit: '0-1' },
-    risk_hail_score: { title: '探空冰雹风险', unit: '0-1' },
-    risk_rotating_storm_score: { title: '探空旋转风暴风险', unit: '0-1' },
-    risk_severe_convection_composite_score: { title: '探空强对流综合风险', unit: '0-1' },
+  const FALLBACK_SOUNDING_LAYERS = {
+    z500: { title: '500hPa 位势高度', unit: 'dagpm', variable: 'z500', data_type: 'sounding' },
   };
-
   const SOUNDING_RISK_TYPES = [
     'persistent_heavy_rain_risk',
     'short_duration_heavy_rain_risk',
@@ -44,6 +15,8 @@
     'cold_vortex', 'mid_level_vortex', 'low_level_jet', 'moisture_transport',
   ];
 
+  let forecastLayerSnapshot = null;
+
   function toQuery(params) {
     return params
       .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -51,14 +24,14 @@
       .join('&');
   }
 
+  function isSoundingMode() {
+    return (state?.dataCategory || document.getElementById('dataCategorySelect')?.value) === 'sounding';
+  }
+
   function selectedCsv() {
     return typeof selectedSoundingCsvPath === 'function'
       ? selectedSoundingCsvPath()
       : (document.getElementById('soundingFileSelect')?.value || window.DEFAULT_SOUNDING_CSV_PATH || '');
-  }
-
-  function layerAvailable(layerId) {
-    return Boolean((state?.layers || {})[layerId]);
   }
 
   async function getEnvelopeLocal(url) {
@@ -69,64 +42,83 @@
     return body.data;
   }
 
-  function setLayerOptions(layers) {
-    const select = document.getElementById('layerSelect');
-    if (!select) return;
-    select.innerHTML = '';
-    Object.entries(layers || {}).forEach(([id, cfg]) => {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = cfg.title || cfg.label || id;
-      select.appendChild(option);
-    });
+  function copyLayers(layers) {
+    return Object.fromEntries(Object.entries(layers || {}).map(([id, cfg]) => [id, { ...cfg }]));
   }
 
-  function setSoundingLayers(layers) {
-    if (!state?.layers) return;
-    state.layers = {};
+  function clearLayerObject(target) {
+    Object.keys(target || {}).forEach((id) => delete target[id]);
+  }
+
+  function restoreForecastLayers() {
+    if (!forecastLayerSnapshot || !state?.layers) return;
+    clearLayerObject(state.layers);
+    Object.assign(state.layers, copyLayers(forecastLayerSnapshot));
+    forecastLayerSnapshot = null;
+    if (typeof renderLayerChips === 'function') renderLayerChips();
+  }
+
+  function normalizeSoundingLayers(layers) {
+    const normalized = {};
     Object.entries(layers || {}).forEach(([id, cfg]) => {
-      state.layers[id] = {
+      if (!cfg) return;
+      normalized[id] = {
         variable: cfg.variable || cfg.field || id,
         title: cfg.title || cfg.label || id,
         unit: cfg.unit || '',
         data_type: 'sounding',
       };
     });
-    setLayerOptions(state.layers);
+    return Object.keys(normalized).length ? normalized : { ...FALLBACK_SOUNDING_LAYERS };
+  }
+
+  function replaceWithSoundingLayers(layers) {
+    if (!state?.layers) return;
+    if (!forecastLayerSnapshot) forecastLayerSnapshot = copyLayers(state.layers);
+    const normalized = normalizeSoundingLayers(layers);
+    clearLayerObject(state.layers);
+    Object.assign(state.layers, normalized);
+
+    const select = document.getElementById('layerSelect');
+    if (select && !state.layers[select.value]) {
+      select.value = state.layers.z500 ? 'z500' : Object.keys(state.layers)[0] || '';
+    }
+  }
+
+  function layerAvailable(layerId) {
+    return Boolean((state?.layers || {})[layerId]);
   }
 
   async function refreshSoundingLayers() {
+    if (!isSoundingMode()) return;
     try {
       const data = await getEnvelopeLocal(`/api/v1/sounding/layers?${toQuery([['csv_path', selectedCsv()], ['pressure_level', 500], ['_', Date.now()]])}`);
-      setSoundingLayers(data || {});
+      replaceWithSoundingLayers(data || {});
     } catch (error) {
       console.warn('sounding layer catalog load failed', error);
-      setSoundingLayers(DEFAULT_SOUNDING_LAYERS);
+      replaceWithSoundingLayers(FALLBACK_SOUNDING_LAYERS);
     }
-    window.selectDefaultSoundingLayer?.();
     if (typeof renderLayerChips === 'function') renderLayerChips();
   }
 
-  async function refreshForecastLayers() {
-    if (typeof window.refreshLayers === 'function') {
-      await window.refreshLayers();
-      return;
-    }
-    const data = await getEnvelopeLocal('/api/layers');
-    state.layers = data || {};
-    setLayerOptions(state.layers);
-    if (typeof renderLayerChips === 'function') renderLayerChips();
+  function applySoundingFeatureVisibility() {
+    const visible = new Set([...SOUNDING_SYSTEM_TYPES, ...SOUNDING_RISK_TYPES]);
+    const sounding = isSoundingMode();
+    document.querySelectorAll('#featureToggles label').forEach((label) => {
+      const input = label.querySelector('input[type="checkbox"]');
+      if (!input) return;
+      label.hidden = sounding && !visible.has(input.value);
+    });
   }
 
   function patchDefaultLayerSelection() {
     const original = window.selectDefaultSoundingLayer;
     window.selectDefaultSoundingLayer = function patchedSelectDefaultSoundingLayer() {
+      if (!isSoundingMode()) return original?.();
       const select = document.getElementById('layerSelect');
       if (!select) return;
-      if (!layerAvailable(select.value)) select.value = 'z500';
-      if (!select.value) select.value = 'z500';
+      if (!layerAvailable(select.value)) select.value = state.layers.z500 ? 'z500' : Object.keys(state.layers)[0] || '';
       if (typeof renderLayerChips === 'function') renderLayerChips();
-      if (typeof original === 'function' && !layerAvailable(select.value)) original();
     };
   }
 
@@ -135,8 +127,12 @@
     window.loadSoundingLayerData = async function patchedLoadSoundingLayerData(layer, options = {}) {
       if (!map || !state.mapReady) return;
       await refreshSoundingLayers();
-      const selectedLayer = layerAvailable(layer) ? layer : 'z500';
-      const title = state.layers[selectedLayer]?.title || DEFAULT_SOUNDING_LAYERS[selectedLayer]?.title || selectedLayer;
+      const selectedLayer = layerAvailable(layer) ? layer : (state.layers.z500 ? 'z500' : Object.keys(state.layers)[0]);
+      if (!selectedLayer) {
+        status('当前探空时次没有可显示的实况要素');
+        return;
+      }
+      const title = state.layers[selectedLayer]?.title || selectedLayer;
       status(`正在加载 sounding 实况分析场：${title}`);
       try {
         const md = await getEnvelopeLocal(buildSoundingLayerMetadataUrl(selectedLayer, selectedCsv(), 500, Date.now()));
@@ -173,31 +169,24 @@
     const original = window.setupFeatureToggles;
     window.setupFeatureToggles = function patchedSetupFeatureToggles() {
       original();
-      // Existing checkboxes are shared by forecast and sounding because the
-      // feature type names are intentionally aligned with NAFP diagnostics.
-      // Mark sounding-relevant defaults so switching to 实况 gives useful output.
       document.querySelectorAll('#featureToggles input').forEach((input) => {
-        if ([...SOUNDING_SYSTEM_TYPES, ...SOUNDING_RISK_TYPES].includes(input.value)) {
-          input.dataset.sounding = 'true';
-        }
+        if ([...SOUNDING_SYSTEM_TYPES, ...SOUNDING_RISK_TYPES].includes(input.value)) input.dataset.sounding = 'true';
       });
+      applySoundingFeatureVisibility();
     };
   }
 
   function bindSoundingEvents() {
     document.getElementById('dataCategorySelect')?.addEventListener('change', async () => {
-      if (document.getElementById('dataCategorySelect')?.value === 'sounding') {
-        await refreshSoundingLayers();
-      } else {
-        await refreshForecastLayers();
-      }
+      if (isSoundingMode()) await refreshSoundingLayers();
+      else restoreForecastLayers();
+      applySoundingFeatureVisibility();
     });
     document.getElementById('soundingFileSelect')?.addEventListener('change', async () => {
+      if (!isSoundingMode()) return;
       await refreshSoundingLayers();
-      if (state.dataCategory === 'sounding') {
-        await loadLayer({ fitBounds: false });
-        await loadFeatures();
-      }
+      await loadLayer({ fitBounds: false });
+      await loadFeatures();
     });
   }
 
@@ -209,10 +198,12 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       bindSoundingEvents();
-      if (document.getElementById('dataCategorySelect')?.value === 'sounding') refreshSoundingLayers();
+      if (isSoundingMode()) refreshSoundingLayers();
+      applySoundingFeatureVisibility();
     });
   } else {
     bindSoundingEvents();
-    if (document.getElementById('dataCategorySelect')?.value === 'sounding') refreshSoundingLayers();
+    if (isSoundingMode()) refreshSoundingLayers();
+    applySoundingFeatureVisibility();
   }
 })();

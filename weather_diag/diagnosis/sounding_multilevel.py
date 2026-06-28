@@ -8,7 +8,6 @@ import pandas as pd
 
 from weather_diag.config import load_thresholds
 from weather_diag.diagnosis import sounding as legacy
-from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level as matrix_score_level
 from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
 from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES
 from weather_diag.diagnostics.grid import derivatives_lonlat
@@ -104,8 +103,39 @@ def _div_vort(u: np.ndarray, v: np.ndarray, lat: np.ndarray, lon: np.ndarray) ->
 
 def _score01(values: np.ndarray, low: float, high: float, *, reverse: bool = False) -> np.ndarray:
     arr = np.asarray(values, dtype=float)
-    out = np.clip((arr - low) / max(high - low, 1.0e-6), 0.0, 1.0)
+    lo = float(low)
+    hi = float(high)
+    if np.isclose(lo, hi):
+        out = np.zeros_like(arr, dtype=float)
+    elif hi > lo:
+        out = np.clip((arr - lo) / (hi - lo), 0.0, 1.0)
+    else:
+        out = np.clip((lo - arr) / (lo - hi), 0.0, 1.0)
     return 1.0 - out if reverse else out
+
+
+def _common_thresholds(thresholds: dict[str, Any]) -> dict[str, Any]:
+    return dict((thresholds.get("risk_scoring") or {}).get("common") or {})
+
+
+def _range(common: dict[str, Any], key: str, default_low: float, default_high: float) -> tuple[float, float]:
+    cfg = common.get(key) or {}
+    return float(cfg.get("low", default_low)), float(cfg.get("high", default_high))
+
+
+def _cold_t500_score(values: np.ndarray, common: dict[str, Any]) -> np.ndarray:
+    cfg = common.get("t500_c") or {}
+    warm = float(cfg.get("high", -8.0))
+    cold = float(cfg.get("low", -18.0))
+    return np.clip((warm - np.asarray(values, dtype=float)) / max(warm - cold, 1.0e-6), 0.0, 1.0)
+
+
+def _weighted_sum(weighted_terms: list[tuple[np.ndarray, float]]) -> np.ndarray:
+    total_weight = sum(max(float(weight), 0.0) for _value, weight in weighted_terms)
+    if total_weight <= 0:
+        return np.zeros_like(weighted_terms[0][0], dtype=float) if weighted_terms else np.zeros((1, 1), dtype=float)
+    total = sum(np.asarray(value, dtype=float) * max(float(weight), 0.0) for value, weight in weighted_terms)
+    return np.clip(total / total_weight, 0.0, 1.0)
 
 
 def build_multilevel_fields(csv_path: str | Path, lat: np.ndarray, lon: np.ndarray) -> dict[str, dict[str, Any]]:
@@ -240,6 +270,18 @@ def build_multilevel_systems(analysis_fields: dict[str, dict[str, Any]], lat: np
     return systems
 
 
+def _risk_level(score: float) -> str:
+    if score >= 0.8:
+        return "very_high"
+    if score >= 0.6:
+        return "high"
+    if score >= 0.4:
+        return "medium"
+    if score >= 0.2:
+        return "low"
+    return "very_low"
+
+
 def _risk_grid_payload(values: np.ndarray, lat: np.ndarray, lon: np.ndarray, hazard: str, sources: list[str]) -> dict[str, Any]:
     meta = HAZARD_TYPES[hazard]
     return _derived_payload(values, "0-1", lat, lon, method="sounding_multilevel_risk:" + "+".join(sources)) | {
@@ -248,57 +290,46 @@ def _risk_grid_payload(values: np.ndarray, lat: np.ndarray, lon: np.ndarray, haz
             "label": meta["label"],
             "feature_type": meta["feature_type"],
             "sources": sources,
+            "threshold_source": "configs/thresholds.yaml:risk_scoring.common",
         }
     }
 
 
-def _sync_preserved_500_fields(result: dict[str, Any], additions: dict[str, dict[str, Any]], analyzed: dict[str, Any], lat: np.ndarray, lon: np.ndarray) -> None:
-    base_fields = result.get("analysis_fields") or {}
-    for name in ["z500", "t500", "u500", "v500"]:
-        field = base_fields.get(name)
-        if not field or "values" not in field:
-            continue
-        additions.pop(name, None)
-        analyzed[name] = np.asarray(field["values"], dtype=float)
-    if "u500" in analyzed and "v500" in analyzed:
-        u = analyzed["u500"]
-        v = analyzed["v500"]
-        wind = np.hypot(u, v)
-        div, vort = _div_vort(u, v, lat, lon)
-        additions["wind500_speed"] = _derived_payload(wind, "m/s", lat, lon, method="hypot(u,v)")
-        additions["div500"] = _derived_payload(div, "s^-1", lat, lon, method="divergence_from_sounding_wind")
-        additions["vort500"] = _derived_payload(vort, "s^-1", lat, lon, method="vorticity_from_sounding_wind")
-        analyzed["wind500_speed"] = wind
-        analyzed["div500"] = div
-        analyzed["vort500"] = vort
-    if "t700" in analyzed and "t500" in analyzed and "z700" in analyzed and "z500" in analyzed:
-        dz_km = np.maximum((analyzed["z500"] - analyzed["z700"]) / 1000.0, 0.1)
-        lapse = (analyzed["t700"] - analyzed["t500"]) / dz_km
-        additions["lapse_rate_700_500"] = _derived_payload(lapse, "degC/km", lat, lon, method="(t700-t500)/(z500-z700)")
-        analyzed["lapse_rate_700_500"] = lapse
-    if "u850" in analyzed and "u500" in analyzed and "v850" in analyzed and "v500" in analyzed:
-        shear = np.hypot(analyzed["u500"] - analyzed["u850"], analyzed["v500"] - analyzed["v850"])
-        additions["shear_850_500"] = _derived_payload(shear, "m/s", lat, lon, method="vector_shear_850_500")
-        analyzed["shear_850_500"] = shear
-
-
 def build_multilevel_risk_fields(analysis_fields: dict[str, dict[str, Any]], lat: np.ndarray, lon: np.ndarray) -> dict[str, dict[str, Any]]:
     a = analysis_fields.get("_analyzed") or {}
+    thresholds = load_thresholds()
+    common = _common_thresholds(thresholds)
     risks: dict[str, dict[str, Any]] = {}
-    moisture = _score01(a.get("q850", np.zeros((len(lat), len(lon)))), 8.0, 16.0)
-    rh_deep = np.nanmean([_score01(a[level], 60.0, 90.0) for level in ["rh850", "rh700"] if level in a], axis=0) if any(level in a for level in ["rh850", "rh700"]) else 0.0
-    convergence = _score01(-a.get("div850", np.zeros((len(lat), len(lon)))), 2.0e-6, 1.5e-5)
-    shear = _score01(a.get("shear_850_500", np.zeros((len(lat), len(lon)))), 8.0, 22.0)
-    lapse = _score01(a.get("lapse_rate_700_500", np.zeros((len(lat), len(lon)))), 5.5, 7.5)
-    mid_cold = _score01(a.get("t500", np.zeros((len(lat), len(lon)))), -8.0, -20.0, reverse=True)
-    upper_wind = _score01(a.get("wind300_speed", a.get("wind200_speed", np.zeros((len(lat), len(lon))))), 18.0, 40.0)
-    upper_div = _score01(np.maximum(a.get("div300", 0.0), a.get("div200", 0.0)), 2.0e-6, 1.5e-5)
+    shape = (len(lat), len(lon))
 
-    short_heavy = np.clip(0.36 * moisture + 0.22 * rh_deep + 0.26 * convergence + 0.16 * upper_div, 0.0, 1.0)
-    persistent = np.clip(0.40 * moisture + 0.28 * rh_deep + 0.20 * convergence + 0.12 * upper_div, 0.0, 1.0)
-    thunder_gale = np.clip(0.25 * lapse + 0.25 * shear + 0.25 * upper_wind + 0.25 * mid_cold, 0.0, 1.0)
-    hail = np.clip(0.28 * lapse + 0.28 * shear + 0.28 * mid_cold + 0.16 * convergence, 0.0, 1.0)
-    rotating = np.clip(0.45 * shear + 0.25 * convergence + 0.20 * lapse + 0.10 * upper_wind, 0.0, 0.62)
+    q_low, q_high = _range(common, "q850_gkg", 6.0, 14.0)
+    rh850_low, rh850_high = _range(common, "rh850", 60.0, 90.0)
+    rh700_low, rh700_high = _range(common, "rh700", 60.0, 90.0)
+    shear_low, shear_high = _range(common, "deep_shear_ms", 10.0, 25.0)
+    lapse_low, lapse_high = _range(common, "lapse_rate_700_500", 6.0, 8.0)
+    wind_low, wind_high = _range(common, "wind500_ms", 15.0, 30.0)
+    conv_min = float((thresholds.get("convergence") or {}).get("convergence_min", 1.0e-5))
+    div_min = float((thresholds.get("upper_divergence") or {}).get("divergence_min", 1.0e-5))
+
+    moisture = _score01(a.get("q850", np.zeros(shape)), q_low, q_high)
+    rh_terms = []
+    if "rh850" in a:
+        rh_terms.append(_score01(a["rh850"], rh850_low, rh850_high))
+    if "rh700" in a:
+        rh_terms.append(_score01(a["rh700"], rh700_low, rh700_high))
+    rh_deep = np.nanmean(rh_terms, axis=0) if rh_terms else np.zeros(shape)
+    convergence = _score01(-a.get("div850", np.zeros(shape)), conv_min * 0.2, conv_min * 1.5)
+    shear = _score01(a.get("shear_850_500", np.zeros(shape)), shear_low, shear_high)
+    lapse = _score01(a.get("lapse_rate_700_500", np.zeros(shape)), lapse_low, lapse_high)
+    mid_cold = _cold_t500_score(a.get("t500", np.zeros(shape)), common)
+    upper_wind = _score01(a.get("wind300_speed", a.get("wind200_speed", np.zeros(shape))), wind_low, wind_high)
+    upper_div = _score01(np.maximum(a.get("div300", 0.0), a.get("div200", 0.0)), div_min * 0.2, div_min * 1.5)
+
+    persistent = _weighted_sum([(moisture, 0.40), (rh_deep, 0.28), (convergence, 0.20), (upper_div, 0.12)])
+    short_heavy = _weighted_sum([(moisture, 0.36), (rh_deep, 0.22), (convergence, 0.26), (upper_div, 0.16)])
+    thunder_gale = _weighted_sum([(lapse, 0.25), (shear, 0.25), (upper_wind, 0.25), (mid_cold, 0.25)])
+    hail = _weighted_sum([(lapse, 0.28), (shear, 0.28), (mid_cold, 0.28), (convergence, 0.16)])
+    rotating = np.clip(_weighted_sum([(shear, 0.45), (convergence, 0.25), (lapse, 0.20), (upper_wind, 0.10)]), 0.0, 0.62)
     composite = np.nanmax(np.stack([short_heavy, thunder_gale, hail, rotating]), axis=0)
 
     risks["risk_persistent_heavy_rain_score"] = _risk_grid_payload(persistent, lat, lon, "persistent_heavy_rain", ["q850", "rh850/rh700", "div850", "div200/300"])
@@ -310,12 +341,11 @@ def build_multilevel_risk_fields(analysis_fields: dict[str, dict[str, Any]], lat
     return risks
 
 
-def augment_station_risks(
-    station_risk_items: list[dict[str, Any]],
-    station_diagnostics: list[dict[str, Any]],
-    threshold_matrix: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
-    matrix = threshold_matrix or load_threshold_matrix()
+def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diagnostics: list[dict[str, Any]], thresholds: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    thresholds = thresholds or load_thresholds()
+    common = _common_thresholds(thresholds)
+    cape_low, cape_high = _range(common, "cape", 500.0, 2500.0)
+    pw_low, pw_high = _range(common, "pw_mm", 30.0, 55.0)
     by_id = {str(item.get("station_id")): item for item in station_risk_items}
     for diag in station_diagnostics:
         station_id = str(diag.get("station_id"))
@@ -326,9 +356,9 @@ def augment_station_risks(
         cape = float(indices.get("cape_j_kg") or 0.0)
         pw = float(indices.get("precipitable_water_mm") or 0.0)
         lclp = indices.get("lcl_pressure_hpa")
-        cape_s = np.clip((cape - 500.0) / 2000.0, 0.0, 1.0)
-        pw_s = np.clip((pw - 30.0) / 25.0, 0.0, 1.0)
-        lcl_s = np.clip((float(lclp or 650.0) - 650.0) / 250.0, 0.0, 1.0)
+        cape_s = float(np.clip((cape - cape_low) / max(cape_high - cape_low, 1.0e-6), 0.0, 1.0))
+        pw_s = float(np.clip((pw - pw_low) / max(pw_high - pw_low, 1.0e-6), 0.0, 1.0))
+        lcl_s = float(np.clip((float(lclp or 650.0) - 650.0) / 250.0, 0.0, 1.0))
         extra = [
             ("persistent_heavy_rain", min(0.70, 0.58 * pw_s + 0.22 * cape_s)),
             ("thunderstorm_gale", min(0.60, 0.55 * cape_s + 0.15 * (1 - pw_s))),
@@ -346,13 +376,14 @@ def augment_station_risks(
                     "risk_domain": list(meta["risk_domain"]),
                     "feature_type": meta["feature_type"],
                     "score": round(float(score), 3),
-                    "risk_level": matrix_score_level(float(score), matrix),
+                    "risk_level": _risk_level(float(score)),
                     "score_source": "sounding_profile_indices_extended",
+                    "threshold_source": "configs/thresholds.yaml:risk_scoring.common",
                     "source_indices": ["cape", "precipitable_water", "lcl"],
                     "dominant_factors": [
-                        {"factor": "cape", "label": "CAPE", "score": round(float(cape_s), 3), "contribution": round(float(0.45 * cape_s), 3)},
-                        {"factor": "precipitable_water", "label": "可降水量", "score": round(float(pw_s), 3), "contribution": round(float(0.45 * pw_s), 3)},
-                        {"factor": "lcl", "label": "LCL", "score": round(float(lcl_s), 3), "contribution": round(float(0.1 * lcl_s), 3)},
+                        {"factor": "cape", "label": "CAPE", "score": round(cape_s, 3), "contribution": round(0.45 * cape_s, 3)},
+                        {"factor": "precipitable_water", "label": "可降水量", "score": round(pw_s, 3), "contribution": round(0.45 * pw_s, 3)},
+                        {"factor": "lcl", "label": "LCL", "score": round(lcl_s, 3), "contribution": round(0.1 * lcl_s, 3)},
                     ],
                     "input_completeness": 0.45,
                     "missing_critical_factors": ["触发系统", "深层/低层风切变或SRH"],
@@ -367,23 +398,18 @@ def augment_station_risks(
 def augment_sounding_result(result: dict[str, Any], analysis_csv: str | Path, lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
     additions = build_multilevel_fields(analysis_csv, lat, lon)
     analyzed = additions.pop("_analyzed", {})
-    _sync_preserved_500_fields(result, additions, analyzed, lat, lon)
-    # Keep internal arrays available only during this function.
     additions_internal = {"_analyzed": analyzed}
     result["analysis_fields"].update(additions)
     systems = build_multilevel_systems({**additions, **additions_internal}, lat, lon)
     result["systems"] = list(result.get("systems") or []) + systems
     risks = build_multilevel_risk_fields({**additions, **additions_internal}, lat, lon)
     result["analysis_fields"].update(risks)
-    result["station_risk_diagnoses"] = augment_station_risks(
-        result.get("station_risk_diagnoses") or [],
-        result.get("station_diagnostics") or [],
-        load_threshold_matrix(),
-    )
+    result["station_risk_diagnoses"] = augment_station_risks(result.get("station_risk_diagnoses") or [], result.get("station_diagnostics") or [])
     result["multilevel_summary"] = {
         "available_levels": [level for level in MULTILEVELS if f"t{level}" in additions],
         "added_field_count": len(additions) + len(risks),
         "added_system_count": len(systems),
         "risk_grid_count": len(risks),
+        "threshold_source": "shared_nafp_threshold_matrix",
     }
     return result
