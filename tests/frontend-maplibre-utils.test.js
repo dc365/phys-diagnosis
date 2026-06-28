@@ -470,6 +470,11 @@ test('recommendedFeatureLayer maps weather systems to operational diagnostic lay
   );
   assert.equal(recommendedFeatureLayer({ feature_type: 'low_level_convergence_axis' }, available), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'upper_divergence_axis' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'front_with_shear' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'upper_jet_exit_region' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'pv_anomaly' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'surface_front_candidate' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'dryline_candidate' }, available), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'heavy_rain_risk' }, ['heavy_rain_score']), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'convection_risk' }, ['convection_score']), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'unknown' }, available), null);

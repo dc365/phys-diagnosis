@@ -24,30 +24,24 @@ INTEGRATION_VERSION = "weather_system_integration_20260625"
 
 NEW_PRIMARY_LIMITS = {
     "shear_line": 3,
-    "front_with_shear": 2,
-    "low_level_convergence_axis": 3,
-    "upper_divergence_axis": 3,
     "cold_vortex": 3,
     "mid_level_vortex": 3,
-    "upper_jet": 2,
-    "upper_jet_exit_region": 2,
-    "pv_anomaly": 2,
-    "surface_front_candidate": 2,
-    "dryline_candidate": 2,
+}
+
+HIDDEN_PRIMARY_LIMITS = {
+    "low_level_convergence_axis": 0,
+    "upper_divergence_axis": 0,
+    "upper_jet_exit_region": 0,
+    "pv_anomaly": 0,
+    "surface_front_candidate": 0,
+    "dryline_candidate": 0,
 }
 
 NEW_DISPLAY_PRIORITY = {
     "cold_vortex": 22,
     "mid_level_vortex": 23,
     "shear_line": 48,
-    "front_with_shear": 49,
-    "low_level_convergence_axis": 58,
-    "upper_divergence_axis": 59,
     "upper_jet": 65,
-    "upper_jet_exit_region": 66,
-    "pv_anomaly": 67,
-    "surface_front_candidate": 68,
-    "dryline_candidate": 69,
 }
 
 NEW_SUMMARY_LABELS = {
@@ -66,12 +60,69 @@ NEW_SUMMARY_LABELS = {
 
 DYNAMIC_TYPES = set(NEW_PRIMARY_LIMITS)
 
+PRIMARY_DISPLAY_SYSTEM_TYPES = {
+    "high",
+    "low",
+    "subtropical_high",
+    "trough",
+    "trough_candidate",
+    "front_candidate",
+    "shear_line",
+    "cold_vortex",
+    "mid_level_vortex",
+    "low_level_jet",
+    "moisture_transport",
+}
+
+SUPPORT_DISPLAY_SYSTEM_TYPES = {
+    "ridge",
+    "ridge_candidate",
+    "low_level_convergence",
+    "upper_divergence",
+    "upper_jet",
+}
+
+ADVANCED_DISPLAY_SYSTEM_TYPES = {
+    "front_with_shear",
+    "upper_jet_exit_region",
+    "pv_anomaly",
+    "surface_front_candidate",
+    "dryline_candidate",
+}
+
+DEBUG_DISPLAY_SYSTEM_TYPES = {
+    "low_level_convergence_axis",
+    "upper_divergence_axis",
+}
+
 
 def _patch_display_metadata() -> None:
     base.PRIMARY_SYSTEM_LIMITS.update(NEW_PRIMARY_LIMITS)
+    base.PRIMARY_SYSTEM_LIMITS.update(HIDDEN_PRIMARY_LIMITS)
     base.SYSTEM_DISPLAY_PRIORITY.update(NEW_DISPLAY_PRIORITY)
     base.SYSTEM_SUMMARY_LABELS.update(NEW_SUMMARY_LABELS)
     base.DYNAMIC_CONFIDENCE_SYSTEM_TYPES.update(DYNAMIC_TYPES)
+
+
+def _system_display_group(feature_type: str) -> str:
+    if feature_type in PRIMARY_DISPLAY_SYSTEM_TYPES:
+        return "primary"
+    if feature_type in SUPPORT_DISPLAY_SYSTEM_TYPES:
+        return "support"
+    if feature_type in DEBUG_DISPLAY_SYSTEM_TYPES:
+        return "debug"
+    if feature_type in ADVANCED_DISPLAY_SYSTEM_TYPES:
+        return "advanced"
+    return "support"
+
+
+def _apply_display_metadata(system: dict[str, Any]) -> dict[str, Any]:
+    feature_type = str(system.get("type") or system.get("feature_type") or "")
+    group = _system_display_group(feature_type)
+    system["display_group"] = group
+    system["default_visible"] = group == "primary"
+    system["map_selectable"] = group in {"primary", "support"}
+    return system
 
 
 def _load_extra_field(
@@ -186,6 +237,7 @@ def _feature_to_system(feature: dict[str, Any], index: int) -> dict[str, Any] | 
         "supporting_role": _supporting_role(feature_type),
         "source_algorithm": "nafp_integrated_weather_systems",
     }
+    _apply_display_metadata(system)
     for key, value in props.items():
         if key not in system and key not in {"id", "evidence"}:
             system[key] = value
@@ -412,6 +464,7 @@ def extend_nafp_situation_result(
 
     systems = _deduplicate_systems(list(out.get("systems") or []) + extra_systems)
     systems = base._annotate_system_display_metadata(systems)
+    systems = [_apply_display_metadata(system) for system in systems]
     out["systems"] = systems
 
     evidence_chains = list(out.get("evidence_chains") or [])

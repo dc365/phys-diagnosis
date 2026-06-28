@@ -10,6 +10,7 @@ from weather_diag.diagnosis.risk_taxonomy import feature_type_for_hazard
 FEATURE_TYPE_ALIASES = {
     "trough": {"trough_candidate"},
     "ridge": {"ridge_candidate"},
+    "shear_line": {"front_with_shear"},
 }
 BACKGROUND_SUPPORT_SYSTEM_TYPES = {"low_level_convergence_axis", "upper_divergence_axis"}
 

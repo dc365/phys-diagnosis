@@ -40,10 +40,8 @@
     'severe_convection_composite_risk',
   ];
   const SOUNDING_SYSTEM_TYPES = [
-    'high', 'low', 'warm_center', 'cold_center', 'trough', 'ridge',
-    'shear_line', 'front_with_shear', 'low_level_jet', 'moisture_transport',
-    'low_level_convergence', 'upper_divergence', 'upper_jet', 'cold_vortex',
-    'mid_level_vortex', 'front_candidate',
+    'high', 'low', 'warm_center', 'cold_center', 'trough', 'shear_line',
+    'cold_vortex', 'mid_level_vortex', 'low_level_jet', 'moisture_transport',
   ];
 
   function toQuery(params) {

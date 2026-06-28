@@ -37,7 +37,11 @@ const SOUNDING_DEFAULT_TYPES = [
   'warm_center',
   'cold_center',
   'trough',
-  'ridge',
+  'shear_line',
+  'cold_vortex',
+  'mid_level_vortex',
+  'low_level_jet',
+  'moisture_transport',
   'short_duration_heavy_rain_risk',
   'rotating_storm_risk',
   'severe_convection_composite_risk',
@@ -84,14 +88,39 @@ const state = {
 
 const weatherSystemFeatureTypes = [
   ['high', '高压中心'], ['low', '低压中心'], ['subtropical_high', '副高588区'],
-  ['trough', '槽线候选'], ['ridge', '脊线候选'], ['low_level_convergence', '低层辐合区'],
-  ['upper_divergence', '高空辐散区'], ['low_level_jet', '低空急流'],
-  ['moisture_transport', '水汽输送带'], ['front_candidate', '锋面轴线'],
-  ['shear_line', '切变线'], ['front_with_shear', '锋区切变线'],
+  ['trough', '槽线'], ['front_candidate', '锋面'], ['shear_line', '切变线'],
   ['cold_vortex', '冷涡候选'], ['mid_level_vortex', '低涡候选'],
-  ['upper_jet', '高空急流'], ['upper_jet_exit_region', '急流出口辐散区'],
-  ['pv_anomaly', '高空PV异常'], ['surface_front_candidate', '地面锋区候选'],
+  ['low_level_jet', '低空急流'], ['moisture_transport', '水汽输送带'],
+];
+
+const supportWeatherSystemFeatureTypes = [
+  ['ridge', '脊线'], ['low_level_convergence', '低层辐合区'],
+  ['upper_divergence', '高空辐散区'], ['upper_jet', '高空急流'],
+];
+
+const advancedWeatherSystemFeatureTypes = [
+  ['front_with_shear', '锋区切变线'],
+  ['upper_jet_exit_region', '急流出口辐散区'],
+  ['pv_anomaly', '高空PV异常'],
+  ['surface_front_candidate', '地面锋区候选'],
   ['dryline_candidate', '干线候选'],
+  ['low_level_convergence_axis', '低层辐合轴'],
+  ['upper_divergence_axis', '高空辐散轴'],
+];
+
+const weatherSystemFeatureGroups = [
+  { id: 'primary', label: '默认天气系统', items: weatherSystemFeatureTypes, collapsed: false },
+  { id: 'support', label: '辅助诊断', items: supportWeatherSystemFeatureTypes, collapsed: true },
+];
+
+const mapSelectableWeatherSystemFeatureTypes = [
+  ...weatherSystemFeatureTypes,
+  ...supportWeatherSystemFeatureTypes,
+];
+
+const weatherSystemLabelTypes = [
+  ...mapSelectableWeatherSystemFeatureTypes,
+  ...advancedWeatherSystemFeatureTypes,
 ];
 
 const riskFeatureTypes = [
@@ -103,7 +132,7 @@ const riskFeatureTypes = [
   ['severe_convection_composite_risk', '强对流综合风险'],
 ];
 
-const featureTypes = [...weatherSystemFeatureTypes, ...riskFeatureTypes];
+const featureTypes = [...weatherSystemLabelTypes, ...riskFeatureTypes];
 
 const areaRiskTypes = [
   ['persistent_heavy_rain', '持续性强降水'],
@@ -333,9 +362,13 @@ function dataSourceLabel(item) {
   return item?.label || item?.display_name || item?.mode_name || item?.name || item?.code || DEFAULT_POINT_DATA_CODE;
 }
 
+function featureColorKeyExpression() {
+  return ['coalesce', ['get', 'source_feature_type'], ['get', 'feature_type']];
+}
+
 function colorMatchExpression() {
   const expression = ['case', ['==', ['get', 'feature_type'], 'front_candidate'], frontTypeColorExpression()];
-  const featureTypeExpression = ['match', ['get', 'feature_type']];
+  const featureTypeExpression = ['match', featureColorKeyExpression()];
   Object.entries(featureColors).forEach(([type, color]) => featureTypeExpression.push(type, color));
   featureTypeExpression.push('#333333');
   expression.push(featureTypeExpression);
@@ -354,7 +387,7 @@ function featureColor(properties) {
   if (props.feature_type === 'front_candidate') {
     return frontTypeColors[props.front_type] || featureColors.front_candidate;
   }
-  return featureColors[props.feature_type] || '#333333';
+  return featureColors[props.source_feature_type || props.feature_type] || '#333333';
 }
 
 function areaRiskColorExpression() {
@@ -622,37 +655,55 @@ function applyBaseMap() {
   status(definition.status || `底图：${definition.label}`);
 }
 
-function renderFeatureToggleGroup(boxId, items) {
+function renderFeatureToggleItem(parent, type, label) {
+  const color = featureColor(type);
+  const el = document.createElement('label');
+  el.dataset.featureType = type;
+
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.value = type;
+  input.checked = false;
+  input.style.accentColor = color;
+
+  const swatch = document.createElement('span');
+  swatch.className = `feature-swatch feature-swatch-${featureLegendKind(type)}`;
+  swatch.style.setProperty('--feature-color', color);
+  swatch.setAttribute('aria-hidden', 'true');
+
+  const text = document.createElement('span');
+  text.className = 'feature-label';
+  text.textContent = label;
+
+  el.append(input, swatch, text);
+  parent.appendChild(el);
+}
+
+function renderFeatureToggleGroup(boxId, groups) {
   const box = $(boxId);
   if (!box) return;
   box.innerHTML = '';
-  items.forEach(([type, label]) => {
-    const color = featureColor(type);
-    const el = document.createElement('label');
-    el.dataset.featureType = type;
+  groups.forEach((group) => {
+    const container = document.createElement(group.collapsed ? 'details' : 'section');
+    container.className = 'feature-toggle-group';
+    container.dataset.featureGroup = group.id;
+    if (group.collapsed) container.open = false;
 
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.value = type;
-    input.checked = false;
-    input.style.accentColor = color;
+    const title = document.createElement(group.collapsed ? 'summary' : 'strong');
+    title.className = 'feature-toggle-title';
+    title.textContent = group.label;
 
-    const swatch = document.createElement('span');
-    swatch.className = `feature-swatch feature-swatch-${featureLegendKind(type)}`;
-    swatch.style.setProperty('--feature-color', color);
-    swatch.setAttribute('aria-hidden', 'true');
+    const items = document.createElement('div');
+    items.className = 'feature-toggle-items';
+    group.items.forEach(([type, label]) => renderFeatureToggleItem(items, type, label));
 
-    const text = document.createElement('span');
-    text.className = 'feature-label';
-    text.textContent = label;
-
-    el.append(input, swatch, text);
-    box.appendChild(el);
+    container.append(title, items);
+    box.appendChild(container);
   });
 }
 
 function setupFeatureToggles() {
-  renderFeatureToggleGroup('featureToggles', weatherSystemFeatureTypes);
+  renderFeatureToggleGroup('featureToggles', weatherSystemFeatureGroups);
 }
 
 function setupAreaRiskControls() {
@@ -738,7 +789,7 @@ function setupFeatureIndexControls() {
   allOption.textContent = '全部类型';
   typeFilter.appendChild(allOption);
   appendFeatureIndexOptionGroup(typeFilter, '风险', riskFeatureTypes);
-  appendFeatureIndexOptionGroup(typeFilter, '天气系统', weatherSystemFeatureTypes);
+  appendFeatureIndexOptionGroup(typeFilter, '天气系统', mapSelectableWeatherSystemFeatureTypes);
   renderFeatureIndex();
 }
 

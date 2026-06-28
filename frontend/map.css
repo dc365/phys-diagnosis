@@ -577,6 +577,40 @@ h2 {
 .feature-grid {
   display: grid;
   grid-template-columns: 1fr;
+  gap: 10px;
+}
+.feature-toggle-group {
+  display: grid;
+  gap: 7px;
+}
+.feature-toggle-group[data-feature-group="support"] {
+  border-top: 1px solid var(--radar-line);
+  padding-top: 8px;
+}
+.feature-toggle-title {
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 760;
+}
+details.feature-toggle-group > summary {
+  cursor: pointer;
+  list-style: none;
+}
+details.feature-toggle-group > summary::-webkit-details-marker {
+  display: none;
+}
+details.feature-toggle-group > summary::after {
+  content: '展开';
+  float: right;
+  color: var(--radar-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+details.feature-toggle-group[open] > summary::after {
+  content: '收起';
+}
+.feature-toggle-items {
+  display: grid;
   gap: 7px;
 }
 .feature-grid label {

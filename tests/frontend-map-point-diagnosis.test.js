@@ -101,7 +101,7 @@ test('right panel separates elements risks and weather systems', () => {
   assert.match(mapJs, /const weatherSystemFeatureTypes = \[/);
   assert.match(mapJs, /const riskFeatureTypes = \[/);
   assert.match(mapJs, /function isRiskLayer\(layerId\)/);
-  assert.match(mapJs, /renderLayerChipGroup\('layerChips', isElementLayer\)/);
+  assert.match(mapJs, /renderLayerChipGroup\('layerChips', isElementLayer, \{ groupByLevel: true \}\)/);
   assert.match(mapJs, /renderLayerChipGroup\('riskLayerChips', isRiskLayer\)/);
   assert.match(mapJs, /#featureToggles input:checked/);
   assert.doesNotMatch(mapJs, /riskFeatureToggles'\)\.addEventListener\('change', handleFeatureToggleChange\)/);

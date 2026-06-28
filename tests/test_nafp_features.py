@@ -7,6 +7,7 @@ from backend.app.api.v1 import diagnosis as diagnosis_api
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
 from weather_diag.diagnosis.nafp_features import nafp_situation_to_feature_collection
 from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
+from weather_diag.diagnosis.nafp_situation_integrated import _feature_to_system
 
 
 client = TestClient(app)
@@ -209,6 +210,48 @@ def test_nafp_situation_features_include_hazard_specific_risk_items():
     assert feature["properties"]["source_grid"] == "risk_short_duration_heavy_rain_score"
     assert feature["properties"]["source_chain_ids"] == []
     assert feature["properties"]["region_source"] == "source_grid"
+
+
+def test_nafp_feature_request_maps_front_with_shear_to_shear_line():
+    collection = nafp_situation_to_feature_collection(
+        {
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hour": 24,
+            "systems": [
+                {
+                    "id": "front-shear-1",
+                    "type": "front_with_shear",
+                    "feature_type": "front_with_shear",
+                    "name": "锋区切变线",
+                    "geometry": {"type": "line", "coordinates": [[110, 25], [112, 27]]},
+                }
+            ],
+        },
+        requested_types=["shear_line"],
+    )
+
+    feature = collection["features"][0]
+    assert feature["properties"]["feature_type"] == "shear_line"
+    assert feature["properties"]["source_feature_type"] == "front_with_shear"
+
+
+def test_integrated_weather_systems_mark_display_groups():
+    def system_for(feature_type: str):
+        return _feature_to_system(
+            {
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": [[110, 25], [112, 27]]},
+                "properties": {"id": feature_type, "feature_type": feature_type, "title": feature_type},
+            },
+            1,
+        )
+
+    assert system_for("cold_vortex")["display_group"] == "primary"
+    assert system_for("upper_jet")["display_group"] == "support"
+    assert system_for("pv_anomaly")["display_group"] == "advanced"
+    assert system_for("low_level_convergence_axis")["display_group"] == "debug"
+    assert system_for("upper_jet")["map_selectable"] is True
+    assert system_for("pv_anomaly")["map_selectable"] is False
 
 
 def test_nafp_risk_features_hide_background_axis_supports():

@@ -7,12 +7,18 @@ const mapJs = fs.readFileSync('frontend/map.js', 'utf8');
 const mapCss = fs.readFileSync('frontend/map.css', 'utf8');
 
 test('map feature toggles focus on primary weather systems', () => {
+  const primaryBlock = mapJs.match(/const weatherSystemFeatureTypes = \[([\s\S]*?)\];/)?.[1] || '';
+  const supportBlock = mapJs.match(/const supportWeatherSystemFeatureTypes = \[([\s\S]*?)\];/)?.[1] || '';
   assert.doesNotMatch(mapJs, /\['low_pressure_convergence', '低压辐合区'\]/);
   assert.doesNotMatch(mapJs, /\['high_pressure_divergence', '高压辐散区'\]/);
-  assert.match(mapJs, /\['low_level_convergence', '低层辐合区'\]/);
-  assert.match(mapJs, /\['upper_divergence', '高空辐散区'\]/);
-  assert.doesNotMatch(mapJs, /\['low_level_convergence_axis', '低层辐合轴'\]/);
-  assert.doesNotMatch(mapJs, /\['upper_divergence_axis', '高空辐散轴'\]/);
+  assert.match(primaryBlock, /\['front_candidate', '锋面'\]/);
+  assert.match(primaryBlock, /\['shear_line', '切变线'\]/);
+  assert.match(primaryBlock, /\['moisture_transport', '水汽输送带'\]/);
+  assert.doesNotMatch(primaryBlock, /front_with_shear|upper_jet_exit_region|pv_anomaly|surface_front_candidate|dryline_candidate/);
+  assert.match(supportBlock, /\['low_level_convergence', '低层辐合区'\]/);
+  assert.match(supportBlock, /\['upper_divergence', '高空辐散区'\]/);
+  assert.match(supportBlock, /\['upper_jet', '高空急流'\]/);
+  assert.match(mapJs, /const advancedWeatherSystemFeatureTypes = \[/);
 });
 
 test('map carries extended weather system types without global prototype patches', () => {
@@ -25,8 +31,17 @@ test('map carries extended weather system types without global prototype patches
   assert.match(mapJs, /upper_jet: 'line'/);
 });
 
+test('map weather system controls separate primary and support diagnosis', () => {
+  assert.match(mapJs, /weatherSystemFeatureGroups/);
+  assert.match(mapJs, /label: '默认天气系统'/);
+  assert.match(mapJs, /label: '辅助诊断'/);
+  assert.match(mapJs, /renderFeatureToggleGroup\('featureToggles', weatherSystemFeatureGroups\)/);
+  assert.match(mapCss, /\.feature-toggle-group/);
+  assert.match(mapCss, /details\.feature-toggle-group\[open\]/);
+});
+
 test('map front axis display follows classified front algorithm output', () => {
-  assert.match(mapJs, /\['front_candidate', '锋面轴线'\]/);
+  assert.match(mapJs, /\['front_candidate', '锋面'\]/);
   assert.match(mapJs, /frontTypeColors/);
   assert.match(mapJs, /frontTypeColorExpression/);
   assert.match(mapJs, /\['get', 'front_type'\]/);
@@ -43,6 +58,10 @@ test('map feature loading can use one NAFP features request for the selected typ
 });
 
 test('map can load sounding observed systems and station risk points', () => {
+  const soundingDefaultBlock = mapJs.match(/const SOUNDING_DEFAULT_TYPES = \[([\s\S]*?)\];/)?.[1] || '';
+  assert.match(soundingDefaultBlock, /'shear_line'/);
+  assert.match(soundingDefaultBlock, /'moisture_transport'/);
+  assert.doesNotMatch(soundingDefaultBlock, /'ridge'|'front_with_shear'|'low_level_convergence'|'upper_divergence'|'upper_jet'/);
   assert.match(mapHtml, /id="soundingFileSelect"/);
   assert.match(mapHtml, /id="btnLoadSoundingFeatures"/);
   assert.doesNotMatch(mapHtml, /class="panel-subsection sounding-panel"/);
