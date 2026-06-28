@@ -383,6 +383,35 @@ function isElementLayer(layerId) {
   return !isRiskLayer(layerId);
 }
 
+const ELEMENT_LAYER_LEVELS = [
+  { key: 'surface', label: '地面' },
+  { key: '1000', label: '1000hPa' },
+  { key: '950', label: '950hPa' },
+  { key: '925', label: '925hPa' },
+  { key: '850', label: '850hPa' },
+  { key: '800', label: '800hPa' },
+  { key: '750', label: '750hPa' },
+  { key: '700', label: '700hPa' },
+  { key: '600', label: '600hPa' },
+  { key: '500', label: '500hPa' },
+  { key: '400', label: '400hPa' },
+  { key: '300', label: '300hPa' },
+  { key: '250', label: '250hPa' },
+  { key: '200', label: '200hPa' },
+  { key: '150', label: '150hPa' },
+  { key: '100', label: '100hPa' },
+  { key: 'cross', label: '跨层/指数' },
+  { key: 'other', label: '其他' },
+];
+
+function elementLayerLevelKey(layerId, cfg = {}) {
+  const text = `${layerId || ''} ${cfg.title || ''}`;
+  if (/0[-_]6km|850[-_]500|700[-_]500|lapse|shear|k_index|K\s*指数/i.test(text)) return 'cross';
+  if (/mslp|海平面|地面/i.test(text)) return 'surface';
+  const match = text.match(/(?:^|[^0-9])(1000|950|925|850|800|750|700|600|500|400|300|250|200|150|100)\s*(?:hPa)?/i);
+  return match ? match[1] : 'other';
+}
+
 function createBaseStyle() {
   return {
     version: 8,
@@ -832,28 +861,58 @@ function locateFeatureById(featureId) {
   selectFeature(feature, center);
 }
 
-function renderLayerChipGroup(boxId, predicate) {
+function createLayerChipButton(id, cfg) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `layer-chip${id === $('layerSelect').value ? ' active' : ''}`;
+  const label = document.createElement('span');
+  label.textContent = cfg.title || id;
+  button.appendChild(label);
+  button.addEventListener('click', async () => {
+    $('layerSelect').value = id;
+    renderLayerChips();
+    await loadLayer();
+  });
+  return button;
+}
+
+function renderLayerChipGroup(boxId, predicate, options = {}) {
   const box = $(boxId);
   if (!box) return;
   box.innerHTML = '';
-  Object.entries(state.layers).filter(([id]) => predicate(id)).forEach(([id, cfg]) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `layer-chip${id === $('layerSelect').value ? ' active' : ''}`;
-    const label = document.createElement('span');
-    label.textContent = cfg.title || id;
-    button.appendChild(label);
-    button.addEventListener('click', async () => {
-      $('layerSelect').value = id;
-      renderLayerChips();
-      await loadLayer();
-    });
-    box.appendChild(button);
+  const entries = Object.entries(state.layers).filter(([id]) => predicate(id));
+  if (!options.groupByLevel) {
+    box.classList.add('layer-chips');
+    box.classList.remove('layer-chip-groups');
+    entries.forEach(([id, cfg]) => box.appendChild(createLayerChipButton(id, cfg)));
+    return;
+  }
+
+  box.classList.add('layer-chip-groups');
+  box.classList.remove('layer-chips');
+  const grouped = new Map(ELEMENT_LAYER_LEVELS.map((item) => [item.key, []]));
+  entries.forEach(([id, cfg]) => {
+    const key = elementLayerLevelKey(id, cfg);
+    grouped.get(grouped.has(key) ? key : 'other').push([id, cfg]);
+  });
+  ELEMENT_LAYER_LEVELS.forEach(({ key, label }) => {
+    const items = grouped.get(key);
+    if (!items || !items.length) return;
+    const group = document.createElement('section');
+    group.className = 'layer-level-group';
+    const title = document.createElement('h3');
+    title.className = 'layer-level-title';
+    title.textContent = label;
+    const chips = document.createElement('div');
+    chips.className = 'layer-chips layer-level-chips';
+    items.forEach(([id, cfg]) => chips.appendChild(createLayerChipButton(id, cfg)));
+    group.append(title, chips);
+    box.appendChild(group);
   });
 }
 
 function renderLayerChips() {
-  renderLayerChipGroup('layerChips', isElementLayer);
+  renderLayerChipGroup('layerChips', isElementLayer, { groupByLevel: true });
   renderLayerChipGroup('riskLayerChips', isRiskLayer);
 }
 

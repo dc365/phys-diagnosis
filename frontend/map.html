@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>天气形势分析与物理量诊断工作台</title>
   <link rel="stylesheet" href="/static/vendor/maplibre-gl/maplibre-gl.css?v=5.24.0" />
-  <link rel="stylesheet" href="/static/map.css?v=front-axis-20260625" />
+  <link rel="stylesheet" href="/static/map.css?v=layer-groups-20260628" />
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到地图</a>
@@ -82,7 +82,7 @@
               </select>
             </label>
             <select id="layerSelect" class="visually-hidden" aria-label="诊断要素"></select>
-            <div id="layerChips" class="layer-chips"></div>
+            <div id="layerChips" class="layer-chip-groups"></div>
             <label class="contour-toggle">
               <input id="contourToggle" type="checkbox" checked />
               <span>等值线</span>
@@ -175,7 +175,7 @@
       tiandituToken: '607ace490b937459cac5709cc3aef752'
     };
   </script>
-  <script src="/static/map.js?v=map-feature-race-20260626"></script>
+  <script src="/static/map.js?v=layer-groups-20260628"></script>
   <script src="/static/sounding-map-extension.js?v=sounding-multilevel-20260627"></script>
 </body>
 </html>

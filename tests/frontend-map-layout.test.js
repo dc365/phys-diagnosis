@@ -16,12 +16,11 @@ test('map page keeps the meteorological map workbench structure', () => {
 });
 
 test('map page cache-busts static assets after interface changes', () => {
-  assert.match(html, /href="\/static\/map\.css\?v=front-axis-20260625"/);
+  assert.match(html, /href="\/static\/map\.css\?v=layer-groups-20260628"/);
   const utilsVersion = html.match(/src="\/static\/maplibre-utils\.js\?v=([^"]+)"/)?.[1];
   const mapVersion = html.match(/src="\/static\/map\.js\?v=([^"]+)"/)?.[1];
   assert.equal(utilsVersion, 'map-feature-race-20260626');
-  assert.equal(mapVersion, 'map-feature-race-20260626');
-  assert.equal(utilsVersion, mapVersion);
+  assert.equal(mapVersion, 'layer-groups-20260628');
 });
 
 test('map page bundles MapLibre and avoids legacy public basemap dependencies', () => {
@@ -114,8 +113,23 @@ test('map css makes the map the primary canvas with right layers and bottom time
 });
 
 test('layer chips keep readable labels above generated preview art', () => {
+  assert.match(mapJs, /function createLayerChipButton/);
   assert.match(mapJs, /const label = document\.createElement\('span'\)/);
   assert.match(css, /\.layer-chip > span[\s\S]*z-index: 1/);
+});
+
+test('map element chips are grouped by meteorological level', () => {
+  assert.match(html, /id="layerChips" class="layer-chip-groups"/);
+  assert.match(html, /id="riskLayerChips" class="layer-chips"/);
+  assert.match(mapJs, /const ELEMENT_LAYER_LEVELS = \[/);
+  assert.match(mapJs, /label: '地面'/);
+  assert.match(mapJs, /label: '850hPa'/);
+  assert.match(mapJs, /label: '500hPa'/);
+  assert.match(mapJs, /label: '跨层\/指数'/);
+  assert.match(mapJs, /function elementLayerLevelKey/);
+  assert.match(mapJs, /renderLayerChipGroup\('layerChips', isElementLayer, \{ groupByLevel: true \}\)/);
+  assert.match(css, /\.layer-chip-groups/);
+  assert.match(css, /\.layer-level-title/);
 });
 
 test('map controls remain visible on the light workbench chrome', () => {
