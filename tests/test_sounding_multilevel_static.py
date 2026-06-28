@@ -20,6 +20,15 @@ def test_sounding_multilevel_module_exposes_elements_systems_and_risk_grids():
         assert token in text
 
 
+def test_sounding_multilevel_uses_shared_nafp_thresholds():
+    text = Path("weather_diag/diagnosis/sounding_multilevel.py").read_text(encoding="utf-8")
+    assert "thresholds = load_thresholds()" in text
+    assert "risk_scoring" in text
+    assert "threshold_source" in text
+    assert "shared_nafp_threshold_matrix" in text
+    assert "sounding_threshold_matrix" not in text
+
+
 def test_sounding_api_exposes_multilevel_layers():
     text = Path("backend/app/api/v1/sounding.py").read_text(encoding="utf-8")
     for layer in [
@@ -53,16 +62,16 @@ def test_map_loads_dynamic_sounding_layer_extension():
     for token in [
         "/api/v1/sounding/layers",
         "patchSoundingLayerLoader",
-        "wind850_speed",
-        "risk_severe_convection_composite_score",
+        "replaceWithSoundingLayers",
+        "restoreForecastLayers",
     ]:
         assert token in extension
 
 
-def test_sounding_map_extension_replaces_forecast_layer_catalog():
+def test_sounding_map_extension_filters_unavailable_layers():
     extension = Path("frontend/sounding-map-extension.js").read_text(encoding="utf-8")
-    assert "function setSoundingLayers" in extension
-    assert "state.layers = {}" in extension
-    assert "setLayerOptions(state.layers)" in extension
-    assert "function refreshForecastLayers" in extension
+    assert "replaceWithSoundingLayers(data || {})" in extension
+    assert "clearLayerObject(state.layers)" in extension
+    assert "forecastLayerSnapshot" in extension
     assert "mergeSoundingLayers(DEFAULT_SOUNDING_LAYERS)" not in extension
+    assert "DEFAULT_SOUNDING_LAYERS" not in extension
