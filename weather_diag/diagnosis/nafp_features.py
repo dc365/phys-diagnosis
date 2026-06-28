@@ -11,6 +11,7 @@ FEATURE_TYPE_ALIASES = {
     "trough": {"trough_candidate"},
     "ridge": {"ridge_candidate"},
 }
+BACKGROUND_SUPPORT_SYSTEM_TYPES = {"low_level_convergence_axis", "upper_divergence_axis"}
 
 
 def parse_feature_types(value: str | None) -> list[str] | None:
@@ -47,6 +48,12 @@ def _public_feature_type(source_type: str) -> str:
         if source_type in source_types:
             return public_type
     return source_type
+
+
+def _support_system_type(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(item.get("type") or item.get("feature_type") or "")
+    return ""
 
 
 def _system_geometry_to_geojson(geometry: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -106,7 +113,11 @@ def _risk_feature(risk: dict[str, Any]) -> dict[str, Any] | None:
     geometry = _system_geometry_to_geojson(region)
     if geometry is None:
         return None
-    supporting_systems = risk.get("supporting_systems") or risk.get("linked_systems") or []
+    supporting_systems = [
+        item
+        for item in (risk.get("supporting_systems") or risk.get("linked_systems") or [])
+        if _support_system_type(item) not in BACKGROUND_SUPPORT_SYSTEM_TYPES
+    ]
     properties = {
         "id": risk.get("risk_id") or f"risk-{hazard_type}",
         "type": feature_type,

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>天气形势分析与物理量诊断工作台</title>
-  <link rel="stylesheet" href="/static/styles.css?v=hide-source-paths-20260625" />
+  <link rel="stylesheet" href="/static/styles.css?v=threshold-categories-20260628" />
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳转到主内容</a>
@@ -501,6 +501,10 @@
                             <small class="threshold-column-hint">字段与来源</small>
                           </th>
                           <th>
+                            <span>类别</span>
+                            <small class="threshold-column-hint">热力 / 水汽 / 动力</small>
+                          </th>
+                          <th>
                             <span>业务判断</span>
                             <small class="threshold-column-hint">评分方式与证据含义</small>
                           </th>
@@ -523,7 +527,7 @@
                         </tr>
                       </thead>
                       <tbody id="thresholdMatrixBody">
-                        <tr><td colspan="6" class="empty-cell">加载阈值矩阵</td></tr>
+                        <tr><td colspan="7" class="empty-cell">加载阈值矩阵</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -635,6 +639,6 @@
   </div>
 
   <script src="/static/admin-utils.js?v=primary-weather-systems-20260625"></script>
-  <script src="/static/app.js?v=hide-source-paths-20260625"></script>
+  <script src="/static/app.js?v=threshold-categories-20260628"></script>
 </body>
 </html>

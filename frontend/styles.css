@@ -2056,7 +2056,7 @@ tbody tr.active-row { background: var(--accent-soft); }
   max-height: 472px;
 }
 .threshold-matrix table {
-  min-width: 720px;
+  min-width: 820px;
 }
 .threshold-matrix th > span,
 .threshold-matrix th > small {
@@ -2089,14 +2089,26 @@ tbody tr.active-row { background: var(--accent-soft); }
   color: var(--muted);
   font-size: 11px;
 }
+.threshold-category-pill {
+  display: inline-flex;
+  min-width: 64px;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--radar-cyan) 10%, var(--surface-soft));
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
 .threshold-row td:first-child strong,
 .threshold-row td:first-child span,
-.threshold-row td:nth-child(2) strong,
-.threshold-row td:nth-child(2) span {
+.threshold-row td:nth-child(3) strong,
+.threshold-row td:nth-child(3) span {
   display: block;
 }
 .threshold-row td:first-child span,
-.threshold-row td:nth-child(2) span {
+.threshold-row td:nth-child(3) span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;

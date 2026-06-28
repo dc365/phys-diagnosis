@@ -39,6 +39,7 @@ const RISK_REGION_EXTRACTION_SUFFIXES = new Set([
   'min_area_grid_points',
   'max_objects',
 ]);
+const PHYSICAL_CATEGORY_ORDER = ['热力条件', '水汽条件', '动力条件', '降水条件', '系统支持', '综合风险'];
 const SITUATION_EVOLUTION_LABELS = {
   subtropical_high: '副高演变',
   trough_candidate: '槽线演变',
@@ -1236,13 +1237,15 @@ function thresholdEntrySection(entry) {
   return 'risk-factor';
 }
 
-function thresholdSectionLabel(section) {
+function thresholdSectionLabel(section, category = '') {
+  if (section === 'risk-factor' && category) return `${category}因子`;
   if (section === 'risk-factor') return '格点评分因子';
   if (section === 'risk-region') return '风险区生成规则';
   return '';
 }
 
-function thresholdSectionHint(section) {
+function thresholdSectionHint(section, category = '') {
+  if (section === 'risk-factor' && category) return `${category}相关物理量，把每个格点换算成 0-1 风险贡献`;
   if (section === 'risk-factor') return '参考数值预报物理量，把每个格点换算成 0-1 风险贡献';
   if (section === 'risk-region') return '从 source_grid 中提取可展示、可排序的风险区对象';
   return '';
@@ -1252,12 +1255,19 @@ function thresholdEntrySections(entries) {
   if (!entries.some((entry) => thresholdEntrySection(entry) !== 'default')) {
     return [{ section: 'default', entries }];
   }
-  return ['risk-factor', 'risk-region']
-    .map((section) => ({
-      section,
-      entries: entries.filter((entry) => thresholdEntrySection(entry) === section),
+  const factorEntries = entries.filter((entry) => thresholdEntrySection(entry) === 'risk-factor');
+  const sections = PHYSICAL_CATEGORY_ORDER
+    .map((category) => ({
+      section: 'risk-factor',
+      category,
+      entries: factorEntries.filter((entry) => thresholdCategoryLabel(entry) === category),
     }))
     .filter((item) => item.entries.length);
+  const otherFactors = factorEntries.filter((entry) => !PHYSICAL_CATEGORY_ORDER.includes(thresholdCategoryLabel(entry)));
+  if (otherFactors.length) sections.push({ section: 'risk-factor', category: '其他', entries: otherFactors });
+  const regionEntries = entries.filter((entry) => thresholdEntrySection(entry) === 'risk-region');
+  if (regionEntries.length) sections.push({ section: 'risk-region', entries: regionEntries });
+  return sections;
 }
 
 function renderThresholdGroups(version) {
@@ -1290,7 +1300,7 @@ function renderThresholdGroupHeader(entries) {
   setText('thresholdGroupTitle', thresholdGroupLabel(group));
   const sections = thresholdEntrySections(entries).filter((item) => item.section !== 'default');
   const detail = sections.length
-    ? ` · ${sections.map((item) => `${thresholdSectionLabel(item.section)} ${item.entries.length}`).join(' / ')}`
+    ? ` · ${sections.map((item) => `${thresholdSectionLabel(item.section, item.category)} ${item.entries.length}`).join(' / ')}`
     : '';
   setText('thresholdGroupMeta', `${entries.length} 项${detail}`);
 }
@@ -1307,7 +1317,7 @@ function renderThresholdMatrix(version) {
   if (!version?.entries?.length) {
     renderThresholdGroups(version);
     renderThresholdGroupHeader([]);
-    body.innerHTML = '<tr><td colspan="6" class="empty-cell">暂无阈值矩阵</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty-cell">暂无阈值矩阵</td></tr>';
     return;
   }
   setThresholdMatrixBadge(version);
@@ -1326,10 +1336,10 @@ function renderThresholdSection(section) {
   if (section.section === 'default') return rows;
   return `
     <tr class="threshold-section-row" data-threshold-section="${escapeHtml(section.section)}">
-      <td colspan="6">
+      <td colspan="7">
         <div class="threshold-section-title">
-          <strong>${escapeHtml(thresholdSectionLabel(section.section))}</strong>
-          <span>${escapeHtml(thresholdSectionHint(section.section))} · ${section.entries.length} 项</span>
+          <strong>${escapeHtml(thresholdSectionLabel(section.section, section.category))}</strong>
+          <span>${escapeHtml(thresholdSectionHint(section.section, section.category))} · ${section.entries.length} 项</span>
         </div>
       </td>
     </tr>
@@ -1374,6 +1384,35 @@ function thresholdModeLabel(entry) {
   return `${thresholdStatisticLabel(entry.statistic)} · ${thresholdOperatorLabel(entry.operator)}`;
 }
 
+function normalizeThresholdCategory(category) {
+  const labels = {
+    热力: '热力条件',
+    水汽: '水汽条件',
+    动力: '动力条件',
+    降水: '降水条件',
+  };
+  return labels[category] || category;
+}
+
+function inferThresholdPhysicalCategory(entry) {
+  const text = [entry?.entry_id, entry?.field, entry?.signal, entry?.statistic]
+    .map((value) => String(value || '').toLowerCase())
+    .join('.');
+  if (text.includes('risk_')) return '综合风险';
+  if (['q850', 'tcwv', 'td2m', 'rh', 'moisture', 'precipitable_water', 'mid_dry'].some((token) => text.includes(token))) return '水汽条件';
+  if (['rain', 'precip_'].some((token) => text.includes(token))) return '降水条件';
+  if (['cape', 'cin', 'kindex', 'li', 'dcape', 'lapse_rate', 't500', 'freezing', 'lcl', 'instability', 'mid_cold'].some((token) => text.includes(token))) return '热力条件';
+  if (['div', 'vort', 'w700', 'wind', 'shear', 'srh', 'pvadv', 'upper', 'convergence', 'omega'].some((token) => text.includes(token))) return '动力条件';
+  return '系统支持';
+}
+
+function thresholdCategoryLabel(entry) {
+  if (thresholdEntrySection(entry) === 'risk-region') return '风险区';
+  if (thresholdEntrySection(entry) === 'risk-factor') return normalizeThresholdCategory(entry.physical_category) || inferThresholdPhysicalCategory(entry);
+  if (thresholdGroupDomain(entry?.group) === 'weather-systems') return '天气系统';
+  return thresholdGroupLabel(entry?.group);
+}
+
 function thresholdInputDisabled(entry, field) {
   if (field === 'threshold') return entry.threshold === null || entry.threshold === undefined;
   if (field === 'scale') return entry.scale === null || entry.scale === undefined || thresholdEntrySection(entry) === 'risk-region';
@@ -1392,6 +1431,9 @@ function renderThresholdRow(entry) {
       <td>
         <strong>${escapeHtml(entry.field || '-')}</strong>
         <span>${escapeHtml(entry.source || '-')}</span>
+      </td>
+      <td>
+        <span class="threshold-category-pill">${escapeHtml(thresholdCategoryLabel(entry))}</span>
       </td>
       <td>
         <strong>${escapeHtml(entry.signal || entry.entry_id)}</strong>
@@ -1462,7 +1504,7 @@ async function loadAlgorithmManagement() {
     $('thresholdGroupList').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
     setText('thresholdGroupTitle', '加载失败');
     setText('thresholdGroupMeta', '0 项');
-    $('thresholdMatrixBody').innerHTML = `<tr><td colspan="6" class="empty-cell">${escapeHtml(error.message)}</td></tr>`;
+    $('thresholdMatrixBody').innerHTML = `<tr><td colspan="7" class="empty-cell">${escapeHtml(error.message)}</td></tr>`;
   }
 }
 

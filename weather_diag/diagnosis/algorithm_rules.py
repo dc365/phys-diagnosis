@@ -311,6 +311,21 @@ RISK_FACTOR_FIELD_RULE_OVERRIDES = {
 }
 
 
+def _risk_physical_category(factor: str, field: str) -> str:
+    text = f"{factor}.{field}".lower()
+    if "risk_" in text:
+        return "综合风险"
+    if any(token in text for token in ["q850", "tcwv", "td2m", "rh", "moisture", "precipitable_water", "mid_dry"]):
+        return "水汽条件"
+    if any(token in text for token in ["rain", "precip_"]):
+        return "降水条件"
+    if any(token in text for token in ["cape", "cin", "kindex", "li", "dcape", "lapse_rate", "t500", "freezing", "lcl", "instability", "mid_cold"]):
+        return "热力条件"
+    if any(token in text for token in ["div", "vort", "w700", "omega", "wind", "shear", "srh", "pvadv", "upper", "convergence"]):
+        return "动力条件"
+    return "系统支持"
+
+
 def _risk_threshold_entry(
     target: str,
     suffix: str,
@@ -323,9 +338,10 @@ def _risk_threshold_entry(
     field: str | None = None,
     scale: float | None = None,
     weight: float | None = None,
+    physical_category: str | None = None,
 ) -> dict:
     feature = RISK_MATRIX_FEATURE_DEFAULTS[target]
-    return {
+    entry = {
         "entry_id": f"risk.{target}.{suffix}",
         "group": RISK_RULE_SPECS[target]["title"],
         "target": target,
@@ -340,6 +356,9 @@ def _risk_threshold_entry(
         "enabled": True,
         "source": feature["feature_type"],
     }
+    if physical_category:
+        entry["physical_category"] = physical_category
+    return entry
 
 
 def _risk_scoring_threshold_meta(factor: str, field: str) -> dict | None:
@@ -393,6 +412,7 @@ def _risk_weight_entry(target: str, factor: str, signal: str, field: str, weight
         unit=meta.get("unit", "ratio"),
         field=field,
         weight=weight,
+        physical_category=_risk_physical_category(factor, field),
     )
 
 
@@ -424,6 +444,7 @@ def _risk_weight_entries(target: str, factor: str, signal: str, field: str, weig
                 unit=meta.get("unit", "ratio"),
                 field=component_field,
                 weight=component_weight,
+                physical_category=_risk_physical_category(factor, component_field),
             )
         )
     return entries

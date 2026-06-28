@@ -60,7 +60,7 @@
   }
 
   function layerAvailable(layerId) {
-    return Boolean((state?.layers || {})[layerId] || DEFAULT_SOUNDING_LAYERS[layerId]);
+    return Boolean((state?.layers || {})[layerId]);
   }
 
   async function getEnvelopeLocal(url) {
@@ -71,27 +71,52 @@
     return body.data;
   }
 
-  function mergeSoundingLayers(layers) {
-    if (!state?.layers) return;
-    Object.entries(layers || DEFAULT_SOUNDING_LAYERS).forEach(([id, cfg]) => {
-      state.layers[id] = {
-        ...(state.layers[id] || {}),
-        variable: cfg.variable || cfg.field || id,
-        title: cfg.title || cfg.label || id,
-        unit: cfg.unit || state.layers[id]?.unit || '',
-        data_type: 'sounding',
-      };
+  function setLayerOptions(layers) {
+    const select = document.getElementById('layerSelect');
+    if (!select) return;
+    select.innerHTML = '';
+    Object.entries(layers || {}).forEach(([id, cfg]) => {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = cfg.title || cfg.label || id;
+      select.appendChild(option);
     });
   }
 
+  function setSoundingLayers(layers) {
+    if (!state?.layers) return;
+    state.layers = {};
+    Object.entries(layers || {}).forEach(([id, cfg]) => {
+      state.layers[id] = {
+        variable: cfg.variable || cfg.field || id,
+        title: cfg.title || cfg.label || id,
+        unit: cfg.unit || '',
+        data_type: 'sounding',
+      };
+    });
+    setLayerOptions(state.layers);
+  }
+
   async function refreshSoundingLayers() {
-    mergeSoundingLayers(DEFAULT_SOUNDING_LAYERS);
     try {
       const data = await getEnvelopeLocal(`/api/v1/sounding/layers?${toQuery([['csv_path', selectedCsv()], ['pressure_level', 500], ['_', Date.now()]])}`);
-      mergeSoundingLayers(data || {});
+      setSoundingLayers(data || {});
     } catch (error) {
       console.warn('sounding layer catalog load failed', error);
+      setSoundingLayers(DEFAULT_SOUNDING_LAYERS);
     }
+    window.selectDefaultSoundingLayer?.();
+    if (typeof renderLayerChips === 'function') renderLayerChips();
+  }
+
+  async function refreshForecastLayers() {
+    if (typeof window.refreshLayers === 'function') {
+      await window.refreshLayers();
+      return;
+    }
+    const data = await getEnvelopeLocal('/api/layers');
+    state.layers = data || {};
+    setLayerOptions(state.layers);
     if (typeof renderLayerChips === 'function') renderLayerChips();
   }
 
@@ -100,7 +125,6 @@
     window.selectDefaultSoundingLayer = function patchedSelectDefaultSoundingLayer() {
       const select = document.getElementById('layerSelect');
       if (!select) return;
-      mergeSoundingLayers(DEFAULT_SOUNDING_LAYERS);
       if (!layerAvailable(select.value)) select.value = 'z500';
       if (!select.value) select.value = 'z500';
       if (typeof renderLayerChips === 'function') renderLayerChips();
@@ -163,8 +187,12 @@
   }
 
   function bindSoundingEvents() {
-    document.getElementById('dataCategorySelect')?.addEventListener('change', () => {
-      if (document.getElementById('dataCategorySelect')?.value === 'sounding') refreshSoundingLayers();
+    document.getElementById('dataCategorySelect')?.addEventListener('change', async () => {
+      if (document.getElementById('dataCategorySelect')?.value === 'sounding') {
+        await refreshSoundingLayers();
+      } else {
+        await refreshForecastLayers();
+      }
     });
     document.getElementById('soundingFileSelect')?.addEventListener('change', async () => {
       await refreshSoundingLayers();
@@ -183,10 +211,10 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       bindSoundingEvents();
-      refreshSoundingLayers();
+      if (document.getElementById('dataCategorySelect')?.value === 'sounding') refreshSoundingLayers();
     });
   } else {
     bindSoundingEvents();
-    refreshSoundingLayers();
+    if (document.getElementById('dataCategorySelect')?.value === 'sounding') refreshSoundingLayers();
   }
 })();

@@ -87,6 +87,19 @@ test('threshold matrix uses dense duty-table styling', () => {
 test('risk threshold matrix separates scoring factors from region extraction parameters', () => {
   assert.match(app, /function thresholdEntrySection/);
   assert.match(app, /function thresholdSectionLabel/);
+  assert.match(app, /function thresholdCategoryLabel/);
+  assert.match(app, /function inferThresholdPhysicalCategory/);
+  assert.match(app, /PHYSICAL_CATEGORY_ORDER/);
+  assert.match(app, /physical_category/);
+  assert.match(app, /inferThresholdPhysicalCategory\(entry\)/);
+  assert.match(app, /threshold-category-pill/);
+  assert.match(app, /colspan="7"/);
+  assert.match(app, /热力条件/);
+  assert.match(app, /水汽条件/);
+  assert.match(app, /动力条件/);
+  assert.match(app, /cape/);
+  assert.match(app, /q850/);
+  assert.match(app, /cin/);
   assert.match(app, /格点评分因子/);
   assert.match(app, /风险区生成规则/);
   assert.match(app, /score_threshold/);
@@ -99,6 +112,9 @@ test('risk threshold matrix separates scoring factors from region extraction par
 
 test('threshold matrix uses forecaster-facing names and guidance', () => {
   assert.match(html, />物理量 \/ 参数</);
+  assert.match(html, />类别</);
+  assert.match(html, /threshold-categories-20260628/);
+  assert.match(html, /colspan="7"/);
   assert.match(html, />业务判断</);
   assert.match(html, />参考阈值</);
   assert.match(html, />满分跨度</);
@@ -111,6 +127,7 @@ test('threshold matrix uses forecaster-facing names and guidance', () => {
   assert.match(app, /贡献权重/);
   assert.match(app, /分项权重/);
   assert.match(css, /\.threshold-guide/);
+  assert.match(css, /\.threshold-category-pill/);
   assert.match(css, /\.threshold-column-hint/);
 });
 

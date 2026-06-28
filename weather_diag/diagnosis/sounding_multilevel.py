@@ -8,6 +8,7 @@ import pandas as pd
 
 from weather_diag.config import load_thresholds
 from weather_diag.diagnosis import sounding as legacy
+from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level as matrix_score_level
 from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
 from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES
 from weather_diag.diagnostics.grid import derivatives_lonlat
@@ -239,18 +240,6 @@ def build_multilevel_systems(analysis_fields: dict[str, dict[str, Any]], lat: np
     return systems
 
 
-def _risk_level(score: float) -> str:
-    if score >= 0.8:
-        return "very_high"
-    if score >= 0.6:
-        return "high"
-    if score >= 0.4:
-        return "medium"
-    if score >= 0.2:
-        return "low"
-    return "very_low"
-
-
 def _risk_grid_payload(values: np.ndarray, lat: np.ndarray, lon: np.ndarray, hazard: str, sources: list[str]) -> dict[str, Any]:
     meta = HAZARD_TYPES[hazard]
     return _derived_payload(values, "0-1", lat, lon, method="sounding_multilevel_risk:" + "+".join(sources)) | {
@@ -261,6 +250,36 @@ def _risk_grid_payload(values: np.ndarray, lat: np.ndarray, lon: np.ndarray, haz
             "sources": sources,
         }
     }
+
+
+def _sync_preserved_500_fields(result: dict[str, Any], additions: dict[str, dict[str, Any]], analyzed: dict[str, Any], lat: np.ndarray, lon: np.ndarray) -> None:
+    base_fields = result.get("analysis_fields") or {}
+    for name in ["z500", "t500", "u500", "v500"]:
+        field = base_fields.get(name)
+        if not field or "values" not in field:
+            continue
+        additions.pop(name, None)
+        analyzed[name] = np.asarray(field["values"], dtype=float)
+    if "u500" in analyzed and "v500" in analyzed:
+        u = analyzed["u500"]
+        v = analyzed["v500"]
+        wind = np.hypot(u, v)
+        div, vort = _div_vort(u, v, lat, lon)
+        additions["wind500_speed"] = _derived_payload(wind, "m/s", lat, lon, method="hypot(u,v)")
+        additions["div500"] = _derived_payload(div, "s^-1", lat, lon, method="divergence_from_sounding_wind")
+        additions["vort500"] = _derived_payload(vort, "s^-1", lat, lon, method="vorticity_from_sounding_wind")
+        analyzed["wind500_speed"] = wind
+        analyzed["div500"] = div
+        analyzed["vort500"] = vort
+    if "t700" in analyzed and "t500" in analyzed and "z700" in analyzed and "z500" in analyzed:
+        dz_km = np.maximum((analyzed["z500"] - analyzed["z700"]) / 1000.0, 0.1)
+        lapse = (analyzed["t700"] - analyzed["t500"]) / dz_km
+        additions["lapse_rate_700_500"] = _derived_payload(lapse, "degC/km", lat, lon, method="(t700-t500)/(z500-z700)")
+        analyzed["lapse_rate_700_500"] = lapse
+    if "u850" in analyzed and "u500" in analyzed and "v850" in analyzed and "v500" in analyzed:
+        shear = np.hypot(analyzed["u500"] - analyzed["u850"], analyzed["v500"] - analyzed["v850"])
+        additions["shear_850_500"] = _derived_payload(shear, "m/s", lat, lon, method="vector_shear_850_500")
+        analyzed["shear_850_500"] = shear
 
 
 def build_multilevel_risk_fields(analysis_fields: dict[str, dict[str, Any]], lat: np.ndarray, lon: np.ndarray) -> dict[str, dict[str, Any]]:
@@ -291,7 +310,12 @@ def build_multilevel_risk_fields(analysis_fields: dict[str, dict[str, Any]], lat
     return risks
 
 
-def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diagnostics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def augment_station_risks(
+    station_risk_items: list[dict[str, Any]],
+    station_diagnostics: list[dict[str, Any]],
+    threshold_matrix: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    matrix = threshold_matrix or load_threshold_matrix()
     by_id = {str(item.get("station_id")): item for item in station_risk_items}
     for diag in station_diagnostics:
         station_id = str(diag.get("station_id"))
@@ -322,7 +346,7 @@ def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diag
                     "risk_domain": list(meta["risk_domain"]),
                     "feature_type": meta["feature_type"],
                     "score": round(float(score), 3),
-                    "risk_level": _risk_level(float(score)),
+                    "risk_level": matrix_score_level(float(score), matrix),
                     "score_source": "sounding_profile_indices_extended",
                     "source_indices": ["cape", "precipitable_water", "lcl"],
                     "dominant_factors": [
@@ -343,6 +367,7 @@ def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diag
 def augment_sounding_result(result: dict[str, Any], analysis_csv: str | Path, lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
     additions = build_multilevel_fields(analysis_csv, lat, lon)
     analyzed = additions.pop("_analyzed", {})
+    _sync_preserved_500_fields(result, additions, analyzed, lat, lon)
     # Keep internal arrays available only during this function.
     additions_internal = {"_analyzed": analyzed}
     result["analysis_fields"].update(additions)
@@ -350,7 +375,11 @@ def augment_sounding_result(result: dict[str, Any], analysis_csv: str | Path, la
     result["systems"] = list(result.get("systems") or []) + systems
     risks = build_multilevel_risk_fields({**additions, **additions_internal}, lat, lon)
     result["analysis_fields"].update(risks)
-    result["station_risk_diagnoses"] = augment_station_risks(result.get("station_risk_diagnoses") or [], result.get("station_diagnostics") or [])
+    result["station_risk_diagnoses"] = augment_station_risks(
+        result.get("station_risk_diagnoses") or [],
+        result.get("station_diagnostics") or [],
+        load_threshold_matrix(),
+    )
     result["multilevel_summary"] = {
         "available_levels": [level for level in MULTILEVELS if f"t{level}" in additions],
         "added_field_count": len(additions) + len(risks),

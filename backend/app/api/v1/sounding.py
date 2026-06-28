@@ -119,6 +119,7 @@ def _public_payload(result: dict[str, Any]) -> dict[str, Any]:
         "data_type": result["data_type"],
         "observation_time": result["observation_time"],
         "analysis_level": result["analysis_level"],
+        "threshold_matrix": result.get("threshold_matrix"),
         "domain": result["domain"],
         "analysis_fields": {name: _field_public(field) for name, field in result["analysis_fields"].items()},
         "systems": result["systems"],

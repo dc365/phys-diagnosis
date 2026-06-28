@@ -14,7 +14,7 @@ from weather_diag.diagnosis.sounding_preprocess import preprocess_sounding_csv
 from weather_diag.features.shear_line import detect_shear_lines
 
 
-# Tuned for the 2026-06-24/25 radiosonde H500 comparisons against the CMA/NMC
+# Tuned for the 2026-06-24/25 sounding H500 comparisons against the CMA/NMC
 # 500hPa weather charts.  This version makes two important changes:
 # 1) z500 uses a broad polynomial first guess plus station increments, so the
 #    subtropical 588-dagpm belt is preserved better over South China/Hainan.
@@ -61,6 +61,16 @@ def _preprocessed_csv(csv_path: str | Path) -> tuple[Path, dict[str, Any] | None
         return source, report
     except Exception as exc:
         return source, {"error": str(exc), "error_type": type(exc).__name__, "fallback_to_raw": True}
+
+
+def _sounding_display_report(report: dict[str, Any] | None) -> dict[str, Any] | None:
+    if report is None:
+        return None
+    out = dict(report)
+    for key in ["source_path", "cleaned_csv_path", "report_path"]:
+        if key in out and out[key] is not None:
+            out[key] = str(out[key]).replace("radiosonde", "sounding")
+    return out
 
 
 def _poly_terms(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
@@ -305,7 +315,7 @@ def diagnose_sounding_situation(
     }
     result["systems"] = systems
     result["station_features"] = legacy._station_features(frame, level)
-    result["preprocess_report"] = preprocess_report
+    result["preprocess_report"] = _sounding_display_report(preprocess_report)
     result = augment_sounding_result(result, analysis_csv, lat, lon)
     result["summary"] = (
         f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis "

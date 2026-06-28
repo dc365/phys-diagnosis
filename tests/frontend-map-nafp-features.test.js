@@ -11,6 +11,8 @@ test('map feature toggles focus on primary weather systems', () => {
   assert.doesNotMatch(mapJs, /\['high_pressure_divergence', '高压辐散区'\]/);
   assert.match(mapJs, /\['low_level_convergence', '低层辐合区'\]/);
   assert.match(mapJs, /\['upper_divergence', '高空辐散区'\]/);
+  assert.doesNotMatch(mapJs, /\['low_level_convergence_axis', '低层辐合轴'\]/);
+  assert.doesNotMatch(mapJs, /\['upper_divergence_axis', '高空辐散轴'\]/);
 });
 
 test('map carries extended weather system types without global prototype patches', () => {
@@ -20,7 +22,6 @@ test('map carries extended weather system types without global prototype patches
   assert.doesNotMatch(mapJs, /Object\.fromEntries =/);
   assert.match(mapJs, /\['shear_line', '切变线'\]/);
   assert.match(mapJs, /\['upper_jet', '高空急流'\]/);
-  assert.match(mapJs, /\['low_level_convergence_axis', '低层辐合轴'\]/);
   assert.match(mapJs, /upper_jet: 'line'/);
 });
 

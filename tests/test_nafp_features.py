@@ -211,6 +211,33 @@ def test_nafp_situation_features_include_hazard_specific_risk_items():
     assert feature["properties"]["region_source"] == "source_grid"
 
 
+def test_nafp_risk_features_hide_background_axis_supports():
+    collection = nafp_situation_to_feature_collection(
+        {
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hour": 24,
+            "risk_diagnoses": [
+                {
+                    "hazard_type": "short_duration_heavy_rain",
+                    "region": {
+                        "type": "polygon",
+                        "coordinates": [[[110, 25], [111, 25], [111, 26], [110, 26], [110, 25]]],
+                    },
+                    "supporting_systems": [
+                        {"type": "low_level_convergence_axis", "name": "低层辐合轴"},
+                        {"type": "low_level_convergence", "name": "低层辐合区"},
+                        {"type": "upper_divergence_axis", "name": "高空辐散轴"},
+                    ],
+                }
+            ],
+        },
+        requested_types=["short_duration_heavy_rain_risk"],
+    )
+
+    supports = collection["features"][0]["properties"]["supporting_systems"]
+    assert [item["type"] for item in supports] == ["low_level_convergence"]
+
+
 def test_nafp_features_endpoint_returns_filtered_hazard_risk_feature():
     response = client.get(
         "/api/v1/diagnosis/nafp/features",

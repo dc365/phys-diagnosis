@@ -19,8 +19,8 @@ test('map page cache-busts static assets after interface changes', () => {
   assert.match(html, /href="\/static\/map\.css\?v=layer-groups-20260628"/);
   const utilsVersion = html.match(/src="\/static\/maplibre-utils\.js\?v=([^"]+)"/)?.[1];
   const mapVersion = html.match(/src="\/static\/map\.js\?v=([^"]+)"/)?.[1];
-  assert.equal(utilsVersion, 'map-feature-race-20260626');
-  assert.equal(mapVersion, 'layer-groups-20260628');
+  assert.equal(utilsVersion, 'hide-axis-support-20260628');
+  assert.equal(mapVersion, 'hide-axis-support-20260628');
 });
 
 test('map page bundles MapLibre and avoids legacy public basemap dependencies', () => {

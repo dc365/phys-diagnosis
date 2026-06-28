@@ -53,8 +53,6 @@ def _patch_support_weights() -> None:
         {
             "shear_line": 0.78,
             "front_with_shear": 0.82,
-            "low_level_convergence_axis": 0.96,
-            "upper_divergence_axis": 0.76,
             "cold_vortex": 0.62,
             "mid_level_vortex": 0.58,
             "upper_jet": 0.68,
@@ -66,8 +64,6 @@ def _patch_support_weights() -> None:
         {
             "shear_line": 0.92,
             "front_with_shear": 0.94,
-            "low_level_convergence_axis": 1.0,
-            "upper_divergence_axis": 0.94,
             "cold_vortex": 0.82,
             "mid_level_vortex": 0.72,
             "upper_jet": 0.78,
@@ -81,8 +77,6 @@ def _patch_support_weights() -> None:
         {
             "shear_line": 0.82,
             "front_with_shear": 0.84,
-            "low_level_convergence_axis": 0.86,
-            "upper_divergence_axis": 0.96,
             "cold_vortex": 0.88,
             "mid_level_vortex": 0.78,
             "upper_jet": 0.82,

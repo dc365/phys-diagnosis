@@ -468,6 +468,8 @@ test('recommendedFeatureLayer maps weather systems to operational diagnostic lay
     recommendedFeatureLayer({ feature_type: 'shear_line' }, ['wind850_speed']),
     { layerId: 'wind850_speed', reason: 'wind-shear-line' },
   );
+  assert.equal(recommendedFeatureLayer({ feature_type: 'low_level_convergence_axis' }, available), null);
+  assert.equal(recommendedFeatureLayer({ feature_type: 'upper_divergence_axis' }, available), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'heavy_rain_risk' }, ['heavy_rain_score']), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'convection_risk' }, ['convection_score']), null);
   assert.equal(recommendedFeatureLayer({ feature_type: 'unknown' }, available), null);

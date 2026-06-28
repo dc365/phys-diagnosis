@@ -76,13 +76,21 @@ def test_sounding_profile_diagnostics_use_metpy_indices():
 
 def test_sounding_station_risk_diagnoses_use_profile_indices():
     diagnose_sounding_situation = _diagnose_sounding_situation()
-    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+    from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level
 
+    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+    matrix = load_threshold_matrix()
+
+    assert result["threshold_matrix"]["matrix_id"] == matrix["matrix_id"]
+    assert result["threshold_matrix"]["algorithm_id"] == matrix["algorithm_id"]
     risk_items = result["station_risk_diagnoses"]
     assert len(risk_items) == len(result["station_diagnostics"])
     first = next(item for item in risk_items if item["risks"])
     risk = first["risks"][0]
     assert risk["score_source"] == "sounding_profile_indices"
+    for item in risk_items[:10]:
+        for station_risk in item["risks"]:
+            assert station_risk["risk_level"] == score_level(float(station_risk["score"]), matrix)
     assert 0.0 <= risk["score"] <= 1.0
     assert risk["input_completeness"] < 1.0
     assert risk["score_cap_applied"] is True

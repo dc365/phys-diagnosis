@@ -31,6 +31,7 @@ def test_sounding_api_exposes_multilevel_layers():
         "shear_850_500",
         "risk_short_duration_heavy_rain_score",
         "risk_severe_convection_composite_score",
+        '"threshold_matrix": result.get("threshold_matrix")',
         '@router.get("/layers")',
     ]:
         assert layer in text
@@ -47,6 +48,7 @@ def test_map_loads_dynamic_sounding_layer_extension():
     html = Path("frontend/map.html").read_text(encoding="utf-8")
     extension = Path("frontend/sounding-map-extension.js").read_text(encoding="utf-8")
     assert "sounding-map-extension.js" in html
+    assert "sounding-layer-catalog-20260628" in html
     assert html.index("/static/map.js") < html.index("sounding-map-extension.js")
     for token in [
         "/api/v1/sounding/layers",
@@ -55,3 +57,12 @@ def test_map_loads_dynamic_sounding_layer_extension():
         "risk_severe_convection_composite_score",
     ]:
         assert token in extension
+
+
+def test_sounding_map_extension_replaces_forecast_layer_catalog():
+    extension = Path("frontend/sounding-map-extension.js").read_text(encoding="utf-8")
+    assert "function setSoundingLayers" in extension
+    assert "state.layers = {}" in extension
+    assert "setLayerOptions(state.layers)" in extension
+    assert "function refreshForecastLayers" in extension
+    assert "mergeSoundingLayers(DEFAULT_SOUNDING_LAYERS)" not in extension

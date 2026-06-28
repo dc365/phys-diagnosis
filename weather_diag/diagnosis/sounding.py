@@ -11,6 +11,7 @@ from scipy import ndimage
 from scipy.interpolate import griddata
 from scipy.spatial import cKDTree
 
+from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level as matrix_score_level
 from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES
 from weather_diag.features.trough_ridge import detect_trough_ridge
 from weather_diag.io.geojson import feature_collection, point_feature
@@ -183,12 +184,23 @@ def _weighted_score(factors: dict[str, tuple[float | None, float, str]]) -> tupl
     return float(np.clip(total, 0.0, 1.0)), dominant[:3], available / configured if configured else 0.0
 
 
+def _threshold_matrix_summary(matrix: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "matrix_id": matrix["matrix_id"],
+        "algorithm_id": matrix["algorithm_id"],
+        "status": matrix["status"],
+        "updated_at": matrix.get("updated_at"),
+        "updated_by": matrix.get("updated_by"),
+    }
+
+
 def _risk_item(
     hazard_type: str,
     score: float,
     dominant_factors: list[dict[str, Any]],
     input_completeness: float,
     *,
+    threshold_matrix: dict[str, Any],
     score_cap: float,
     missing_critical_factors: list[str],
 ) -> dict[str, Any]:
@@ -200,7 +212,7 @@ def _risk_item(
         "risk_domain": list(meta["risk_domain"]),
         "feature_type": meta["feature_type"],
         "score": round(capped, 3),
-        "risk_level": _risk_level(capped),
+        "risk_level": matrix_score_level(capped, threshold_matrix),
         "score_source": "sounding_profile_indices",
         "source_indices": [item["factor"] for item in dominant_factors],
         "dominant_factors": dominant_factors,
@@ -211,19 +223,11 @@ def _risk_item(
     }
 
 
-def _risk_level(score: float) -> str:
-    if score >= 0.8:
-        return "very_high"
-    if score >= 0.6:
-        return "high"
-    if score >= 0.4:
-        return "medium"
-    if score >= 0.2:
-        return "low"
-    return "very_low"
-
-
-def _station_risk_diagnoses(station_diagnostics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _station_risk_diagnoses(
+    station_diagnostics: list[dict[str, Any]],
+    threshold_matrix: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    matrix = threshold_matrix or load_threshold_matrix()
     out: list[dict[str, Any]] = []
     for item in station_diagnostics:
         indices = item.get("indices") or {}
@@ -252,6 +256,7 @@ def _station_risk_diagnoses(station_diagnostics: list[dict[str, Any]]) -> list[d
                 short_score,
                 short_factors,
                 short_complete * 0.6,
+                threshold_matrix=matrix,
                 score_cap=0.65,
                 missing_critical_factors=["低层辐合/水汽辐合触发", "短时降水或雨强"],
             ),
@@ -260,6 +265,7 @@ def _station_risk_diagnoses(station_diagnostics: list[dict[str, Any]]) -> list[d
                 rotating_score,
                 rotating_factors,
                 rotating_complete * 0.5,
+                threshold_matrix=matrix,
                 score_cap=0.55,
                 missing_critical_factors=["0-6km深层风切变", "0-1km低层风切变", "SRH风暴相对螺旋度"],
             ),
@@ -272,6 +278,7 @@ def _station_risk_diagnoses(station_diagnostics: list[dict[str, Any]]) -> list[d
                 composite_score,
                 composite_factors,
                 max((risk["input_completeness"] for risk in risks), default=0.0),
+                threshold_matrix=matrix,
                 score_cap=0.65,
                 missing_critical_factors=sorted({factor for risk in risks for factor in risk["missing_critical_factors"]}),
             )
@@ -534,11 +541,13 @@ def diagnose_sounding_situation(
     systems.extend(_trough_ridge_systems(z500, u500, v500, lat, lon, confidence))
 
     station_diagnostics = _station_diagnostics(df)
+    threshold_matrix = load_threshold_matrix()
     obs_time = pd.to_datetime(frame["request_datetime_bjt"].iloc[0]).isoformat()
     return {
         "data_type": "sounding",
         "observation_time": obs_time,
         "analysis_level": level,
+        "threshold_matrix": _threshold_matrix_summary(threshold_matrix),
         "domain": {
             "lat_min": float(lat.min()),
             "lat_max": float(lat.max()),
@@ -555,6 +564,6 @@ def diagnose_sounding_situation(
         "systems": systems,
         "station_features": _station_features(frame, level),
         "station_diagnostics": station_diagnostics,
-        "station_risk_diagnoses": _station_risk_diagnoses(station_diagnostics),
+        "station_risk_diagnoses": _station_risk_diagnoses(station_diagnostics, threshold_matrix),
         "summary": f"{obs_time} {level} sounding objective analysis generated {len(systems)} weather systems.",
     }

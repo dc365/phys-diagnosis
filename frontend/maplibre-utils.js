@@ -508,8 +508,6 @@
     front_candidate: { candidates: ['t850', 'temp_adv850', 'div850'], reason: 'thermal-front' },
     shear_line: { candidates: ['div850', 'wind850_speed', 'vort500'], reason: 'wind-shear-line' },
     front_with_shear: { candidates: ['t850', 'div850', 'temp_adv850'], reason: 'front-with-shear' },
-    low_level_convergence_axis: { candidates: ['div850', 'moisture_conv850'], reason: 'low-level-convergence-axis' },
-    upper_divergence_axis: { candidates: ['div200', 'div300', 'omega700'], reason: 'upper-divergence-axis' },
     cold_vortex: { candidates: ['z500', 'vort500', 't500'], reason: 'cold-vortex' },
     mid_level_vortex: { candidates: ['z500', 'z700', 'vort500'], reason: 'mid-level-vortex' },
     upper_jet: { candidates: ['wind200_speed', 'wind300_speed', 'div200', 'div300'], reason: 'upper-jet' },

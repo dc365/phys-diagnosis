@@ -152,13 +152,18 @@ def test_algorithm_catalog_exposes_nafp_rules_and_default_matrix():
     assert "risk.short_duration_heavy_rain.weight.moisture" not in entry_ids
     assert "risk.short_duration_heavy_rain.weight.instability" not in entry_ids
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.moisture.q850"]["field"] == "q850"
+    assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.moisture.q850"]["physical_category"] == "水汽条件"
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.moisture.q850"]["threshold"] == 6.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.moisture.q850"]["scale"] == 8.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.moisture.q850"]["weight"] == 0.063
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.cape"]["field"] == "cape"
+    assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.cape"]["physical_category"] == "热力条件"
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.cape"]["threshold"] == 500.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.cape"]["scale"] == 2000.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.cape"]["weight"] == 0.045
+    assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.low_level_convergence"]["physical_category"] == "动力条件"
+    assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.rainrate.rain6"]["physical_category"] == "降水条件"
+    assert risk_entry_lookup["risk.severe_convection_composite.weight.short_duration_heavy_rain"]["physical_category"] == "综合风险"
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.kindex"]["threshold"] == 25.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.kindex"]["scale"] == 13.0
     assert risk_entry_lookup["risk.short_duration_heavy_rain.weight.instability.li"]["operator"] == "negative_ratio"
