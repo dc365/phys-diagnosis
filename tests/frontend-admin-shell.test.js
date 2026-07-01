@@ -15,6 +15,10 @@ test('desktop admin shell isolates scrolling to the main workspace', () => {
   assert.match(css, /\.main-stage\s*{[^}]*scroll-behavior:\s*auto/s);
 });
 
+test('admin hidden controls stay hidden even when field layout sets display', () => {
+  assert.match(css, /(?:^|\n)\[hidden\]\s*{[^}]*display:\s*none\s*!important/s);
+});
+
 test('admin shell opens with a system overview before operational work areas', () => {
   const html = fs.readFileSync('frontend/index.html', 'utf8');
 
@@ -78,6 +82,10 @@ test('diagnosis controls show model labels while submitting configured data code
   assert.match(html, /<label[^>]*for="dataCodeSelect"/);
   assert.match(html, /id="dataCodeSelect"/);
   assert.match(html, />模式</);
+  assert.match(html, /id="automaticDiagnosisPanels"/);
+  assert.match(html, /<details class="manual-diagnosis-panel"/);
+  assert.match(html, /手动补算/);
+  assert.doesNotMatch(html, />生成诊断</);
   assert.doesNotMatch(html, /id="rootInput"/);
 
   assert.match(app, /function\s+loadDataSources\(\)/);
@@ -159,6 +167,8 @@ test('admin shell exposes area risk as an independent workbench', () => {
   assert.match(html, /href="#area-risk-workbench" data-view="area-risk-workbench"/);
   assert.match(html, /<strong>区域风险<\/strong>/);
   assert.match(html, /id="areaRiskForm"/);
+  assert.match(html, /id="areaRiskDataCategorySelect"/);
+  assert.match(html, /id="areaRiskSoundingFileSelect"/);
   assert.match(html, /id="areaRiskScopeSelect"/);
   assert.match(html, /id="areaRiskTypeSelect"/);
   assert.match(html, /id="areaRiskRows"/);
@@ -168,6 +178,8 @@ test('admin shell exposes area risk as an independent workbench', () => {
 
   assert.match(app, /\/api\/v1\/diagnosis\/nafp\/areas/);
   assert.match(app, /\/api\/v1\/diagnosis\/nafp\/area-risks/);
+  assert.match(app, /\/api\/v1\/sounding\/area-risks/);
+  assert.match(app, /function\s+syncAreaRiskCategoryControls/);
   assert.match(app, /function\s+loadAreaRiskAreas\(\)/);
   assert.match(app, /function\s+queryAreaRisks\(\)/);
   assert.match(app, /function\s+renderAreaRiskRows/);

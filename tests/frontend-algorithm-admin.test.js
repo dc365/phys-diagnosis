@@ -38,6 +38,17 @@ test('algorithm management panels have stable render targets', () => {
   assert.doesNotMatch(html, /保存草稿/);
 });
 
+test('data fields page keeps only field completeness, not physical diagnostics stats', () => {
+  assert.match(html, /id="data-fields"/);
+  assert.match(html, /id="fieldMatrix"/);
+  assert.doesNotMatch(html, /diagnosticsTableBody/);
+  assert.doesNotMatch(html, /diagnosticsTitle/);
+  assert.doesNotMatch(html, /物理量统计/);
+  assert.doesNotMatch(app, /function renderDiagnostics/);
+  assert.doesNotMatch(app, /renderDiagnostics\(/);
+  assert.doesNotMatch(css, /\.diagnostics-wrap/);
+});
+
 test('frontend loads and saves the single default threshold matrix', () => {
   assert.match(app, /\/api\/v1\/admin\/algorithms\/catalog/);
   assert.match(app, /\/api\/v1\/admin\/algorithms\/rule-explanations/);
@@ -113,7 +124,7 @@ test('risk threshold matrix separates scoring factors from region extraction par
 test('threshold matrix uses forecaster-facing names and guidance', () => {
   assert.match(html, />物理量 \/ 参数</);
   assert.match(html, />类别</);
-  assert.match(html, /threshold-categories-20260628/);
+  assert.match(html, /auto-diagnosis-20260629/);
   assert.match(html, /colspan="7"/);
   assert.match(html, />业务判断</);
   assert.match(html, />参考阈值</);

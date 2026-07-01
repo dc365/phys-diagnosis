@@ -35,6 +35,23 @@
     return `${(n * 100).toFixed(1)}%`;
   }
 
+  function formatUpdatedAt(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    const numeric = Number(value);
+    const date = Number.isFinite(numeric)
+      ? new Date(numeric > 100000000000 ? numeric : numeric * 1000)
+      : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).replaceAll('/', '-');
+  }
+
   function flagRows(report) {
     const counts = report?.flag_counts || {};
     const rows = Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1]));
@@ -73,7 +90,7 @@
 
   function ensurePanel() {
     if ($('soundingPreprocessPanel')) return $('soundingPreprocessPanel');
-    const host = document.querySelector('#data-fields .data-grid') || document.querySelector('#service-status .service-grid') || document.querySelector('#data-fields');
+    const host = document.querySelector('#automaticDiagnosisPanels') || document.querySelector('#diagnosis-workbench');
     if (!host) return null;
     const panel = document.createElement('section');
     panel.className = 'section-panel sounding-preprocess-panel';
@@ -87,15 +104,18 @@
         <span id="soundingPreprocessBadge" class="count-badge">0 报告</span>
       </div>
       <p class="muted-copy">预处理包括字段标准化、单位数值化、经纬度/层次/温湿风范围检查、露点约束、重复站层去重、500hPa 高度 buddy check、标准层覆盖率和弱廓线统计。优化后的 H500 分析会优先使用清洗后的 CSV。</p>
-      <form id="soundingPreprocessForm" class="sounding-qc-form">
-        <label><span>CSV 文件</span><select id="soundingPreprocessFile"></select></label>
-        <label><span>强制重跑</span><select id="soundingPreprocessForce"><option value="false" selected>否</option><option value="true">是</option></select></label>
-        <div class="sounding-qc-actions">
-          <button class="primary-action" type="submit">运行预处理</button>
-          <button id="soundingPreprocessAll" class="ghost-button" type="button">全部预处理</button>
-          <button id="soundingPreprocessRefresh" class="ghost-button" type="button">刷新</button>
-        </div>
-      </form>
+      <details class="auto-remedy-panel">
+        <summary>手动补算</summary>
+        <form id="soundingPreprocessForm" class="sounding-qc-form">
+          <label><span>CSV 文件</span><select id="soundingPreprocessFile"></select></label>
+          <label><span>强制重跑</span><select id="soundingPreprocessForce"><option value="false" selected>否</option><option value="true">是</option></select></label>
+          <div class="sounding-qc-actions">
+            <button class="primary-action" type="submit">运行预处理</button>
+            <button id="soundingPreprocessAll" class="ghost-button" type="button">全部预处理</button>
+            <button id="soundingPreprocessRefresh" class="ghost-button" type="button">刷新</button>
+          </div>
+        </form>
+      </details>
       <div id="soundingPreprocessSummary" class="detail-grid compact-detail-grid"></div>
       <div id="soundingPreprocessReports" class="sounding-qc-report-list"><div class="empty-state">加载探空预处理状态</div></div>
     `;
@@ -121,7 +141,7 @@
     summary.innerHTML = `
       <div class="detail-item"><span>CSV 文件</span><strong>${esc(status?.available_file_count || 0)}</strong></div>
       <div class="detail-item"><span>报告数</span><strong>${esc(status?.report_count || 0)}</strong></div>
-      <div class="detail-item"><span>最近更新时间</span><strong>${esc(status?.updated_at || '-')}</strong></div>
+      <div class="detail-item"><span>最近更新时间</span><strong>${esc(formatUpdatedAt(status?.updated_at))}</strong></div>
     `;
   }
 
@@ -163,12 +183,12 @@
     const style = document.createElement('style');
     style.id = 'soundingPreprocessAdminStyles';
     style.textContent = `
-      .sounding-preprocess-panel { grid-column: 1 / -1; }
       .sounding-qc-form { display: grid; grid-template-columns: minmax(260px, 1fr) 140px auto; gap: 12px; align-items: end; margin: 12px 0 16px; }
       .sounding-qc-form label { display: grid; gap: 6px; font-size: 13px; color: #435d68; }
       .sounding-qc-form select { border: 1px solid #c7d7df; border-radius: 10px; padding: 10px 12px; background: white; font: inherit; min-width: 0; }
       .sounding-qc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
       .sounding-qc-report-list { display: grid; gap: 12px; margin-top: 12px; }
+      .automatic-diagnosis-grid .sounding-qc-report-list { max-height: 420px; overflow: auto; }
       .sounding-qc-report-card { border: 1px solid #dde9ee; border-radius: 14px; background: #fff; padding: 14px; display: grid; gap: 10px; }
       .qc-flag-list { display: flex; flex-wrap: wrap; gap: 6px; }
       .qc-flag-chip { border-radius: 999px; background: #edf4fb; color: #375566; padding: 4px 8px; font-size: 12px; }

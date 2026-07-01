@@ -363,7 +363,7 @@ function dataSourceLabel(item) {
 }
 
 function featureColorKeyExpression() {
-  return ['coalesce', ['get', 'source_feature_type'], ['get', 'feature_type']];
+  return ['coalesce', ['get', 'feature_type'], ['get', 'source_feature_type']];
 }
 
 function colorMatchExpression() {
@@ -387,7 +387,7 @@ function featureColor(properties) {
   if (props.feature_type === 'front_candidate') {
     return frontTypeColors[props.front_type] || featureColors.front_candidate;
   }
-  return featureColors[props.source_feature_type || props.feature_type] || '#333333';
+  return featureColors[props.feature_type] || featureColors[props.source_feature_type] || '#333333';
 }
 
 function areaRiskColorExpression() {
@@ -487,10 +487,19 @@ function selectedBasemapId() {
   return normalizedBasemapId($('basemapSelect')?.value || state.basemap);
 }
 
+function normalizeTileTemplate(template) {
+  return String(template || '').replaceAll('{xyz}', '{z}/{x}/{y}');
+}
+
 function localTileTemplate() {
   const params = mapPageParams();
   const config = mapConfig();
-  return params.get('tiles') || config.localTileTemplate || BASEMAP_LOCAL_TEMPLATE;
+  return normalizeTileTemplate(params.get('tiles') || config.localTileTemplate || BASEMAP_LOCAL_TEMPLATE);
+}
+
+function isBasemapTileError(message) {
+  const prefix = localTileTemplate().split('{')[0];
+  return prefix && String(message || '').includes(prefix);
 }
 
 function tiandituToken() {
@@ -1254,6 +1263,7 @@ function initializeMap() {
   map.on('error', (event) => {
     const message = event?.error?.message || '地图资源加载异常';
     console.warn(message);
+    if (isBasemapTileError(message)) return;
     status(`GIS 提示：${message}`);
   });
 }

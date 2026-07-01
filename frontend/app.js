@@ -58,13 +58,16 @@ const AREA_RISK_TYPES = [
 const AREA_RISK_API_ENDPOINTS = {
   catalog: '/api/v1/diagnosis/nafp/areas',
   risks: '/api/v1/diagnosis/nafp/area-risks',
+  soundingRisks: '/api/v1/sounding/area-risks',
 };
+const DEFAULT_AREA_RISK_SOUNDING_CSV = 'test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv';
 
 const {
   bboxLabel,
   buildAreaRiskQuery,
   buildDefaultTimeWindow,
   buildNafpSituationBatchRequest,
+  buildSoundingAreaRiskQuery,
   chainTypeLabel,
   evidenceLevelLabel,
   flattenAreaRiskRows,
@@ -425,6 +428,20 @@ function setAreaRiskStatus(message, mode = '') {
   box.textContent = message;
 }
 
+function selectedAreaRiskDataCategory() {
+  return $('areaRiskDataCategorySelect')?.value === 'sounding' ? 'sounding' : 'forecast';
+}
+
+function syncAreaRiskCategoryControls() {
+  const isSounding = selectedAreaRiskDataCategory() === 'sounding';
+  document.querySelectorAll('.forecast-area-risk-field').forEach((item) => {
+    item.hidden = isSounding;
+  });
+  document.querySelectorAll('.sounding-area-risk-field').forEach((item) => {
+    item.hidden = !isSounding;
+  });
+}
+
 function initAreaRiskControls() {
   const form = $('areaRiskForm');
   if (!form) return;
@@ -433,6 +450,8 @@ function initAreaRiskControls() {
   $('areaRiskStartTimeInput').value = defaults.startTime;
   $('areaRiskEndTimeInput').value = defaults.endTime;
   renderAreaRiskTypeOptions({});
+  $('areaRiskDataCategorySelect')?.addEventListener('change', syncAreaRiskCategoryControls);
+  syncAreaRiskCategoryControls();
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     queryAreaRisks();
@@ -450,16 +469,24 @@ function renderAreaRiskSummary(payload) {
 
 async function queryAreaRisks() {
   const button = $('areaRiskQueryButton');
-  const url = buildAreaRiskQuery({
-    dataCode: $('areaRiskDataCodeSelect')?.value || state.defaultDataCode,
-    runTime: $('areaRiskRunTimeInput')?.value || buildDefaultTimeWindow().runTime,
-    scopeValue: $('areaRiskScopeSelect')?.value,
-    startTime: $('areaRiskStartTimeInput')?.value,
-    endTime: $('areaRiskEndTimeInput')?.value,
-    riskType: $('areaRiskTypeSelect')?.value || '',
-  });
+  const isSounding = selectedAreaRiskDataCategory() === 'sounding';
+  const url = isSounding
+    ? buildSoundingAreaRiskQuery({
+      csvPath: $('areaRiskSoundingFileSelect')?.value || DEFAULT_AREA_RISK_SOUNDING_CSV,
+      pressureLevel: 500,
+      scopeValue: $('areaRiskScopeSelect')?.value,
+      riskType: $('areaRiskTypeSelect')?.value || '',
+    })
+    : buildAreaRiskQuery({
+      dataCode: $('areaRiskDataCodeSelect')?.value || state.defaultDataCode,
+      runTime: $('areaRiskRunTimeInput')?.value || buildDefaultTimeWindow().runTime,
+      scopeValue: $('areaRiskScopeSelect')?.value,
+      startTime: $('areaRiskStartTimeInput')?.value,
+      endTime: $('areaRiskEndTimeInput')?.value,
+      riskType: $('areaRiskTypeSelect')?.value || '',
+    });
   button.disabled = true;
-  setAreaRiskStatus('区域风险查询中');
+  setAreaRiskStatus(isSounding ? '实况探空区域风险查询中' : '区域风险查询中');
   try {
     const payload = await getJson(url);
     state.areaRiskResult = payload;
@@ -487,13 +514,14 @@ function renderAreaRiskRows() {
   box.innerHTML = rows.map((row) => {
     const active = row.rowKey === state.selectedAreaRiskKey ? ' active' : '';
     const level = row.risk_level || row.level;
+    const timeKind = row.data_type === 'sounding' ? '实况' : `+${row.forecast_hour}h`;
     return `
       <button class="area-risk-row${active}" type="button" data-area-risk-key="${escapeHtml(row.rowKey)}">
         <span class="area-risk-row-main">
           <strong>${escapeHtml(row.town_name || row.town_code || '-')}</strong>
           <em>${escapeHtml(row.county_name || row.city_name || '-')} · ${escapeHtml(row.label || riskTypeLabel(row.hazard_type))}</em>
         </span>
-        <span class="area-risk-row-time">${escapeHtml(formatIsoForDuty(row.valid_time))}<em>+${escapeHtml(row.forecast_hour)}h</em></span>
+        <span class="area-risk-row-time">${escapeHtml(formatIsoForDuty(row.valid_time))}<em>${escapeHtml(timeKind)}</em></span>
         <span class="area-risk-row-score">
           <span class="level-pill ${levelClass(level)}">${escapeHtml(evidenceLevelLabel(level))}</span>
           <strong>${escapeHtml(formatScore(row.score))}</strong>
@@ -817,7 +845,6 @@ function renderResult() {
   renderSystems(result.systems || []);
   renderRisks(result.risk_diagnoses || []);
   renderFieldMatrix(result);
-  renderDiagnostics(result.diagnostics || {});
   renderInspector();
 }
 
@@ -934,24 +961,6 @@ function renderFieldMatrix(result) {
       </span>
     `;
   }).join('');
-}
-
-function renderDiagnostics(diagnostics) {
-  const rows = Object.entries(diagnostics)
-    .filter(([, stats]) => stats && typeof stats === 'object')
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, stats]) => `
-      <tr>
-        <td>${escapeHtml(name)}</td>
-        <td class="number-col">${formatNumber(stats.min)}</td>
-        <td class="number-col">${formatNumber(stats.mean)}</td>
-        <td class="number-col">${formatNumber(stats.max)}</td>
-        <td class="number-col">${formatNumber(stats.p90)}</td>
-      </tr>
-    `);
-  $('diagnosticsTableBody').innerHTML = rows.length
-    ? rows.join('')
-    : '<tr><td colspan="5" class="empty-cell">暂无统计</td></tr>';
 }
 
 function governanceDomainItems(catalog) {

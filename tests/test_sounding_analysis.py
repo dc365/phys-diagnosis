@@ -56,7 +56,7 @@ def test_sounding_situation_outputs_weather_systems_and_station_winds():
     assert all("confidence" in item and "evidence" in item for item in systems)
 
     wind_features = result["station_features"]["features"]
-    assert len(wind_features) == result["analysis_fields"]["z500"]["quality"]["station_count"]
+    assert 150 < len(wind_features) <= result["analysis_fields"]["z500"]["quality"]["station_count"]
     first = wind_features[0]["properties"]
     assert {"station_id", "wind_direction_degree", "wind_speed_m_s"} <= set(first)
 
@@ -185,6 +185,62 @@ def test_public_sounding_features_api_returns_geojson_for_map():
     assert data["properties"]["count"] == len(data["features"])
     assert data["features"]
     assert {feature["geometry"]["type"] for feature in data["features"]} <= {"Point", "LineString"}
+
+
+def test_public_sounding_area_risks_returns_town_risk_from_sounding_grid():
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/sounding/area-risks",
+        params={
+            "csv_path": str(SOUNDING_FILE),
+            "pressure_level": 500,
+            "town_code": "350203005",
+            "risk_type": "short_duration_heavy_rain",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["code"] == 0
+    data = body["data"]
+    assert data["data_type"] == "sounding"
+    assert data["observation_time"] == "2026-06-25T20:00:00"
+    assert data["forecast_hours"] == [0]
+    assert data["scope"]["type"] == "town"
+    assert data["summary"]["town_count"] == 1
+    assert data["items"]
+    item = data["items"][0]
+    assert item["forecast_hour"] == 0
+    assert item["valid_time"] == "2026-06-25T20:00:00"
+    risk = item["risks"][0]
+    assert risk["hazard_type"] == "short_duration_heavy_rain"
+    assert risk["source_grid"] == "risk_short_duration_heavy_rain_score"
+    assert risk["score_source"] == "sounding_objective_analysis_grid"
+    assert risk["score_statistic"] == "station_points_max"
+    assert risk["evidence_chain"]["sampling_method"] == "station_points_on_sounding_grid"
+    assert risk["sample_count"] > 0
+
+
+def test_public_sounding_area_risks_use_multilevel_risk_grid_for_high_risk():
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/sounding/area-risks",
+        params={
+            "csv_path": str(SOUNDING_FILE),
+            "pressure_level": 500,
+            "region_code": "350100",
+            "region_level": "city",
+            "risk_type": "persistent_heavy_rain",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    risks = [risk for item in data["items"] for risk in item["risks"]]
+    assert max(float(risk["score"]) for risk in risks) >= 0.7
+    assert any(risk["risk_level"] == "high" for risk in risks)
 
 
 def test_public_sounding_z500_layer_grid_and_contours_reuse_map_contract():

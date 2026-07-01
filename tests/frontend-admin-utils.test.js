@@ -5,6 +5,7 @@ const {
   buildNafpSituationBatchRequest,
   buildNafpSituationRequest,
   buildAreaRiskQuery,
+  buildSoundingAreaRiskQuery,
   buildDefaultTimeWindow,
   flattenAreaRiskRows,
   groupSystemsForDuty,
@@ -153,8 +154,23 @@ test('buildAreaRiskQuery encodes region and forecast-hour filters', () => {
   assert.doesNotMatch(url, /risk_type=/);
 });
 
+test('buildSoundingAreaRiskQuery encodes sounding csv and area filters', () => {
+  const url = buildSoundingAreaRiskQuery({
+    csvPath: 'test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv',
+    pressureLevel: 500,
+    scopeValue: 'town:350203005',
+    riskType: 'short_duration_heavy_rain',
+  });
+
+  assert.equal(
+    url,
+    '/api/v1/sounding/area-risks?csv_path=test_datas%2Fregional_radiosonde_5N55N_50E160E_20260624_20260625%2Fregional_radiosonde_5N55N_50E160E_20260625_20BJT.csv&pressure_level=500&town_code=350203005&risk_type=short_duration_heavy_rain',
+  );
+});
+
 test('flattenAreaRiskRows turns town-time items into sorted risk rows', () => {
   const rows = flattenAreaRiskRows({
+    data_type: 'sounding',
     items: [
       {
         area: { town_code: '350203005', town_name: '滨海街道', county_name: '思明区' },
@@ -172,7 +188,8 @@ test('flattenAreaRiskRows turns town-time items into sorted risk rows', () => {
   assert.equal(rows[0].hazard_type, 'short_duration_heavy_rain');
   assert.equal(rows[0].town_name, '滨海街道');
   assert.equal(rows[0].score, 0.72);
-  assert.equal(rows[0].rowKey, '350203005|24|short_duration_heavy_rain');
+  assert.equal(rows[0].data_type, 'sounding');
+  assert.equal(rows[0].rowKey, 'sounding|350203005|24|short_duration_heavy_rain');
 });
 
 test('summarizeAreaRiskPayload reports highest risk and town count', () => {

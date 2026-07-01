@@ -157,6 +157,26 @@
     return `/api/v1/diagnosis/nafp/area-risks?${params.toString()}`;
   }
 
+  function buildSoundingAreaRiskQuery({
+    csvPath,
+    pressureLevel = 500,
+    scopeValue,
+    riskType,
+  }) {
+    const params = new URLSearchParams();
+    params.set('csv_path', String(csvPath || '').trim());
+    params.set('pressure_level', String(Number(pressureLevel) || 500));
+    const [scopeType, scopeCode] = String(scopeValue || '').split(':');
+    if (scopeType === 'town') {
+      params.set('town_code', scopeCode || '');
+    } else {
+      params.set('region_code', scopeCode || '');
+      params.set('region_level', scopeType || 'city');
+    }
+    if (riskType) params.set('risk_type', riskType);
+    return `/api/v1/sounding/area-risks?${params.toString()}`;
+  }
+
   function summarizeSituation(payload) {
     const systems = visibleDutySystems(payload?.systems || []);
     const risks = payload?.risk_diagnoses || [];
@@ -177,6 +197,7 @@
 
   function flattenAreaRiskRows(payload) {
     const rows = [];
+    const dataType = payload?.data_type || 'forecast';
     (payload?.items || []).forEach((item) => {
       const area = item.area || {};
       (item.risks || []).forEach((risk) => {
@@ -188,12 +209,13 @@
           town_name: area.town_name,
           county_name: area.county_name,
           city_name: area.city_name,
+          data_type: dataType,
           forecast_hour: item.forecast_hour,
           valid_time: item.valid_time,
           hazard_type: hazardType,
           label: risk.label || riskTypeLabel(hazardType),
           score: Number(risk.score),
-          rowKey: `${area.town_code || '-'}|${item.forecast_hour}|${hazardType}`,
+          rowKey: `${dataType}|${area.town_code || '-'}|${item.forecast_hour}|${hazardType}`,
         };
         rows.push(row);
       });
@@ -309,6 +331,7 @@
     buildDefaultTimeWindow,
     buildNafpSituationBatchRequest,
     buildNafpSituationRequest,
+    buildSoundingAreaRiskQuery,
     chainTypeLabel,
     evidenceLevelLabel,
     flattenAreaRiskRows,

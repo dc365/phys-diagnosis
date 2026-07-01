@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +20,7 @@ REPORT_DIR = PREPROCESS_DIR / "reports"
 CLEANED_DIR = PREPROCESS_DIR / "cleaned"
 STATE_PATH = PREPROCESS_DIR / "state.json"
 PREPROCESS_VERSION = "sounding-preprocess-v1"
+_AUTO_PREPROCESS_THREAD: threading.Thread | None = None
 
 STANDARD_LEVELS_HPA = [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100]
 REQUIRED_COLUMNS = [
@@ -122,6 +125,27 @@ def _safe_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _iso_datetime(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            numeric = float(text)
+        except ValueError:
+            return text
+    else:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+    if numeric > 100_000_000_000:
+        numeric /= 1000
+    return datetime.fromtimestamp(numeric, timezone.utc).isoformat()
 
 
 def _resolve_path(value: str | Path) -> Path:
@@ -388,13 +412,26 @@ def _write_state() -> None:
     )
 
 
+def _state_updated_at() -> str | None:
+    if not STATE_PATH.exists():
+        return None
+    try:
+        value = _read_json(STATE_PATH).get("updated_at")
+        timestamp = _iso_datetime(value)
+        if timestamp:
+            return timestamp
+    except Exception:
+        pass
+    return _iso_datetime(STATE_PATH.stat().st_mtime)
+
+
 def preprocess_status(root: str | Path | None = None) -> dict[str, Any]:
     files = discover_sounding_csvs(root)
     reports = _reports()
     report_by_source = {item.get("source_path"): item for item in reports}
     return {
         "version": PREPROCESS_VERSION,
-        "updated_at": STATE_PATH.stat().st_mtime if STATE_PATH.exists() else None,
+        "updated_at": _state_updated_at(),
         "available_file_count": len(files),
         "report_count": len(reports),
         "available_files": [
@@ -432,3 +469,31 @@ def run_preprocess(
         "results": results,
         "errors": errors,
     }
+
+
+def autostart_sounding_preprocess(root: str | Path | None = None) -> dict[str, Any] | None:
+    if str(os.environ.get("WEATHER_DIAG_AUTO_SOUNDING_PREPROCESS", "1")).lower() in {"0", "false", "no", "off"}:
+        return None
+
+    files = discover_sounding_csvs(root)
+    pending = [
+        path for path in files
+        if not report_path_for(path).exists() or not cleaned_path_for(path).exists()
+    ]
+    if not pending:
+        if files:
+            _write_state()
+        return None
+
+    global _AUTO_PREPROCESS_THREAD
+    if _AUTO_PREPROCESS_THREAD and _AUTO_PREPROCESS_THREAD.is_alive():
+        return {"status": "running", "pending_count": len(pending)}
+
+    thread = threading.Thread(
+        target=lambda: run_preprocess(root=root, force=False),
+        name="sounding-preprocess-autostart",
+        daemon=True,
+    )
+    _AUTO_PREPROCESS_THREAD = thread
+    thread.start()
+    return {"status": "queued", "pending_count": len(pending)}

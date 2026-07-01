@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>天气形势分析与物理量诊断工作台</title>
-  <link rel="stylesheet" href="/static/styles.css?v=threshold-categories-20260628" />
+  <link rel="stylesheet" href="/static/styles.css?v=auto-diagnosis-20260629" />
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳转到主内容</a>
@@ -33,7 +33,7 @@
         </a>
         <a class="nav-item" href="#diagnosis-workbench" data-view="diagnosis-workbench">
           <strong>诊断工作台</strong>
-          <span>运行与研判</span>
+          <span>自动诊断</span>
         </a>
         <a class="nav-item" href="#area-risk-workbench" data-view="area-risk-workbench">
           <strong>区域风险</strong>
@@ -46,7 +46,7 @@
         </a>
         <a class="nav-item" href="#data-fields" data-view="data-fields">
           <strong>数据字段</strong>
-          <span>物理量与缺测</span>
+          <span>字段完整性</span>
         </a>
         <a class="nav-item" href="#service-status" data-view="service-status">
           <strong>服务状态</strong>
@@ -63,7 +63,7 @@
       <div class="workspace-ribbon" data-active-view="system-overview" aria-label="工作台路径">
         <span class="ribbon-label">工作台路径</span>
         <span class="ribbon-step" data-ribbon-step="data-fields">模式资料</span>
-        <span class="ribbon-step" data-ribbon-step="diagnosis-workbench">多时效诊断</span>
+        <span class="ribbon-step" data-ribbon-step="diagnosis-workbench">自动诊断</span>
         <span class="ribbon-step" data-ribbon-step="system-overview">天气系统</span>
         <span class="ribbon-step" data-ribbon-step="area-risk-workbench">风险复核</span>
         <span class="ribbon-step" data-ribbon-step="algorithm-governance">规则治理</span>
@@ -152,7 +152,7 @@
               <a class="capability-card" href="#diagnosis-workbench" data-overview-link="diagnosis-workbench">
                 <span>01</span>
                 <strong>诊断工作台</strong>
-                <p>按模式和时效批量生成诊断，查看天气系统、风险诊断和详情检查器。</p>
+                <p>查看数值预报预计算和探空预处理状态，复核天气系统与风险诊断。</p>
               </a>
               <a class="capability-card" href="/map">
                 <span>02</span>
@@ -172,7 +172,7 @@
               <a class="capability-card" href="#data-fields" data-overview-link="data-fields">
                 <span>05</span>
                 <strong>数据字段</strong>
-                <p>检查基础要素、派生物理量和字段完整性。</p>
+                <p>检查关键输入字段完整性。</p>
               </a>
               <a class="capability-card" href="#service-status" data-overview-link="service-status">
                 <span>06</span>
@@ -227,43 +227,48 @@
         <header class="module-head">
           <div class="title-stack">
             <span class="eyebrow">诊断工作台</span>
-            <h2 id="diagnosisWorkbenchTitle">多时效天气形势研判</h2>
-            <p>选择起报时间和一个或多个预报时效，批量生成诊断结果，再追溯天气系统、六类风险诊断和字段完整性。</p>
+            <h2 id="diagnosisWorkbenchTitle">自动诊断结果</h2>
+            <p>后台自动准备数值预报诊断和探空站预处理结果；这里用于查看状态、复核结论，并在异常时补算。</p>
           </div>
-          <form id="diagnosisForm" class="run-controls" aria-label="诊断参数">
-            <div class="run-primary-row">
-              <label class="field wide-field" for="dataCodeSelect">
-                <span>模式</span>
-                <select id="dataCodeSelect" name="data_code"></select>
-                <small id="dataCodeHint">后台映射数据编码</small>
-              </label>
-              <label class="field" for="runTimeInput">
-                <span>起报时间</span>
-                <input id="runTimeInput" name="run_time" type="datetime-local" />
-              </label>
-              <button id="runButton" class="primary-action" type="submit">
-                <span aria-hidden="true">▶</span>
-                生成诊断
-              </button>
-            </div>
-            <section class="forecast-picker" aria-labelledby="forecastHourLabel">
-              <div class="forecast-picker-head">
-                <div>
-                  <span id="forecastHourLabel" class="field-label">预报时效</span>
-                  <small id="forecastHourHint">ECTHIN：0-240 小时 / 3 小时间隔</small>
+          <details class="manual-diagnosis-panel">
+            <summary>手动补算</summary>
+            <form id="diagnosisForm" class="run-controls" aria-label="诊断补算参数">
+              <div class="run-primary-row">
+                <label class="field wide-field" for="dataCodeSelect">
+                  <span>模式</span>
+                  <select id="dataCodeSelect" name="data_code"></select>
+                  <small id="dataCodeHint">后台映射数据编码</small>
+                </label>
+                <label class="field" for="runTimeInput">
+                  <span>起报时间</span>
+                  <input id="runTimeInput" name="run_time" type="datetime-local" />
+                </label>
+                <button id="runButton" class="primary-action" type="submit">
+                  <span aria-hidden="true">▶</span>
+                  补算诊断
+                </button>
+              </div>
+              <section class="forecast-picker" aria-labelledby="forecastHourLabel">
+                <div class="forecast-picker-head">
+                  <div>
+                    <span id="forecastHourLabel" class="field-label">预报时效</span>
+                    <small id="forecastHourHint">ECTHIN：0-240 小时 / 3 小时间隔</small>
+                  </div>
+                  <strong id="forecastSelectionSummary">已选 +24h</strong>
                 </div>
-                <strong id="forecastSelectionSummary">已选 +24h</strong>
-              </div>
-              <div class="hour-tools" aria-label="时效快捷选择">
-                <button id="selectCoreForecastHours" class="subtle-action" type="button">0-72</button>
-                <button id="selectAllForecastHours" class="subtle-action" type="button">全选 0-240</button>
-                <button id="selectDefaultForecastHour" class="subtle-action" type="button">+24</button>
-                <button id="clearForecastHours" class="subtle-action" type="button">清空</button>
-              </div>
-              <div id="forecastHourChips" class="forecast-hour-grid" role="group" aria-label="预报时效"></div>
-            </section>
-          </form>
+                <div class="hour-tools" aria-label="时效快捷选择">
+                  <button id="selectCoreForecastHours" class="subtle-action" type="button">0-72</button>
+                  <button id="selectAllForecastHours" class="subtle-action" type="button">全选 0-240</button>
+                  <button id="selectDefaultForecastHour" class="subtle-action" type="button">+24</button>
+                  <button id="clearForecastHours" class="subtle-action" type="button">清空</button>
+                </div>
+                <div id="forecastHourChips" class="forecast-hour-grid" role="group" aria-label="预报时效"></div>
+              </section>
+            </form>
+          </details>
         </header>
+
+        <div id="automaticDiagnosisPanels" class="automatic-diagnosis-grid" aria-label="自动诊断任务"></div>
 
         <section class="status-strip" aria-label="诊断状态摘要">
           <div class="metric-cell primary-metric">
@@ -282,7 +287,7 @@
             <span>风险诊断</span>
             <strong id="riskMetric">-</strong>
           </div>
-          <div class="status-message briefing-strip" id="statusMessage" role="status">等待诊断</div>
+          <div class="status-message briefing-strip" id="statusMessage" role="status">等待自动诊断结果</div>
         </section>
         <section id="batchSummary" class="batch-summary" hidden aria-label="批量诊断结果"></section>
 
@@ -335,23 +340,39 @@
             <p>按地区、乡镇和有效时间查询六类风险评分，查看每类风险的 source_grid、主导因子和样本站点证据链。</p>
           </div>
           <form id="areaRiskForm" class="area-risk-controls" aria-label="区域风险查询参数">
-            <label class="field" for="areaRiskDataCodeSelect">
+            <label class="field" for="areaRiskDataCategorySelect">
+              <span>资料类别</span>
+              <select id="areaRiskDataCategorySelect" name="data_category">
+                <option value="forecast" selected>数值预报</option>
+                <option value="sounding">实况探空</option>
+              </select>
+            </label>
+            <label class="field forecast-area-risk-field" for="areaRiskDataCodeSelect">
               <span>模式</span>
               <select id="areaRiskDataCodeSelect" name="data_code"></select>
             </label>
-            <label class="field" for="areaRiskRunTimeInput">
+            <label class="field forecast-area-risk-field" for="areaRiskRunTimeInput">
               <span>起报时间</span>
               <input id="areaRiskRunTimeInput" name="run_time" type="datetime-local" />
+            </label>
+            <label class="field wide-field sounding-area-risk-field" for="areaRiskSoundingFileSelect" hidden>
+              <span>探空时次</span>
+              <select id="areaRiskSoundingFileSelect" name="sounding_file">
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv">2026-06-25 20时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_08BJT.csv">2026-06-25 08时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv">2026-06-24 20时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_08BJT.csv">2026-06-24 08时</option>
+              </select>
             </label>
             <label class="field wide-field" for="areaRiskScopeSelect">
               <span>区域范围</span>
               <select id="areaRiskScopeSelect" name="scope"></select>
             </label>
-            <label class="field" for="areaRiskStartTimeInput">
+            <label class="field forecast-area-risk-field" for="areaRiskStartTimeInput">
               <span>开始时间</span>
               <input id="areaRiskStartTimeInput" name="start_time" type="datetime-local" />
             </label>
-            <label class="field" for="areaRiskEndTimeInput">
+            <label class="field forecast-area-risk-field" for="areaRiskEndTimeInput">
               <span>结束时间</span>
               <input id="areaRiskEndTimeInput" name="end_time" type="datetime-local" />
             </label>
@@ -558,8 +579,8 @@
         <header class="module-head compact-head">
           <div class="title-stack">
             <span class="eyebrow">数据字段</span>
-            <h2 id="dataFieldsTitle">资料完整性和物理量统计</h2>
-            <p>回答这次诊断资料是否够用、缺哪些字段、物理量统计是否异常。</p>
+            <h2 id="dataFieldsTitle">资料完整性</h2>
+            <p>回答这次诊断资料是否够用、缺哪些字段。</p>
           </div>
         </header>
         <div class="data-grid">
@@ -572,31 +593,6 @@
               <span id="missingBadge" class="count-badge">0 缺测</span>
             </div>
             <div id="fieldMatrix" class="field-matrix"></div>
-          </section>
-
-          <section class="section-panel" aria-labelledby="diagnosticsTitle">
-            <div class="section-head">
-              <div>
-                <span class="panel-kicker">物理量</span>
-                <h3 id="diagnosticsTitle">诊断统计</h3>
-              </div>
-            </div>
-            <div class="table-wrap diagnostics-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>字段</th>
-                    <th class="number-col">最小</th>
-                    <th class="number-col">平均</th>
-                    <th class="number-col">最大</th>
-                    <th class="number-col">P90</th>
-                  </tr>
-                </thead>
-                <tbody id="diagnosticsTableBody">
-                  <tr><td colspan="5" class="empty-cell">暂无统计</td></tr>
-                </tbody>
-              </table>
-            </div>
           </section>
         </div>
       </section>
@@ -639,6 +635,6 @@
   </div>
 
   <script src="/static/admin-utils.js?v=primary-weather-systems-20260625"></script>
-  <script src="/static/app.js?v=threshold-categories-20260628"></script>
+  <script src="/static/app.js?v=auto-diagnosis-20260629"></script>
 </body>
 </html>

@@ -12,7 +12,6 @@ from weather_diag.diagnosis.nafp_precompute import (
     load_precomputed_result,
     precompute_status,
     precomputed_result_exists,
-    schedule_single_if_missing,
     submit_precompute_job,
 )
 
@@ -55,10 +54,27 @@ def get_precompute_status():
     return ok(precompute_status())
 
 
+def _load_or_compute_result(resolved_root, run_time: str, forecast_hour: int, data_code: str | None):
+    try:
+        return load_precomputed_result(resolved_root, run_time, forecast_hour, data_code)
+    except FileNotFoundError:
+        job = submit_precompute_job(
+            root=resolved_root,
+            run_time=run_time,
+            forecast_hours=[int(forecast_hour)],
+            data_code=data_code,
+            force=False,
+            background=False,
+        )
+        if job.get("status") == "failed":
+            raise ApiError(50001, "precomputed NAFP result failed", status_code=500, data={"job": job})
+        return load_precomputed_result(resolved_root, run_time, forecast_hour, data_code)
+
+
 @router.post("")
 def schedule_precompute_compat(request: NafpPrecomputeRequest):
-    # Compatibility with the existing map page: scheduling a job is cheap and
-    # asynchronous. It does not compute again inside the map request thread.
+    # Compatibility with the existing map page: background warmup stays cheap.
+    # Cold feature reads below do the synchronous fallback when warmup is late.
     return schedule_precompute(request)
 
 
@@ -87,16 +103,7 @@ def get_precomputed_result(
     root: str | None = None,
 ):
     resolved_root = _resolve_root(data_code, root)
-    try:
-        return ok(load_precomputed_result(resolved_root, run_time, forecast_hour, data_code))
-    except FileNotFoundError as exc:
-        job = schedule_single_if_missing(root=resolved_root, run_time=run_time, forecast_hour=forecast_hour, data_code=data_code)
-        raise ApiError(
-            40909,
-            "precomputed NAFP result not ready",
-            status_code=409,
-            data={"run_time": run_time, "forecast_hour": forecast_hour, "queued_job": job},
-        ) from exc
+    return ok(_load_or_compute_result(resolved_root, run_time, forecast_hour, data_code))
 
 
 @router.get("/features")
@@ -108,16 +115,7 @@ def get_precomputed_features(
     types: Optional[str] = Query(default=None),
 ):
     resolved_root = _resolve_root(data_code, root)
-    try:
-        result = load_precomputed_result(resolved_root, run_time, forecast_hour, data_code)
-    except FileNotFoundError as exc:
-        job = schedule_single_if_missing(root=resolved_root, run_time=run_time, forecast_hour=forecast_hour, data_code=data_code)
-        raise ApiError(
-            40909,
-            "precomputed NAFP result not ready",
-            status_code=409,
-            data={"run_time": run_time, "forecast_hour": forecast_hour, "queued_job": job},
-        ) from exc
+    result = _load_or_compute_result(resolved_root, run_time, forecast_hour, data_code)
     return ok(
         nafp_situation_to_feature_collection(
             result,

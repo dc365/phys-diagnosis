@@ -8,6 +8,7 @@ import pandas as pd
 
 from weather_diag.config import load_thresholds
 from weather_diag.diagnosis import sounding as legacy
+from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level
 from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
 from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES
 from weather_diag.diagnostics.grid import derivatives_lonlat
@@ -270,18 +271,6 @@ def build_multilevel_systems(analysis_fields: dict[str, dict[str, Any]], lat: np
     return systems
 
 
-def _risk_level(score: float) -> str:
-    if score >= 0.8:
-        return "very_high"
-    if score >= 0.6:
-        return "high"
-    if score >= 0.4:
-        return "medium"
-    if score >= 0.2:
-        return "low"
-    return "very_low"
-
-
 def _risk_grid_payload(values: np.ndarray, lat: np.ndarray, lon: np.ndarray, hazard: str, sources: list[str]) -> dict[str, Any]:
     meta = HAZARD_TYPES[hazard]
     return _derived_payload(values, "0-1", lat, lon, method="sounding_multilevel_risk:" + "+".join(sources)) | {
@@ -343,6 +332,7 @@ def build_multilevel_risk_fields(analysis_fields: dict[str, dict[str, Any]], lat
 
 def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diagnostics: list[dict[str, Any]], thresholds: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     thresholds = thresholds or load_thresholds()
+    threshold_matrix = load_threshold_matrix()
     common = _common_thresholds(thresholds)
     cape_low, cape_high = _range(common, "cape", 500.0, 2500.0)
     pw_low, pw_high = _range(common, "pw_mm", 30.0, 55.0)
@@ -376,7 +366,7 @@ def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diag
                     "risk_domain": list(meta["risk_domain"]),
                     "feature_type": meta["feature_type"],
                     "score": round(float(score), 3),
-                    "risk_level": _risk_level(float(score)),
+                    "risk_level": score_level(float(score), threshold_matrix),
                     "score_source": "sounding_profile_indices_extended",
                     "threshold_source": "configs/thresholds.yaml:risk_scoring.common",
                     "source_indices": ["cape", "precipitable_water", "lcl"],

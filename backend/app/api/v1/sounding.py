@@ -8,7 +8,16 @@ import numpy as np
 from fastapi import APIRouter, Query
 
 from backend.app.responses import ApiError, ok
+from weather_diag.areas.registry import TownArea, load_area_registry
 from weather_diag.config import PROJECT_ROOT, load_layers
+from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level
+from weather_diag.diagnosis.area_risk import (
+    _max_sample,
+    _prepare_2d,
+    _sample_town_points,
+    area_risk_metadata,
+    supported_area_risk_types,
+)
 from weather_diag.diagnosis.objective_analysis import mask_unsupported
 from weather_diag.diagnosis.sounding_optimized import diagnose_sounding_situation
 from weather_diag.diagnosis.sounding_features import parse_feature_types, sounding_situation_to_feature_collection
@@ -112,6 +121,127 @@ def _diagnose_sounding_cached(path: str, pressure_level: int, mtime_ns: int) -> 
 
 def _diagnose_sounding(path: Path, pressure_level: int) -> dict[str, Any]:
     return _diagnose_sounding_cached(str(path), int(pressure_level), path.stat().st_mtime_ns)
+
+
+def _resolve_area_scope(town_code: str | None, region_code: str | None, region_level: str | None) -> dict[str, Any]:
+    if bool(town_code) == bool(region_code):
+        raise ApiError(40001, "provide exactly one of town_code or region_code", status_code=400)
+    registry = load_area_registry()
+    if town_code:
+        try:
+            town = registry.get_town(town_code)
+        except KeyError as exc:
+            raise ApiError(40406, "town not found", status_code=404, data={"town_code": town_code}) from exc
+        return {
+            "scope": {"type": "town", "town_code": town_code, "region_code": None, "region_level": None},
+            "towns": [town],
+        }
+    towns = registry.towns_for_region(str(region_code), region_level=region_level)
+    if not towns:
+        raise ApiError(
+            40406,
+            "region not found or has no towns",
+            status_code=404,
+            data={"region_code": region_code, "region_level": region_level},
+        )
+    return {
+        "scope": {"type": "region", "town_code": None, "region_code": region_code, "region_level": region_level},
+        "towns": towns,
+    }
+
+
+def _resolve_area_risk_types(risk_type: str | None) -> list[str]:
+    supported = supported_area_risk_types()
+    if not risk_type:
+        return supported
+    if risk_type not in supported:
+        raise ApiError(40001, "invalid risk_type", status_code=400, data={"risk_type": risk_type})
+    return [risk_type]
+
+
+def _sounding_town_risk(
+    *,
+    town: TownArea,
+    hazard_type: str,
+    analysis_fields: dict[str, Any],
+    threshold_matrix: dict[str, Any],
+    include_evidence: bool,
+    include_samples: bool,
+) -> dict[str, Any]:
+    metadata = area_risk_metadata([hazard_type])[hazard_type]
+    source_grid = metadata["source_grid"]
+    field = analysis_fields.get(source_grid) or {}
+    lat_raw = field.get("lat")
+    lon_raw = field.get("lon")
+    lat = np.asarray(lat_raw if lat_raw is not None else [], dtype=float)
+    lon = np.asarray(lon_raw if lon_raw is not None else [], dtype=float)
+    score_grid = _prepare_2d(field.get("values"), lat, lon)
+    samples = _sample_town_points(town, score_grid, lat, lon) if lat.size and lon.size else []
+    scores = np.asarray([item["score"] for item in samples if item.get("score") is not None], dtype=float)
+    scores = scores[np.isfinite(scores)]
+    if scores.size:
+        max_score = float(np.nanmax(scores))
+        mean_score = float(np.nanmean(scores))
+        p90_score = float(np.nanpercentile(scores, 90))
+        best_sample = _max_sample(samples)
+        level = score_level(max_score, threshold_matrix)
+    else:
+        max_score = mean_score = p90_score = 0.0
+        best_sample = None
+        level = score_level(0.0, threshold_matrix)
+
+    risk_item: dict[str, Any] = {
+        "hazard_type": hazard_type,
+        "label": metadata["label"],
+        "metadata": metadata,
+        "risk_domain": metadata["risk_domain"],
+        "source_grid": source_grid,
+        "feature_type": metadata["feature_type"],
+        "score": round(max_score, 3),
+        "max_score": round(max_score, 3),
+        "mean_score": round(mean_score, 3),
+        "p90_score": round(p90_score, 3),
+        "risk_level": level,
+        "level": level,
+        "score_source": "sounding_objective_analysis_grid",
+        "score_statistic": "station_points_max",
+        "sample_count": int(scores.size),
+        "station_count": town.station_count,
+        "input_completeness": None,
+        "missing_critical_factors": [],
+        "score_cap_applied": False,
+        "score_cap_value": None,
+    }
+    if include_evidence:
+        field_meta = field.get("risk_metadata") or {}
+        risk_item["evidence_chain"] = {
+            "hazard_type": hazard_type,
+            "source_grid": source_grid,
+            "sampling_method": "station_points_on_sounding_grid",
+            "score_statistic": "station_points_max",
+            "dominant_factors": [
+                {"factor": item, "field": item, "label": item, "weight": 0.0}
+                for item in field_meta.get("sources") or []
+            ],
+            "max_sample": best_sample,
+            "sample_count": int(scores.size),
+            "source_paths": [],
+        }
+    if include_samples:
+        risk_item["samples"] = samples
+    return risk_item
+
+
+def _sounding_area_summary(items: list[dict[str, Any]], towns: list[TownArea], risk_types: list[str]) -> dict[str, Any]:
+    risks = [risk for item in items for risk in item.get("risks") or []]
+    max_score = max((float(risk.get("score") or 0.0) for risk in risks), default=0.0)
+    return {
+        "town_count": len(towns),
+        "risk_type_count": len(risk_types),
+        "item_count": len(items),
+        "risk_count": len(risks),
+        "max_score": round(max_score, 3),
+    }
 
 
 def _public_payload(result: dict[str, Any]) -> dict[str, Any]:
@@ -225,6 +355,64 @@ def sounding_features(csv_path: str, pressure_level: int = 500, types: str | Non
         return ok(sounding_situation_to_feature_collection(result, requested_types=parse_feature_types(types)))
     except ValueError as exc:
         raise ApiError(40007, "invalid sounding request", status_code=400, data={"error": str(exc)}) from exc
+
+
+@router.get("/area-risks")
+def sounding_area_risks(
+    csv_path: str,
+    pressure_level: int = 500,
+    town_code: str | None = None,
+    region_code: str | None = None,
+    region_level: str | None = None,
+    risk_type: str | None = None,
+    include_evidence: bool = True,
+    include_samples: bool = False,
+):
+    path = _resolve_csv_path(csv_path)
+    if not path.exists():
+        raise ApiError(40407, "sounding file not found", status_code=404)
+    risk_types = _resolve_area_risk_types(risk_type)
+    scope = _resolve_area_scope(town_code, region_code, region_level)
+    try:
+        result = _diagnose_sounding(path, pressure_level)
+    except ValueError as exc:
+        raise ApiError(40007, "invalid sounding request", status_code=400, data={"error": str(exc)}) from exc
+
+    matrix = load_threshold_matrix()
+    observation_time = result["observation_time"]
+    items = [
+        {
+            "area": town.to_dict(include_points=False),
+            "forecast_hour": 0,
+            "valid_time": observation_time,
+            "risks": [
+                _sounding_town_risk(
+                    town=town,
+                    hazard_type=hazard_type,
+                    analysis_fields=result.get("analysis_fields") or {},
+                    threshold_matrix=matrix,
+                    include_evidence=include_evidence,
+                    include_samples=include_samples,
+                )
+                for hazard_type in risk_types
+            ],
+        }
+        for town in scope["towns"]
+    ]
+    return ok(
+        {
+            "data_type": "sounding",
+            "observation_time": observation_time,
+            "analysis_level": result["analysis_level"],
+            "scope": scope["scope"],
+            "forecast_hours": [0],
+            "risk_types": risk_types,
+            "risk_metadata": area_risk_metadata(risk_types),
+            "items": items,
+            "failed": [],
+            "summary": _sounding_area_summary(items, scope["towns"], risk_types),
+        }
+    )
 
 
 @router.get("/layers")

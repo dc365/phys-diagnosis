@@ -5,6 +5,8 @@ const test = require('node:test');
 const html = fs.readFileSync('frontend/map.html', 'utf8');
 const css = fs.readFileSync('frontend/map.css', 'utf8');
 const mapJs = fs.readFileSync('frontend/map.js', 'utf8');
+const mainPy = fs.readFileSync('backend/app/main.py', 'utf8');
+const mapConfig = fs.readFileSync('configs/map.yaml', 'utf8');
 const contourGlyphPath = 'frontend/vendor/maplibre-fonts/Noto Sans Regular/0-255.pbf';
 
 test('map page keeps the meteorological map workbench structure', () => {
@@ -42,9 +44,26 @@ test('map page vendors the glyph PBF needed by contour labels', () => {
 });
 
 test('map page configures Tianditu as the default demo basemap', () => {
-  assert.match(html, /window\.WEATHER_MAP_CONFIG = \{/);
+  assert.match(html, /id="weatherMapConfig"/);
   assert.match(html, /basemap: 'tdt-vector'/);
   assert.match(html, /tiandituToken: '[0-9a-f]{32}'/);
+});
+
+test('map basemap can be configured from yaml and supports xyz tile shorthand', () => {
+  assert.match(mapConfig, /local_tile_template:/);
+  assert.match(mapConfig, /(\{xyz\}|\{z\}\/\{x\}\/\{y\})\.(jpg|png)/);
+  assert.match(mainPy, /def map_public_config\(\)/);
+  assert.match(mainPy, /load_yaml\("map\.yaml"\)/);
+  assert.match(mainPy, /weatherMapConfig/);
+  assert.match(mapJs, /function normalizeTileTemplate/);
+  assert.match(mapJs, /replaceAll\('\{xyz\}', '\{z\}\/\{x\}\/\{y\}'\)/);
+  assert.match(mapJs, /normalizeTileTemplate\(params\.get\('tiles'\) \|\| config\.localTileTemplate \|\| BASEMAP_LOCAL_TEMPLATE\)/);
+});
+
+test('basemap tile fetch failures do not replace the map status', () => {
+  assert.match(mapJs, /function isBasemapTileError\(message\)/);
+  assert.match(mapJs, /localTileTemplate\(\)\.split\('\{'\)\[0\]/);
+  assert.match(mapJs, /if \(isBasemapTileError\(message\)\) return;/);
 });
 
 test('map page exposes selectable local and China-accessible basemaps', () => {
@@ -180,6 +199,8 @@ test('right risk panel exposes area risk as an independent map function', () => 
 test('weather system toggles use the same colors as map feature layers', () => {
   assert.match(mapJs, /function featureColor\(properties\)/);
   assert.match(mapJs, /const color = featureColor\(type\)/);
+  assert.match(mapJs, /return \['coalesce', \['get', 'feature_type'\], \['get', 'source_feature_type'\]\]/);
+  assert.match(mapJs, /featureColors\[props\.feature_type\] \|\| featureColors\[props\.source_feature_type\]/);
   assert.match(mapJs, /input\.checked = false/);
   assert.doesNotMatch(mapJs, /input\.checked = true/);
   assert.match(mapJs, /className = `feature-swatch feature-swatch-\$\{featureLegendKind\(type\)\}`/);

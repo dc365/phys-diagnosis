@@ -60,6 +60,9 @@ body {
 
 button, input, select { font: inherit; }
 button, select { touch-action: manipulation; }
+[hidden] {
+  display: none !important;
+}
 button {
   min-height: 40px;
   border: 0;
@@ -963,9 +966,47 @@ input::placeholder { color: #8b98a9; }
 }
 .data-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.82fr) minmax(520px, 1.18fr);
+  grid-template-columns: minmax(360px, 1fr);
   gap: 14px;
   align-items: start;
+}
+.automatic-diagnosis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.manual-diagnosis-panel {
+  margin-top: 14px;
+  border: 1px solid var(--isobar-line-soft);
+  border-radius: var(--radius-lg);
+  background: var(--cloud-panel-raised);
+}
+.manual-diagnosis-panel summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  color: var(--ink);
+  font-weight: 800;
+}
+.manual-diagnosis-panel .run-controls {
+  margin-top: 0;
+  border-top: 1px solid var(--isobar-line-soft);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.auto-remedy-panel {
+  margin: 12px 0 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+.auto-remedy-panel summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.auto-remedy-panel form {
+  padding: 0 12px 12px;
 }
 .service-grid {
   display: grid;
@@ -1572,9 +1613,6 @@ tbody tr.active-row { background: var(--accent-soft); }
   white-space: nowrap;
 }
 
-.diagnostics-wrap {
-  max-height: 348px;
-}
 .algorithm-library {
   display: grid;
   gap: 10px;
@@ -2210,7 +2248,7 @@ tbody tr.active-row { background: var(--accent-soft); }
 
 @media (max-width: 1180px) {
   .admin-shell { grid-template-columns: 224px minmax(0, 1fr); }
-  .module-head, .workbar, .workspace-grid, .area-risk-layout, .rule-grid, .lower-grid, .data-grid, .service-grid, .overview-briefing, .overview-bottom-grid {
+  .module-head, .workbar, .workspace-grid, .area-risk-layout, .rule-grid, .lower-grid, .data-grid, .automatic-diagnosis-grid, .service-grid, .overview-briefing, .overview-bottom-grid {
     grid-template-columns: 1fr;
   }
   .overview-summary {

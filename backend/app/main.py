@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.v1.admin import router as public_admin_router
+from backend.app.api.v1.auto_diagnostics import router as public_auto_diagnostics_router
 from backend.app.api.v1.data_sources import router as public_data_sources_router
 from backend.app.api.v1.diagnosis import router as public_diagnosis_router
 from backend.app.api.v1.files import router as public_files_router
@@ -19,11 +20,10 @@ from backend.app.api.v1.runs import router as public_runs_router
 from backend.app.api.v1.sounding import router as public_sounding_router
 from backend.app.api.v1.sounding_preprocess import router as public_sounding_preprocess_router
 from backend.app.responses import ApiError, api_error_handler, strip_private_paths, validation_error_handler
-from backend.app.services.data_sources import list_data_sources
-from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers
+from weather_diag.config import DATA_DIR, RAW_DIR, PRODUCTS_DIR, ensure_dirs, load_layers, load_yaml
 from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 from weather_diag.data.reader import inspect_netcdf
-from weather_diag.diagnosis.nafp_precompute import autostart_precompute_for_latest
+from weather_diag.diagnosis.auto_scheduler import start_auto_diagnosis_scheduler
 from weather_diag.pipeline import diagnose_file, load_run_index, load_diagnostics, load_features, load_analysis
 from weather_diag.io.contours import contours_to_geojson
 from weather_diag.io.grid_geojson import grid_to_geojson
@@ -34,6 +34,7 @@ app = FastAPI(title="天气形势分析与物理量诊断工作台", version="0.
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(public_admin_router, prefix="/api/v1")
+app.include_router(public_auto_diagnostics_router, prefix="/api/v1")
 app.include_router(public_data_sources_router, prefix="/api/v1")
 # Register precompute routes before the legacy diagnosis router so POST
 # /api/v1/diagnosis/nafp/precompute schedules async work instead of blocking the
@@ -48,8 +49,8 @@ app.include_router(public_sounding_preprocess_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
-def start_nafp_precompute() -> None:
-    autostart_precompute_for_latest(list_data_sources())
+def start_auto_diagnostics() -> None:
+    start_auto_diagnosis_scheduler()
 
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
@@ -70,10 +71,10 @@ def _admin_index_html() -> HTMLResponse | FileResponse:
         raise HTTPException(404, "admin view not found")
     html = index_path.read_text(encoding="utf-8")
     scripts = [
-        '<script src="/static/precompute-admin-extension.js?v=nafp-precompute-20260627"></script>',
-        '<script src="/static/sounding-preprocess-admin-extension.js?v=sounding-preprocess-20260627"></script>',
+        '<script src="/static/precompute-admin-extension.js?v=auto-diagnosis-20260629"></script>',
+        '<script src="/static/sounding-preprocess-admin-extension.js?v=auto-diagnosis-20260629"></script>',
     ]
-    marker = '<script src="/static/app.js?v=hide-source-paths-20260625"></script>'
+    marker = '<script src="/static/app.js?v=auto-diagnosis-20260629"></script>'
     for script in scripts:
         if script in html:
             continue
@@ -82,6 +83,23 @@ def _admin_index_html() -> HTMLResponse | FileResponse:
         else:
             html = html.replace("</body>", f"  {script}\n</body>")
     return HTMLResponse(html)
+
+
+def map_public_config() -> dict:
+    raw = (load_yaml("map.yaml").get("map") or {})
+    config = {
+        "basemap": raw.get("basemap") or "tdt-vector",
+        "tiandituToken": raw.get("tianditu_token") or raw.get("tiandituToken") or "607ace490b937459cac5709cc3aef752",
+    }
+    local_tile_template = raw.get("local_tile_template") or raw.get("localTileTemplate")
+    if local_tile_template:
+        config["localTileTemplate"] = str(local_tile_template)
+    return config
+
+
+def _map_config_script() -> str:
+    payload = json.dumps(map_public_config(), ensure_ascii=False, indent=6)
+    return f'<script id="weatherMapConfig">\n    window.WEATHER_MAP_CONFIG = {payload};\n  </script>'
 
 
 @app.get("/")
@@ -95,7 +113,12 @@ def index():
 def map_view():
     map_path = FRONTEND_DIR / "map.html"
     if map_path.exists():
-        return FileResponse(map_path)
+        html = map_path.read_text(encoding="utf-8")
+        start = html.find('<script id="weatherMapConfig">')
+        end = html.find("</script>", start)
+        if start >= 0 and end >= 0:
+            html = html[:start] + _map_config_script() + html[end + len("</script>"):]
+        return HTMLResponse(html)
     raise HTTPException(404, "map view not found")
 
 

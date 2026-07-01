@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.api.v1 import diagnosis as diagnosis_api
+from backend.app.api.v1 import precompute as precompute_api
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
 from weather_diag.diagnosis.nafp_features import nafp_situation_to_feature_collection
 from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
@@ -111,14 +112,14 @@ def test_nafp_features_endpoint_reuses_cached_situation_result(monkeypatch, tmp_
     assert len(calls) == 1
 
 
-def test_nafp_precompute_warms_situation_cache_for_feature_loading(monkeypatch, tmp_path):
-    calls = []
+def test_nafp_precompute_schedules_async_job_for_feature_loading(monkeypatch, tmp_path):
+    jobs = []
 
-    def fake_diagnose_nafp_situation(*, root, run_time, forecast_hour):
-        calls.append((str(root), run_time, forecast_hour))
-        return fake_situation_result(run_time, forecast_hour)
+    def fake_submit_precompute_job(**kwargs):
+        jobs.append(kwargs)
+        return {"status": "queued", "computed_count": 0, "total_count": 1}
 
-    monkeypatch.setattr(diagnosis_api, "diagnose_nafp_situation", fake_diagnose_nafp_situation)
+    monkeypatch.setattr(precompute_api, "submit_precompute_job", fake_submit_precompute_job)
 
     precomputed = client.post(
         "/api/v1/diagnosis/nafp/precompute",
@@ -128,8 +129,40 @@ def test_nafp_precompute_warms_situation_cache_for_feature_loading(monkeypatch, 
             "forecast_hours": [24],
         },
     )
-    features = client.get(
-        "/api/v1/diagnosis/nafp/features",
+
+    assert precomputed.status_code == 200
+    assert envelope(precomputed.json())["status"] == "queued"
+    assert jobs == [
+        {
+            "root": tmp_path,
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hours": [24],
+            "data_code": None,
+            "force": False,
+            "background": True,
+        }
+    ]
+
+
+def test_precomputed_features_endpoint_computes_when_result_is_missing(monkeypatch, tmp_path):
+    loads = []
+    jobs = []
+
+    def fake_load_precomputed_result(root, run_time, forecast_hour, data_code=None):
+        loads.append((str(root), run_time, forecast_hour, data_code))
+        if len(loads) == 1:
+            raise FileNotFoundError("missing")
+        return fake_situation_result(run_time, forecast_hour)
+
+    def fake_submit_precompute_job(**kwargs):
+        jobs.append(kwargs)
+        return {"status": "completed", "failed_count": 0}
+
+    monkeypatch.setattr(precompute_api, "load_precomputed_result", fake_load_precomputed_result)
+    monkeypatch.setattr(precompute_api, "submit_precompute_job", fake_submit_precompute_job)
+
+    response = client.get(
+        "/api/v1/diagnosis/nafp/precompute/features",
         params={
             "root": str(tmp_path),
             "run_time": "2026-06-17T20:00:00",
@@ -138,11 +171,19 @@ def test_nafp_precompute_warms_situation_cache_for_feature_loading(monkeypatch, 
         },
     )
 
-    assert precomputed.status_code == 200
-    assert envelope(precomputed.json())["computed_count"] == 1
-    assert features.status_code == 200
-    assert envelope(features.json())["properties"]["count"] == 1
-    assert len(calls) == 1
+    assert response.status_code == 200
+    assert envelope(response.json())["properties"]["count"] == 1
+    assert len(loads) == 2
+    assert jobs == [
+        {
+            "root": tmp_path,
+            "run_time": "2026-06-17T20:00:00",
+            "forecast_hours": [24],
+            "data_code": None,
+            "force": False,
+            "background": False,
+        }
+    ]
 
 
 def test_nafp_features_endpoint_returns_all_selected_map_system_types():
