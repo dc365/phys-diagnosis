@@ -243,8 +243,112 @@ def mask_to_bbox_features(mask: np.ndarray, lat: np.ndarray, lon: np.ndarray, *,
     return features
 
 
-def component_axis_line(item: dict, lat: np.ndarray, lon: np.ndarray, *, max_points: int = 48) -> dict:
-    """Return a centerline following a connected component's dominant axis."""
+def _dedupe_line_points(points: np.ndarray, *, tolerance: float = 1.0e-9) -> np.ndarray:
+    """Drop adjacent duplicate points before/after axis smoothing."""
+    arr = np.asarray(points, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] == 0:
+        return arr.reshape(0, 2)
+    cleaned = [arr[0]]
+    for point in arr[1:]:
+        if np.linalg.norm(point - cleaned[-1]) > tolerance:
+            cleaned.append(point)
+    return np.asarray(cleaned, dtype=float)
+
+
+def _chaikin_smooth_open_line(points: np.ndarray) -> np.ndarray:
+    """Round an open polyline while preserving both endpoints."""
+    arr = np.asarray(points, dtype=float)
+    if arr.shape[0] < 3:
+        return arr.copy()
+    smoothed: list[np.ndarray] = [arr[0]]
+    for left, right in zip(arr[:-1], arr[1:]):
+        smoothed.append(left * 0.75 + right * 0.25)
+        smoothed.append(left * 0.25 + right * 0.75)
+    smoothed.append(arr[-1])
+    return _dedupe_line_points(np.asarray(smoothed, dtype=float))
+
+
+def _resample_open_line(points: np.ndarray, target_points: int) -> np.ndarray:
+    """Resample a polyline to a stable point budget, preserving endpoints."""
+    arr = _dedupe_line_points(np.asarray(points, dtype=float))
+    if arr.shape[0] <= 2:
+        return arr
+    target_points = int(max(2, target_points))
+    if arr.shape[0] <= target_points:
+        return arr
+    segment_lengths = np.linalg.norm(np.diff(arr, axis=0), axis=1)
+    total_length = float(np.nansum(segment_lengths))
+    if not np.isfinite(total_length) or total_length <= 1.0e-9:
+        return np.asarray([arr[0], arr[-1]], dtype=float)
+
+    cumulative = np.concatenate([[0.0], np.cumsum(segment_lengths)])
+    target_distances = np.linspace(0.0, total_length, target_points)
+    resampled = np.empty((target_points, 2), dtype=float)
+    resampled[:, 0] = np.interp(target_distances, cumulative, arr[:, 0])
+    resampled[:, 1] = np.interp(target_distances, cumulative, arr[:, 1])
+    return _dedupe_line_points(resampled)
+
+
+def _smooth_axis_coordinates(
+    coords: list[list[float]],
+    *,
+    max_points: int,
+    smooth_iterations: int = 2,
+) -> list[list[float]]:
+    """Return a presentation-ready, smooth synoptic axis line.
+
+    The axis detector starts from connected grid cells. That is objective, but it
+    can leave front and shear-line axes with a staircase / segmented look. The
+    smoother projects lon/lat into a local kilometre plane, applies conservative
+    Chaikin corner cutting, and then limits the point count. Chaikin stays inside
+    the source polyline hull, so it improves display smoothness without moving
+    the diagnosis into a different synoptic zone.
+    """
+    arr = np.asarray(coords, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] < 3 or arr.shape[1] < 2:
+        return coords
+
+    arr = arr[:, :2]
+    finite = np.isfinite(arr).all(axis=1)
+    arr = _dedupe_line_points(arr[finite])
+    if arr.shape[0] < 3:
+        return [[float(lon_value), float(lat_value)] for lon_value, lat_value in arr]
+
+    ref_lat = float(np.nanmean(arr[:, 1]))
+    if not np.isfinite(ref_lat):
+        return coords
+    x_scale = 111.32 * max(float(np.cos(np.deg2rad(ref_lat))), 0.2)
+    y_scale = 111.32
+    projected = np.column_stack([arr[:, 0] * x_scale, arr[:, 1] * y_scale])
+
+    smoothed = projected
+    iterations = int(np.clip(smooth_iterations, 0, 3))
+    for _ in range(iterations):
+        smoothed = _chaikin_smooth_open_line(smoothed)
+
+    # Keep enough vertices for a smooth curve while avoiding oversized GeoJSON.
+    point_budget = min(max(int(max_points) * 2, arr.shape[0]), 160)
+    smoothed = _resample_open_line(smoothed, point_budget)
+
+    restored = np.column_stack([smoothed[:, 0] / x_scale, smoothed[:, 1] / y_scale])
+    return [[float(lon_value), float(lat_value)] for lon_value, lat_value in restored]
+
+
+def component_axis_line(
+    item: dict,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    *,
+    max_points: int = 48,
+    smooth: bool = True,
+    smooth_iterations: int = 2,
+) -> dict:
+    """Return a centerline following a connected component's dominant axis.
+
+    By default the extracted line is smoothed in a local-km plane so map-facing
+    features such as fronts and shear lines look like operational synoptic chart
+    curves instead of raw grid-cell polylines.
+    """
     ys, xs = item["indices"]
     lat = np.asarray(lat, dtype=float)
     lon = np.asarray(lon, dtype=float)
@@ -310,5 +414,12 @@ def component_axis_line(item: dict, lat: np.ndarray, lon: np.ndarray, *, max_poi
         cleaned.reverse()
     elif lat_span > lon_span and cleaned[0][1] > cleaned[-1][1]:
         cleaned.reverse()
+
+    if smooth:
+        cleaned = _smooth_axis_coordinates(
+            cleaned,
+            max_points=max_points,
+            smooth_iterations=smooth_iterations,
+        )
 
     return {"type": "line", "coordinates": cleaned, "bbox": item["bbox"]}
