@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from weather_diag.features.front import detect_front_candidates, front_candidate_fields
+from weather_diag.features.front import detect_front_candidates, front_axis_components, front_candidate_fields
 
 
 def _baroclinic_zone() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -79,6 +79,51 @@ def test_front_detection_limits_output_to_strongest_objects():
 
     assert len(features) == 2
     assert all(feature["properties"]["rank"] <= 2 for feature in features)
+
+
+def _line_turn_angles(coords: list[list[float]]) -> np.ndarray:
+    arr = np.asarray(coords, dtype=float)
+    if arr.shape[0] < 3:
+        return np.asarray([], dtype=float)
+    vectors = np.diff(arr, axis=0)
+    norms = np.linalg.norm(vectors, axis=1)
+    unit_vectors = vectors[norms > 1.0e-9] / norms[norms > 1.0e-9, None]
+    if unit_vectors.shape[0] < 2:
+        return np.asarray([], dtype=float)
+    dots = np.clip(np.sum(unit_vectors[:-1] * unit_vectors[1:], axis=1), -1.0, 1.0)
+    return np.arccos(dots)
+
+
+def test_front_axis_components_use_weather_chart_smoothness():
+    lat = np.linspace(18.0, 55.0, 149)
+    lon = np.linspace(70.0, 140.0, 141)
+    lon2d, lat2d = np.meshgrid(lon, lat)
+    center = 34.0 + 5.0 * np.sin((lon2d - 75.0) / 8.0) + 1.0 * np.sin((lon2d - 75.0) / 2.7)
+    t850 = 20.0 - 12.0 * np.tanh((lat2d - center) / 0.8)
+    thresholds = {
+        "front_candidate": {
+            "temp_gradient_percentile": 58,
+            "score_percentile": 58,
+            "min_area_grid_points": 20,
+            "max_objects": 1,
+        }
+    }
+    derived = front_candidate_fields(t850, None, None, lat, lon, thresholds)
+
+    components = front_axis_components(
+        derived,
+        lat,
+        lon,
+        min_points=20,
+        max_objects=1,
+        thresholds=thresholds,
+    )
+
+    assert components
+    coords = components[0]["line"]["coordinates"]
+    angles = _line_turn_angles(coords)
+    assert len(coords) >= 40
+    assert float(np.nanpercentile(angles, 90)) < 0.30
 
 
 def _typed_front(v_component: float):

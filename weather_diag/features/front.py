@@ -24,6 +24,9 @@ FRONT_MOTION_LABELS = {
     "undetermined": "缺少风场，无法判别移向",
 }
 
+FRONT_AXIS_DEFAULT_MAX_POINTS = 28
+FRONT_AXIS_DEFAULT_SMOOTH_ITERATIONS = 3
+
 
 def _finite_percentile(values: np.ndarray, percentile: float) -> float:
     valid = values[np.isfinite(values)]
@@ -317,6 +320,20 @@ def _axis_length_km(coords: list[list[float]]) -> float:
     return total
 
 
+def _front_axis_line(item: dict, lat, lon, cfg: dict | None = None) -> dict:
+    cfg = cfg or {}
+    max_points = int(cfg.get("axis_max_points", FRONT_AXIS_DEFAULT_MAX_POINTS))
+    smooth_iterations = int(cfg.get("axis_smooth_iterations", FRONT_AXIS_DEFAULT_SMOOTH_ITERATIONS))
+    return component_axis_line(
+        item,
+        lat,
+        lon,
+        max_points=max_points,
+        smooth=True,
+        smooth_iterations=smooth_iterations,
+    )
+
+
 def _front_axis_features(
     derived: dict,
     lat,
@@ -334,7 +351,7 @@ def _front_axis_features(
     ranked = []
     for item in components:
         ys, xs = item["indices"]
-        line = component_axis_line(item, lat, lon)
+        line = _front_axis_line(item, lat, lon, cfg)
         coords = line.get("coordinates", [])
         if len(coords) < 2:
             continue
@@ -393,6 +410,7 @@ def _front_axis_features(
             "source_area_bbox": source["bbox"],
             "centroid": source["centroid"],
             "axis_length_km": round(item["axis_length_km"], 1),
+            "axis_smoothing": "weather_chart_chaikin",
             "max_value": item["max_score"],
             "mean_value": item["mean_score"],
             "max_gradient": item["max_gradient"],
@@ -430,7 +448,7 @@ def front_axis_components(
         ys, xs = item["indices"]
         if ys.size == 0:
             continue
-        line = component_axis_line(item, lat, lon, max_points=64)
+        line = _front_axis_line(item, lat, lon, cfg)
         coords = line.get("coordinates") or []
         if len(coords) < 2:
             continue
@@ -450,6 +468,7 @@ def front_axis_components(
                 "max_score": float(np.nanmax(values)),
                 "mean_gradient": float(np.nanmean(gradient_values)),
                 "max_gradient": float(np.nanmax(gradient_values)),
+                "axis_smoothing": "weather_chart_chaikin",
             }
         )
     components.sort(
