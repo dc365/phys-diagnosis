@@ -6,10 +6,12 @@ from typing import Any
 
 import numpy as np
 
+from weather_diag.config import load_thresholds
 from weather_diag.areas.registry import TownArea
 from weather_diag.data.nafp import parse_run_time
 from weather_diag.diagnosis.algorithm_rules import load_threshold_matrix, score_level
-from weather_diag.diagnosis.nafp_layers import nafp_multi_hazard_score_details
+from weather_diag.diagnosis.nafp_layers import _risk_input_bundle, nafp_multi_hazard_score_details
+from weather_diag.features.risk import multi_hazard_score_details
 from weather_diag.diagnosis.risk_taxonomy import HAZARD_TYPES, risk_metadata, risk_metadata_catalog
 
 
@@ -31,16 +33,36 @@ def evaluate_area_risks(
     include_evidence: bool = True,
     include_samples: bool = False,
     threshold_matrix: dict[str, Any] | None = None,
+    risk_input_cache: dict[tuple[str, str, int], tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]] | None = None,
+    score_details_cache: dict[tuple[str, str, int], tuple[dict[str, Any], np.ndarray, np.ndarray, list[str]]] | None = None,
 ) -> dict[str, Any]:
     rt = parse_run_time(run_time)
     selected_risks = risk_types or supported_area_risk_types()
     matrix = threshold_matrix or load_threshold_matrix()
+    score_thresholds = None
     items: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
 
     for hour in forecast_hours:
         try:
-            details, lat, lon, source_paths = nafp_multi_hazard_score_details(Path(root), rt.isoformat(), int(hour))
+            if risk_input_cache is None and score_details_cache is None:
+                details, lat, lon, source_paths = nafp_multi_hazard_score_details(Path(root), rt.isoformat(), int(hour))
+            else:
+                cache_key = (str(Path(root)), rt.isoformat(), int(hour))
+                if score_details_cache is not None and cache_key in score_details_cache:
+                    details, lat, lon, source_paths = score_details_cache[cache_key]
+                else:
+                    if risk_input_cache is not None and cache_key in risk_input_cache:
+                        fields, lat, lon, source_paths = risk_input_cache[cache_key]
+                    else:
+                        fields, lat, lon, source_paths = _risk_input_bundle(Path(root), rt.isoformat(), int(hour))
+                        if risk_input_cache is not None:
+                            risk_input_cache[cache_key] = (fields, lat, lon, source_paths)
+                    if score_thresholds is None:
+                        score_thresholds = load_thresholds()
+                    details = multi_hazard_score_details(fields, score_thresholds)
+                    if score_details_cache is not None:
+                        score_details_cache[cache_key] = (details, lat, lon, source_paths)
         except Exception as exc:
             failed.append(
                 {

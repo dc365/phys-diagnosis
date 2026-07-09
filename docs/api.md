@@ -296,6 +296,76 @@ backend. Each section includes `rule_id`, `title`, `category`, `basis`,
 `evidence_contract`, so the UI can explain each weather-system or evidence-chain
 diagnosis with the same threshold IDs used by the running algorithm.
 
+## MCP Town Risk DSL
+
+The MCP tool `get_town_risk_dsl` returns town-level risk scores and physical
+evidence in `FCST_TWN_PHY` DSL. Calls without `windows` keep the legacy
+single-window response shape and return `data.dsl` plus request, region, model,
+and risk metadata.
+
+The compatible multi-window evidence mode is enabled by passing `windows` to
+the MCP tool. It supports use cases such as yesterday/today and multi-day
+severe-convection environment comparison, adds three time-matching policies
+(`single_latest_run`, `fixed_run`, `latest_per_valid_time`), and places each
+requested window under `data.windows[]`.
+
+Multi-window request parameters:
+
+- `windows`: JSON array or array-like value with `label`, `start_time`, and `end_time`.
+- `time_match_policy`: one of `single_latest_run`, `fixed_run`, or `latest_per_valid_time`; omitted multi-window calls default to `latest_per_valid_time`.
+- `run_time`: optional run time, required for `fixed_run`.
+- `include_window_summary`: controls risk and physical summary DSL sections.
+
+Each window returns `model_metadata`, `dsl`, and `failures`. A multi-run window
+uses one common DSL header, `@WIN`, and multiple `@T/@DT/#PHY` sections. No
+`#RUN` marker is used. Summary DSL includes risk blocks
+(`#SUMMARY_RISK`, `#SUMMARY_TOWN_RISK`) and physical-evidence blocks
+(`#SUMMARY_PHY`, `#SUMMARY_TOWN_PHY`). The interface returns deterministic
+evidence and summary DSL, not cross-window natural-language conclusions.
+
+Third-party field tables, request/response examples, DSL row definitions,
+summary rules, error handling, and deployment checklist are documented in
+[`docs/mcp_third_party_integration.md`](mcp_third_party_integration.md).
+Detailed design history and development notes are documented in
+[`docs/town_risk_dsl_multi_window_design.md`](town_risk_dsl_multi_window_design.md).
+
+## MCP Point Risk
+
+The MCP tool `get_point_risk` returns non-DSL JSON for one or more
+latitude/longitude points. It samples the nearest model grid point and returns
+multi-hazard risk scores, risk levels, dominant-factor evidence chains, and
+original physical evidence.
+
+`points` accepts either the legacy text/JSON-string form or structured point
+objects/arrays. Explicit point IDs must be unique in one request; omitted IDs
+are assigned automatically.
+
+The compatible multi-window extension keeps the existing no-`windows` response
+unchanged and adds `data.windows[]` for per-window point-risk evidence. The
+extension reuses the same time matching policies as town-risk DSL:
+`single_latest_run`, `fixed_run`, and `latest_per_valid_time`; omitted
+multi-window calls default to `latest_per_valid_time`.
+
+Multi-window request parameters:
+
+- `windows`: JSON array or array-like value with `label`, `start_time`, and `end_time`.
+- `time_match_policy`: one of `single_latest_run`, `fixed_run`, or `latest_per_valid_time`.
+- `run_time`: optional run time, required for `fixed_run`.
+- `include_window_summary`: controls JSON risk and physical summary arrays.
+
+Each window returns `model_metadata`, `items`, `risk_summary`, `point_summary`,
+`physical_summary`, `point_physical_summary`, and `failures`. Summaries are
+derived from generated `items[]`; risk summaries reuse existing `risk_level`
+values, while physical summaries use each field's `direction`, `watch`, and
+`high` thresholds. The interface does not introduce DSL or cross-window
+natural-language conclusions.
+
+Third-party field tables, request/response examples, summary rules, error
+handling, and deployment checklist are documented in
+[`docs/mcp_third_party_integration.md`](mcp_third_party_integration.md).
+Detailed design history and validation notes are documented in
+[`docs/point_risk_multi_window_design.md`](point_risk_multi_window_design.md).
+
 ## Public v1 Error Codes
 
 - `40001`: invalid request

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from collections import OrderedDict
 from copy import deepcopy
@@ -25,6 +26,10 @@ from weather_diag.diagnosis.nafp_layers import _risk_input_bundle
 DEFAULT_MODEL = "EC"
 DEFAULT_DATA_CODE = "NAFP_ECTHIN_NC"
 DEFAULT_WINDOW_HOURS = 6
+TIME_MATCH_POLICIES = {"single_latest_run", "fixed_run", "latest_per_valid_time"}
+DEFAULT_MULTI_WINDOW_TIME_MATCH_POLICY = "latest_per_valid_time"
+RISK_WATCH_THRESHOLD = 0.6
+RISK_HIGH_THRESHOLD = 0.75
 
 REGION_ALIASES = {
     "fuzhou": {"region_code": "350100", "region_level": "city", "region_name": "福州市"},
@@ -362,6 +367,49 @@ def resolve_forecast_hours_for_window(
     return _dedupe_ints(out)
 
 
+def parse_time_windows(windows: str | dict[str, Any] | list[Any] | tuple[Any, ...]) -> list[dict[str, Any]]:
+    raw_windows = windows
+    if isinstance(windows, str):
+        raw = windows.strip()
+        if not raw:
+            raise ValueError("windows must not be empty")
+        raw_windows = json.loads(raw)
+
+    if isinstance(raw_windows, dict):
+        if isinstance(raw_windows.get("windows"), list):
+            raw_items = raw_windows["windows"]
+        else:
+            raw_items = [raw_windows]
+    elif isinstance(raw_windows, (list, tuple)):
+        raw_items = list(raw_windows)
+    else:
+        raise ValueError("windows must be a JSON array or an array-like value")
+
+    if not raw_items:
+        raise ValueError("windows must not be empty")
+
+    parsed: list[dict[str, Any]] = []
+    for idx, item in enumerate(raw_items, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"window at index {idx} must be an object")
+        start = parse_optional_time(item.get("start_time"))
+        end = parse_optional_time(item.get("end_time"))
+        if end < start:
+            raise ValueError(f"window {idx} end_time must be >= start_time")
+        label = str(item.get("label") or f"window_{idx}").strip() or f"window_{idx}"
+        parsed.append({"label": label, "start_time": start, "end_time": end})
+    return parsed
+
+
+def normalize_time_match_policy(policy: str | None, *, windows_provided: bool = False) -> str:
+    raw = str(policy or "").strip() or (
+        DEFAULT_MULTI_WINDOW_TIME_MATCH_POLICY if windows_provided else "single_latest_run"
+    )
+    if raw not in TIME_MATCH_POLICIES:
+        raise ValueError(f"unsupported time_match_policy: {raw}")
+    return raw
+
+
 def get_town_risk_dsl_payload(
     *,
     region: str = "fuzhou",
@@ -372,7 +420,21 @@ def get_town_risk_dsl_payload(
     #root: str | Path | None = None,
     run_time: str | datetime | None = None,
     now: datetime | None = None,
+    windows: str | dict[str, Any] | list[Any] | tuple[Any, ...] | None = None,
+    time_match_policy: str | None = None,
+    include_window_summary: bool = True,
 ) -> dict[str, Any]:
+    if windows is not None:
+        return get_town_risk_multi_window_payload(
+            region=region,
+            models=models,
+            data_code=data_code,
+            run_time=run_time,
+            windows=windows,
+            time_match_policy=time_match_policy,
+            include_window_summary=include_window_summary,
+        )
+
     start = parse_optional_time(start_time, default=(now or datetime.now()).replace(tzinfo=None))
     end = parse_optional_time(end_time, default=start + timedelta(hours=DEFAULT_WINDOW_HOURS))
     if end < start:
@@ -382,6 +444,8 @@ def get_town_risk_dsl_payload(
     model_metadata: list[dict[str, Any]] = []
     dsl_blocks: list[str] = []
     risk_metadata_out: dict[str, dict[str, Any]] | None = None
+    risk_input_cache: dict[tuple[str, str, int], tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]] = {}
+    score_details_cache: dict[tuple[str, str, int], tuple[dict[str, Any], np.ndarray, np.ndarray, list[str]]] = {}
 
     for model in normalize_models(models):
         source = resolve_model_source(model, data_code=data_code)
@@ -400,12 +464,15 @@ def get_town_risk_dsl_payload(
             risk_types=None,
             include_evidence=True,
             include_samples=False,
+            risk_input_cache=risk_input_cache,
+            score_details_cache=score_details_cache,
         )
         physical_evidence = build_physical_evidence(
             root=source["root"],
             run_time=context["run_time"],
             forecast_hours=context["forecast_hours"],
             towns=scope["towns"],
+            risk_input_cache=risk_input_cache,
         )
         response = build_town_risk_dsl_response(
             request={"region": region, "start_time": start.isoformat(), "end_time": end.isoformat(), "models": [model]},
@@ -528,6 +595,215 @@ def resolve_forecast_context(
     raise ValueError("no NAFP run time matched the requested time window")
 
 
+def resolve_forecast_contexts(
+    *,
+    data_code: str,
+    root: str | Path,
+    run_time: str | datetime | None,
+    start_time: datetime,
+    end_time: datetime,
+    policy: str | None = None,
+) -> list[dict[str, Any]]:
+    normalized_policy = normalize_time_match_policy(policy, windows_provided=True)
+    if normalized_policy == "single_latest_run":
+        context = resolve_forecast_context(
+            data_code=data_code,
+            root=root,
+            run_time=run_time,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return [_context_with_valid_times(context)]
+
+    if normalized_policy == "fixed_run":
+        if run_time is None:
+            raise ValueError("run_time is required when time_match_policy=fixed_run")
+        configured = _configured_forecast_hours(data_code)
+        hours = resolve_forecast_hours_for_window(
+            run_time=run_time,
+            forecast_hours=configured,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        if not hours:
+            raise ValueError("no forecast hours matched the requested time window")
+        return [_context_with_valid_times({"run_time": parse_run_time(run_time), "forecast_hours": hours})]
+
+    selected_by_valid_time: dict[datetime, tuple[datetime, int]] = {}
+    inventory = discover_nafp_run_inventory(data_code=data_code, root=root, max_run_times=200)
+    for item in inventory.get("run_times") or []:
+        rt = parse_run_time(item["run_time"])
+        for hour in [int(value) for value in item.get("forecast_hours") or []]:
+            valid_time = rt + timedelta(hours=hour)
+            if not (start_time <= valid_time <= end_time):
+                continue
+            selected = selected_by_valid_time.get(valid_time)
+            if selected is None or rt > selected[0]:
+                selected_by_valid_time[valid_time] = (rt, hour)
+
+    if not selected_by_valid_time:
+        raise ValueError("no NAFP run time matched the requested time window")
+
+    grouped: OrderedDict[str, dict[str, Any]] = OrderedDict()
+    for valid_time in sorted(selected_by_valid_time):
+        rt, hour = selected_by_valid_time[valid_time]
+        key = rt.isoformat()
+        group = grouped.setdefault(key, {"run_time": rt, "forecast_hours": [], "valid_times": []})
+        group["forecast_hours"].append(int(hour))
+        group["valid_times"].append(valid_time.isoformat())
+
+    return [
+        {
+            "run_time": group["run_time"],
+            "forecast_hours": _dedupe_ints(group["forecast_hours"]),
+            "valid_times": list(group["valid_times"]),
+        }
+        for group in grouped.values()
+    ]
+
+
+def _context_with_valid_times(context: dict[str, Any]) -> dict[str, Any]:
+    rt = parse_run_time(context["run_time"])
+    hours = [int(hour) for hour in context.get("forecast_hours") or []]
+    return {
+        "run_time": rt,
+        "forecast_hours": hours,
+        "valid_times": [(rt + timedelta(hours=hour)).isoformat() for hour in hours],
+    }
+
+
+def get_town_risk_multi_window_payload(
+    *,
+    region: str,
+    models: str | list[str] | None,
+    data_code: str | None,
+    run_time: str | datetime | None,
+    windows: str | dict[str, Any] | list[Any] | tuple[Any, ...],
+    time_match_policy: str | None,
+    include_window_summary: bool,
+) -> dict[str, Any]:
+    parsed_windows = parse_time_windows(windows)
+    policy = normalize_time_match_policy(time_match_policy, windows_provided=True)
+    if policy == "fixed_run" and run_time is None:
+        raise ValueError("run_time is required when time_match_policy=fixed_run")
+    model_names = normalize_models(models)
+    scope = resolve_region_scope(region)
+    risk_input_cache: dict[tuple[str, str, int], tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]] = {}
+    score_details_cache: dict[tuple[str, str, int], tuple[dict[str, Any], np.ndarray, np.ndarray, list[str]]] = {}
+    risk_metadata_out = _risk_metadata_with_dsl_fields(area_risk_metadata())
+    window_outputs: list[dict[str, Any]] = []
+
+    for window in parsed_windows:
+        failures: list[dict[str, Any]] = []
+        model_metadata: list[dict[str, Any]] = []
+        dsl_blocks: list[str] = []
+        for model in model_names:
+            try:
+                source = resolve_model_source(model, data_code=data_code)
+                contexts = resolve_forecast_contexts(
+                    data_code=source["data_code"],
+                    root=source["root"],
+                    run_time=run_time,
+                    start_time=window["start_time"],
+                    end_time=window["end_time"],
+                    policy=policy,
+                )
+                run_entries: list[dict[str, Any]] = []
+                for context in contexts:
+                    try:
+                        result = evaluate_area_risks(
+                            root=source["root"],
+                            run_time=context["run_time"],
+                            forecast_hours=context["forecast_hours"],
+                            towns=scope["towns"],
+                            risk_types=None,
+                            include_evidence=True,
+                            include_samples=False,
+                            risk_input_cache=risk_input_cache,
+                            score_details_cache=score_details_cache,
+                        )
+                        physical_evidence = build_physical_evidence(
+                            root=source["root"],
+                            run_time=context["run_time"],
+                            forecast_hours=context["forecast_hours"],
+                            towns=scope["towns"],
+                            risk_input_cache=risk_input_cache,
+                        )
+                    except Exception as exc:
+                        failures.append(
+                            {
+                                "model": source["model"],
+                                "data_code": source["data_code"],
+                                "run_time": parse_run_time(context["run_time"]).isoformat(),
+                                "forecast_hours": [int(hour) for hour in context["forecast_hours"]],
+                                "error": str(exc),
+                            }
+                        )
+                        continue
+
+                    run_entries.append(
+                        {
+                            "context": context,
+                            "area_risk_result": result,
+                            "physical_evidence": physical_evidence,
+                        }
+                    )
+                    for failed in result.get("failed") or []:
+                        failures.append(
+                            {
+                                "model": source["model"],
+                                "data_code": source["data_code"],
+                                "run_time": parse_run_time(context["run_time"]).isoformat(),
+                                **dict(failed),
+                            }
+                        )
+
+                if not run_entries:
+                    continue
+
+                response = build_town_risk_window_dsl_response(
+                    region_scope=scope,
+                    model=source["model"],
+                    data_code=source["data_code"],
+                    window=window,
+                    run_entries=run_entries,
+                    risk_metadata=area_risk_metadata(),
+                    include_window_summary=include_window_summary,
+                )
+                dsl_blocks.append(response["dsl"])
+                model_metadata.extend(response["model_metadata"])
+                risk_metadata_out = response["risk_metadata"]
+            except Exception as exc:
+                failures.append({"model": str(model), "data_code": data_code, "error": str(exc)})
+
+        window_outputs.append(
+            {
+                "label": window["label"],
+                "start_time": window["start_time"].isoformat(),
+                "end_time": window["end_time"].isoformat(),
+                "time_match_policy": policy,
+                "model_metadata": model_metadata,
+                "dsl": "\n\n".join(block for block in dsl_blocks if block),
+                "failures": failures,
+            }
+        )
+
+    return {
+        "mode": "multi_window_evidence",
+        "request": {
+            "region": region,
+            "models": model_names,
+            "data_code": data_code,
+            "time_match_policy": policy,
+            "include_window_summary": bool(include_window_summary),
+        },
+        "region": _public_scope(scope),
+        "risk_metadata": risk_metadata_out,
+        "windows": window_outputs,
+        "dsl_structure_guide": AREA_RISK_DSL_STRUCTURE_GUIDE,
+    }
+
+
 def build_town_risk_dsl_response(
     *,
     request: dict[str, Any],
@@ -577,18 +853,93 @@ def build_town_risk_dsl_response(
     }
 
 
+def build_town_risk_window_dsl_response(
+    *,
+    region_scope: dict[str, Any],
+    model: str,
+    data_code: str,
+    window: dict[str, Any],
+    run_entries: list[dict[str, Any]],
+    risk_metadata: dict[str, dict[str, Any]],
+    include_window_summary: bool = True,
+) -> dict[str, Any]:
+    combined_result = _combine_area_risk_results(
+        [entry["area_risk_result"] for entry in run_entries],
+        region_scope=region_scope,
+    )
+    evidence_fields = _merged_physical_evidence_fields(run_entries)
+    ordered_fields = [field for _hazard, field, _label, _source in RISK_DSL_FIELDS] + list(evidence_fields)
+
+    lines = [
+        *_window_metadata_lines(
+            region_scope=region_scope,
+            model=model,
+            window=window,
+            ordered_fields=ordered_fields,
+            area_risk_result=combined_result,
+        ),
+        *_phy_dictionary_lines(evidence_fields),
+    ]
+
+    model_metadata: list[dict[str, Any]] = []
+    for entry in run_entries:
+        context = entry["context"]
+        rt = parse_run_time(context["run_time"])
+        forecast_hours = [int(hour) for hour in context["forecast_hours"]]
+        physical_values = _physical_evidence_values(entry.get("physical_evidence"))
+        lines.extend(
+            [
+                "",
+                f"@T:{_dsl_time(rt)};",
+                f"@DT:{','.join(str(hour * 60) for hour in forecast_hours)};",
+                "#PHY:",
+                *_body_lines(entry["area_risk_result"], evidence_fields, physical_values),
+            ]
+        )
+        model_metadata.append(
+            {
+                "model": model,
+                "data_code": data_code,
+                "run_time": rt.isoformat(),
+                "forecast_hours": forecast_hours,
+                "valid_times": list(context.get("valid_times") or []),
+            }
+        )
+
+    if include_window_summary:
+        lines.extend(
+            [
+                "",
+                *_risk_summary_dsl_lines(combined_result),
+                "",
+                *_physical_summary_dsl_lines(run_entries, evidence_fields),
+            ]
+        )
+
+    return {
+        "model": model,
+        "data_code": data_code,
+        "model_metadata": model_metadata,
+        "risk_metadata": _risk_metadata_with_dsl_fields(risk_metadata),
+        "evidence_fields": dict(evidence_fields),
+        "dsl": "\n".join(lines),
+        "area_risk": _area_risk_result_for_response(combined_result),
+    }
+
+
 def build_physical_evidence(
     *,
     root: str | Path,
     run_time: str | datetime,
     forecast_hours: list[int],
     towns: list[TownArea],
+    risk_input_cache: dict[tuple[str, str, int], tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]] | None = None,
 ) -> dict[str, Any]:
     rt = parse_run_time(run_time)
     values: dict[tuple[int, str], dict[str, float]] = {}
     for hour in forecast_hours:
         try:
-            fields, lat, lon, _source_paths = _risk_input_bundle(Path(root), rt.isoformat(), int(hour))
+            fields, lat, lon, _source_paths = _cached_risk_input_bundle(Path(root), rt, int(hour), risk_input_cache)
         except Exception:
             continue
         for town in towns:
@@ -618,6 +969,28 @@ def _metadata_lines(
         f"@M:{model};",
         f"@T:{_dsl_time(run_time)};",
         f"@DT:{','.join(str(int(hour) * 60) for hour in forecast_hours)};",
+        "@WIN_RULE:VALID=@T+DT;",
+        f"@ORD:DT>S5={'|'.join(ordered_fields)};",
+        "@PHY_ORD:PID=API|UNIT|DIR|WATCH|HIGH;",
+    ]
+
+
+def _window_metadata_lines(
+    *,
+    region_scope: dict[str, Any],
+    model: str,
+    window: dict[str, Any],
+    ordered_fields: list[str],
+    area_risk_result: dict[str, Any],
+) -> list[str]:
+    towns = _towns_from_result_or_scope(area_risk_result, region_scope)
+    return [
+        "@B:FCST_TWN_PHY;",
+        f"@A:{region_scope.get('region_code', '')};",
+        "@CR:S5=县区3位短码+乡镇2位短码;",
+        *_town_mapping_lines(towns),
+        f"@M:{model};",
+        f"@WIN:{_dsl_token(window.get('label'))}|{window['start_time'].isoformat()}|{window['end_time'].isoformat()};",
         "@WIN_RULE:VALID=@T+DT;",
         f"@ORD:DT>S5={'|'.join(ordered_fields)};",
         "@PHY_ORD:PID=API|UNIT|DIR|WATCH|HIGH;",
@@ -660,6 +1033,263 @@ def _body_lines(
     return rows
 
 
+def _risk_summary_dsl_lines(area_risk_result: dict[str, Any]) -> list[str]:
+    return [
+        "@SUM_RISK_ORD:FIELD=MAX|MAX_VALID|MAX_S5|HIGH_CNT_PEAK|WATCH_CNT_PEAK|WATCH_TOWN_ANY|ACTIVE_DT_CNT;",
+        "#SUMMARY_RISK:",
+        *_region_risk_summary_rows(area_risk_result),
+        "@SUM_TOWN_RISK_ORD:S5>FIELD=MAX|MAX_VALID|MAX_LEVEL|WATCH_DT_CNT|HIGH_DT_CNT;",
+        "#SUMMARY_TOWN_RISK:",
+        *_town_risk_summary_rows(area_risk_result),
+    ]
+
+
+def _region_risk_summary_rows(area_risk_result: dict[str, Any]) -> list[str]:
+    items = _summary_items(area_risk_result)
+    rows: list[str] = []
+    for hazard, field, _label, _source in RISK_DSL_FIELDS:
+        max_score: float | None = None
+        max_valid = ""
+        max_s5 = ""
+        high_by_valid: dict[str, set[str]] = {}
+        watch_by_valid: dict[str, set[str]] = {}
+        watch_towns: set[str] = set()
+        active_valid_times: set[str] = set()
+
+        for item in items:
+            valid_time = _item_valid_datetime(item)
+            if valid_time is None:
+                continue
+            valid_key = _dsl_time(valid_time)
+            area = item.get("area") or {}
+            s5 = str(area.get("s5") or "") or _s5_from_codes(area.get("county_code"), area.get("town_code"))
+            score = _risk_values(item.get("risks") or []).get(hazard)
+            if score is None:
+                continue
+            if max_score is None or score > max_score:
+                max_score = score
+                max_valid = valid_key
+                max_s5 = s5
+            if score >= RISK_HIGH_THRESHOLD:
+                high_by_valid.setdefault(valid_key, set()).add(s5)
+            if score >= RISK_WATCH_THRESHOLD:
+                watch_by_valid.setdefault(valid_key, set()).add(s5)
+                watch_towns.add(s5)
+                active_valid_times.add(valid_key)
+
+        if max_score is None:
+            continue
+        rows.append(
+            f"{field}={_format_value(max_score)}|{max_valid}|{max_s5}|"
+            f"{max((len(values) for values in high_by_valid.values()), default=0)}|"
+            f"{max((len(values) for values in watch_by_valid.values()), default=0)}|"
+            f"{len(watch_towns)}|{len(active_valid_times)};"
+        )
+    return rows
+
+
+def _town_risk_summary_rows(area_risk_result: dict[str, Any]) -> list[str]:
+    items = _summary_items(area_risk_result)
+    by_town: OrderedDict[str, dict[str, list[tuple[datetime, float]]]] = OrderedDict()
+    for item in items:
+        valid_time = _item_valid_datetime(item)
+        if valid_time is None:
+            continue
+        area = item.get("area") or {}
+        s5 = str(area.get("s5") or "") or _s5_from_codes(area.get("county_code"), area.get("town_code"))
+        if not s5:
+            continue
+        risk_values = _risk_values(item.get("risks") or [])
+        town_bucket = by_town.setdefault(s5, {})
+        for hazard, _field, _label, _source in RISK_DSL_FIELDS:
+            score = risk_values.get(hazard)
+            if score is not None:
+                town_bucket.setdefault(hazard, []).append((valid_time, score))
+
+    rows: list[str] = []
+    for s5 in sorted(by_town):
+        risks = by_town[s5]
+        for hazard, field, _label, _source in RISK_DSL_FIELDS:
+            values = risks.get(hazard) or []
+            if not values:
+                continue
+            max_valid, max_score = max(values, key=lambda item: item[1])
+            rows.append(
+                f"{s5}>{field}={_format_value(max_score)}|{_dsl_time(max_valid)}|{_risk_summary_level(max_score)}|"
+                f"{sum(1 for _valid, score in values if score >= RISK_WATCH_THRESHOLD)}|"
+                f"{sum(1 for _valid, score in values if score >= RISK_HIGH_THRESHOLD)};"
+            )
+    return rows
+
+
+def _physical_summary_dsl_lines(
+    run_entries: list[dict[str, Any]],
+    evidence_fields: OrderedDict[str, dict[str, Any]],
+) -> list[str]:
+    rows = _physical_summary_items(run_entries, evidence_fields)
+    return [
+        "@SUM_PHY_ORD:PID=EXTREME|EXTREME_VALID|EXTREME_S5|EXTREME_LEVEL|HIGH_CNT_PEAK|WATCH_CNT_PEAK|WATCH_TOWN_ANY|ACTIVE_DT_CNT;",
+        "#SUMMARY_PHY:",
+        *_region_physical_summary_rows(rows, evidence_fields),
+        "@SUM_TOWN_PHY_ORD:S5>PID=EXTREME|EXTREME_VALID|EXTREME_LEVEL|WATCH_DT_CNT|HIGH_DT_CNT;",
+        "#SUMMARY_TOWN_PHY:",
+        *_town_physical_summary_rows(rows, evidence_fields),
+    ]
+
+
+def _region_physical_summary_rows(
+    rows: list[dict[str, Any]],
+    evidence_fields: OrderedDict[str, dict[str, Any]],
+) -> list[str]:
+    output: list[str] = []
+    for field, meta in evidence_fields.items():
+        field_rows = [row for row in rows if row["field"] == field]
+        if not field_rows:
+            continue
+        winner = _physical_summary_winner(field_rows, meta)
+        high_by_valid: dict[str, set[str]] = {}
+        watch_by_valid: dict[str, set[str]] = {}
+        watch_towns: set[str] = set()
+        active_valid_times: set[str] = set()
+        for row in field_rows:
+            valid_key = row["valid_key"]
+            s5 = row["s5"]
+            if _physical_summary_met(row["value"], meta, "high"):
+                high_by_valid.setdefault(valid_key, set()).add(s5)
+            if _physical_summary_met(row["value"], meta, "watch"):
+                watch_by_valid.setdefault(valid_key, set()).add(s5)
+                watch_towns.add(s5)
+                active_valid_times.add(valid_key)
+        output.append(
+            f"{field}={_format_value(winner['value'])}|{winner['valid_key']}|{winner['s5']}|{winner['level']}|"
+            f"{max((len(values) for values in high_by_valid.values()), default=0)}|"
+            f"{max((len(values) for values in watch_by_valid.values()), default=0)}|"
+            f"{len(watch_towns)}|{len(active_valid_times)};"
+        )
+    return output
+
+
+def _town_physical_summary_rows(
+    rows: list[dict[str, Any]],
+    evidence_fields: OrderedDict[str, dict[str, Any]],
+) -> list[str]:
+    by_town: OrderedDict[str, dict[str, list[dict[str, Any]]]] = OrderedDict()
+    for row in rows:
+        by_town.setdefault(row["s5"], {}).setdefault(row["field"], []).append(row)
+
+    output: list[str] = []
+    for s5 in sorted(by_town):
+        town_rows = by_town[s5]
+        for field, meta in evidence_fields.items():
+            field_rows = town_rows.get(field) or []
+            if not field_rows:
+                continue
+            winner = _physical_summary_winner(field_rows, meta)
+            output.append(
+                f"{s5}>{field}={_format_value(winner['value'])}|{winner['valid_key']}|{winner['level']}|"
+                f"{sum(1 for row in field_rows if _physical_summary_met(row['value'], meta, 'watch'))}|"
+                f"{sum(1 for row in field_rows if _physical_summary_met(row['value'], meta, 'high'))};"
+            )
+    return output
+
+
+def _physical_summary_items(
+    run_entries: list[dict[str, Any]],
+    evidence_fields: OrderedDict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for entry in run_entries:
+        physical_values = _physical_evidence_values(entry.get("physical_evidence"))
+        for item in _summary_items(entry.get("area_risk_result") or {}):
+            valid_time = _item_valid_datetime(item)
+            if valid_time is None:
+                continue
+            area = item.get("area") or {}
+            town_code = str(area.get("town_code") or "")
+            s5 = str(area.get("s5") or "") or _s5_from_codes(area.get("county_code"), town_code)
+            if not town_code or not s5:
+                continue
+            forecast_hour = int(item.get("forecast_hour") or 0)
+            values = physical_values.get((forecast_hour, town_code), {})
+            for field, meta in evidence_fields.items():
+                value = _as_float(values.get(field))
+                if value is None:
+                    continue
+                rows.append(
+                    {
+                        "field": field,
+                        "value": value,
+                        "level": _physical_summary_level(value, meta),
+                        "valid_time": valid_time,
+                        "valid_key": _dsl_time(valid_time),
+                        "s5": s5,
+                        "forecast_hour": forecast_hour,
+                    }
+                )
+    return sorted(rows, key=lambda row: (row["valid_time"], row["s5"], row["field"], row["forecast_hour"]))
+
+
+def _physical_summary_winner(rows: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
+    return min(
+        rows,
+        key=lambda row: (
+            _physical_summary_extreme_rank(row["value"], meta),
+            row["valid_time"],
+            row["s5"],
+            row["forecast_hour"],
+        ),
+    )
+
+
+def _summary_items(area_risk_result: dict[str, Any]) -> list[dict[str, Any]]:
+    return sorted(area_risk_result.get("items") or [], key=lambda item: (_item_valid_datetime(item) or datetime.min, _item_sort_key(item)))
+
+
+def _item_valid_datetime(item: dict[str, Any]) -> datetime | None:
+    raw = item.get("valid_time")
+    if not raw:
+        return None
+    try:
+        return parse_optional_time(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _risk_summary_level(score: float) -> str:
+    if score >= RISK_HIGH_THRESHOLD:
+        return "high"
+    if score >= RISK_WATCH_THRESHOLD:
+        return "watch"
+    return "low"
+
+
+def _physical_summary_level(value: float, meta: dict[str, Any]) -> str:
+    if _physical_summary_met(value, meta, "high"):
+        return "high"
+    if _physical_summary_met(value, meta, "watch"):
+        return "watch"
+    return "low"
+
+
+def _physical_summary_met(value: float, meta: dict[str, Any], level: str) -> bool:
+    threshold = _as_float(meta.get(level))
+    if threshold is None:
+        return False
+    if _physical_summary_direction(meta) == "lte":
+        return value <= threshold
+    return value >= threshold
+
+
+def _physical_summary_extreme_rank(value: float, meta: dict[str, Any]) -> float:
+    if _physical_summary_direction(meta) == "lte":
+        return float(value)
+    return -float(value)
+
+
+def _physical_summary_direction(meta: dict[str, Any]) -> str:
+    return "lte" if str(meta.get("direction") or "").lower() == "lte" else "gte"
+
+
 def _physical_evidence_fields(physical_evidence: dict[str, Any] | None) -> OrderedDict[str, dict[str, Any]]:
     raw_fields = (physical_evidence or {}).get("fields") or {}
     fields: OrderedDict[str, dict[str, Any]] = OrderedDict()
@@ -699,6 +1329,55 @@ def _physical_evidence_values(physical_evidence: dict[str, Any] | None) -> dict[
         if row:
             values[key] = row
     return values
+
+
+def _merged_physical_evidence_fields(run_entries: list[dict[str, Any]]) -> OrderedDict[str, dict[str, Any]]:
+    merged: OrderedDict[str, dict[str, Any]] = OrderedDict()
+    for entry in run_entries:
+        for field, meta in _physical_evidence_fields(entry.get("physical_evidence")).items():
+            if field not in merged:
+                merged[field] = meta
+    return merged
+
+
+def _combine_area_risk_results(
+    area_risk_results: list[dict[str, Any]],
+    *,
+    region_scope: dict[str, Any],
+) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for result in area_risk_results:
+        items.extend(deepcopy(result.get("items") or []))
+        failed.extend(deepcopy(result.get("failed") or []))
+    risks = [risk for item in items for risk in item.get("risks") or []]
+    max_score = max((_as_float(risk.get("score")) or 0.0 for risk in risks), default=0.0)
+    return {
+        "items": sorted(items, key=lambda item: (_item_valid_datetime(item) or datetime.min, _item_sort_key(item))),
+        "failed": failed,
+        "summary": {
+            "town_count": int(region_scope.get("town_count") or 0),
+            "risk_type_count": len(RISK_DSL_FIELDS),
+            "item_count": len(items),
+            "risk_count": len(risks),
+            "max_score": _round_score(max_score),
+        },
+    }
+
+
+def _cached_risk_input_bundle(
+    root: Path,
+    run_time: datetime,
+    forecast_hour: int,
+    risk_input_cache: dict[tuple[str, str, int], tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]] | None,
+) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[str]]:
+    key = (str(root), run_time.isoformat(), int(forecast_hour))
+    if risk_input_cache is not None and key in risk_input_cache:
+        return risk_input_cache[key]
+    bundle = _risk_input_bundle(root, run_time.isoformat(), int(forecast_hour))
+    if risk_input_cache is not None:
+        risk_input_cache[key] = bundle
+    return bundle
 
 
 def _public_physical_evidence_fields(specs: OrderedDict[str, dict[str, Any]]) -> OrderedDict[str, dict[str, Any]]:
@@ -982,6 +1661,13 @@ def _dedupe_ints(values: list[int]) -> list[int]:
 
 def _dsl_time(value: datetime) -> str:
     return value.strftime("%y%m%d%H%M")
+
+
+def _dsl_token(value: Any) -> str:
+    text = str(value or "").strip()
+    for token in ("|", ";", "\r", "\n"):
+        text = text.replace(token, "_")
+    return text or "window"
 
 
 def _item_sort_key(item: dict[str, Any]) -> tuple[int, str, str]:

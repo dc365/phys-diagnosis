@@ -1,0 +1,16 @@
+endpoint: "http://10.140.89.22:10005/weather/nwp/nwp_lib/GetPhysicalStationByTimeRange_v2"
+user: "admin"
+password: "111"
+timeout_seconds: 10
+test_mode: false
+test_data_template: "test_datas/sktk_{station}.json"
+stations:
+  "58847":
+    province: "福建"
+    name: "福州站"
+  "59134":
+    province: "福建"
+    name: "厦门站"
+  "58725":
+    province: "福建"
+    name: "南平邵武站"
