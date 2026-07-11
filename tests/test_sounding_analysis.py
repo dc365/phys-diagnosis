@@ -144,7 +144,7 @@ def test_sounding_troughs_keep_a_meridional_axis_in_the_nmc_china_domain():
 
     troughs = [item for item in result["systems"] if item["feature_type"] == "trough_candidate"]
     assert troughs
-    assert all(item["method"] == "nmc_style_synoptic_axis_v7" for item in troughs)
+    assert all(item["method"] == "sounding_multitrack_axis_v4" for item in troughs)
     assert all(
         item["analysis_domain"]
         == {"lon_min": 60.0, "lon_max": 150.0, "lat_min": 15.0, "lat_max": 55.0}
@@ -165,29 +165,35 @@ def test_sounding_troughs_keep_a_meridional_axis_in_the_nmc_china_domain():
     assert central_axes
 
 
-def test_sounding_troughs_recover_the_hainan_valley_track():
+def test_sounding_hainan_feature_is_shear_not_forced_height_trough():
     diagnose_sounding_situation = _diagnose_sounding_situation()
     result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
 
-    hainan_axes = []
-    for item in result["systems"]:
-        if item["feature_type"] != "trough_candidate":
-            continue
+    troughs = [
+        item for item in result["systems"] if item["feature_type"] == "trough_candidate"
+    ]
+    for item in troughs:
         coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
-        core = coordinates[
-            (coordinates[:, 0] >= 105.0)
-            & (coordinates[:, 0] <= 114.0)
+        assert not np.any(
+            (coordinates[:, 0] >= 104.0)
+            & (coordinates[:, 0] <= 115.0)
             & (coordinates[:, 1] >= 13.0)
-            & (coordinates[:, 1] <= 21.0)
-        ]
-        if len(core) >= 2 and float(np.ptp(core[:, 1])) >= 3.0:
-            hainan_axes.append(item)
+            & (coordinates[:, 1] <= 25.0)
+        )
 
-    assert hainan_axes
-    assert any(
-        item["candidate_source"] == "meridional_valley_track"
-        and str(item.get("id") or "").startswith("trough_south_china_hainan")
-        for item in hainan_axes
+    shear = [
+        item
+        for item in result["systems"]
+        if item["feature_type"] == "shear_line"
+        and item.get("candidate_source") == "south_china_588_deformation_track"
+    ]
+    assert shear
+    coordinates = np.asarray(shear[0]["geometry"]["coordinates"], dtype=float)
+    assert np.any(
+        (coordinates[:, 0] >= 104.0)
+        & (coordinates[:, 0] <= 115.0)
+        & (coordinates[:, 1] >= 13.0)
+        & (coordinates[:, 1] <= 28.0)
     )
 
 
@@ -210,20 +216,25 @@ def test_sounding_troughs_do_not_promote_low_latitude_zonal_components():
                 assert lon_span <= 1.5 * max(lat_span, 0.5)
 
 
-def test_sounding_meridional_recovery_stays_in_core_china_longitudes():
+def test_sounding_multitrack_sources_are_automatic_and_inside_analysis_domain():
     diagnose_sounding_situation = _diagnose_sounding_situation()
     result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
 
-    recovered = [
-        item
-        for item in result["systems"]
-        if item.get("candidate_source") == "meridional_valley_track"
+    troughs = [
+        item for item in result["systems"] if item["feature_type"] == "trough_candidate"
     ]
-    assert recovered
-    for item in recovered:
+    assert troughs
+    assert {item.get("candidate_source") for item in troughs} & {
+        "dynamic_height_valley",
+        "closed_low_south_branch",
+        "closed_low_north_branch",
+    }
+    for item in troughs:
         coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
-        assert float(np.nanmin(coordinates[:, 0])) >= 95.0
-        assert float(np.nanmax(coordinates[:, 0])) <= 120.0
+        assert float(np.nanmin(coordinates[:, 0])) >= 60.0
+        assert float(np.nanmax(coordinates[:, 0])) <= 150.0
+        assert float(np.nanmin(coordinates[:, 1])) >= 15.0
+        assert float(np.nanmax(coordinates[:, 1])) <= 55.0
 
 
 def test_sounding_situation_outputs_weather_systems_and_station_winds():
@@ -301,6 +312,7 @@ def test_public_sounding_situation_api_returns_map_ready_objects():
         "height_center_field": "z500",
         "trough_ridge_field": "z500",
         "analysis_version": "sounding_z500_synoptic_v2",
+        "weather_system_version": "sounding_multitrack_v4",
     }
     assert body["data"]["systems"]
     assert body["data"]["station_features"]["features"]

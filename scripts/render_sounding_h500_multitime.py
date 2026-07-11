@@ -75,6 +75,17 @@ def _troughs(result: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _diagnostic_shear_lines(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the regional Hainan shear supplement for NMC brown-line checks."""
+    return [
+        item
+        for item in result.get("systems") or []
+        if item.get("feature_type") == "shear_line"
+        and item.get("candidate_source") == "south_china_588_deformation_track"
+        and _line_coordinates(item).shape[0] >= 2
+    ]
+
+
 def _contours(field: dict[str, Any]) -> dict[str, Any]:
     values = np.asarray(field["values"], dtype=float)
     support = np.asarray(field.get("support_mask"), dtype=bool)
@@ -245,6 +256,11 @@ def _render_analysis(
             str(trough.get("id") or trough.get("candidate_source") or "trough"),
             fontsize=6,
         )
+    for shear in _diagnostic_shear_lines(result):
+        coordinates = _line_coordinates(shear)
+        axis.plot(coordinates[:, 0], coordinates[:, 1], linewidth=2.5, linestyle="--")
+        midpoint = coordinates[len(coordinates) // 2]
+        axis.text(float(midpoint[0]), float(midpoint[1]), "Hainan shear", fontsize=6)
     station_lon: list[float] = []
     station_lat: list[float] = []
     for station in (result.get("station_features") or {}).get("features") or []:
@@ -291,6 +307,7 @@ def render_cycle(csv_path: Path, output_dir: Path) -> dict[str, Any]:
     field = result["analysis_fields"]["z500"]
     contours = _contours(field)
     troughs = _troughs(result)
+    shear_lines = _diagnostic_shear_lines(result)
 
     _render_analysis(result, contours, cycle_dir / "analysis.png")
     np.savez_compressed(
@@ -312,12 +329,20 @@ def render_cycle(csv_path: Path, output_dir: Path) -> dict[str, Any]:
         "quality": _jsonable(field.get("quality") or {}),
         "contour_count": len(contours.get("features") or []),
         "trough_count": len(troughs),
+        "hainan_shear_count": len(shear_lines),
         "troughs": [
             {
                 **{key: _jsonable(value) for key, value in item.items() if key != "geometry"},
                 "coordinates": _line_coordinates(item).tolist(),
             }
             for item in troughs
+        ],
+        "hainan_shear": [
+            {
+                **{key: _jsonable(value) for key, value in item.items() if key != "geometry"},
+                "coordinates": _line_coordinates(item).tolist(),
+            }
+            for item in shear_lines
         ],
     }
 
@@ -331,8 +356,13 @@ def render_cycle(csv_path: Path, output_dir: Path) -> dict[str, Any]:
             for feature in contours.get("features") or []
         ]
         trough_lines = [_line_coordinates(item) for item in troughs]
+        shear_lines_coordinates = [_line_coordinates(item) for item in shear_lines]
         generated_contours = _rasterize_geo_lines(contour_lines, reference, width=2)
-        generated_troughs = _rasterize_geo_lines(trough_lines, reference, width=5)
+        generated_troughs = _rasterize_geo_lines(
+            [*trough_lines, *shear_lines_coordinates],
+            reference,
+            width=5,
+        )
         report["reference"] = str(reference_path)
         report["contour_distance"] = _symmetric_distance(blue_reference, generated_contours)
         report["trough_distance"] = _symmetric_distance(brown_reference, generated_troughs)

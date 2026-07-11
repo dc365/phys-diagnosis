@@ -12,6 +12,11 @@ from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, o
 from weather_diag.diagnosis.sounding_multilevel import augment_sounding_result
 from weather_diag.diagnosis.sounding_preprocess import preprocess_sounding_csv
 from weather_diag.features.shear_line import detect_shear_lines
+from weather_diag.features.sounding_trough_paths import (
+    detect_sounding_multitrack_troughs,
+    detect_south_china_shear_system,
+    merge_shear_systems,
+)
 
 
 # Synoptic-scale Z500 analysis for sparse sounding observations.  The final
@@ -412,18 +417,54 @@ def diagnose_sounding_situation(
             confidence=confidence,
         )
     )
+    # Preserve the established ridge product, but replace sounding trough axes
+    # with the station-only multi-path v4 tracker.  The older sounding wrapper
+    # included fixed regional trough corridors; those are intentionally ignored
+    # here so Hainan is not forced to appear as a height trough.
+    legacy_axes = legacy._trough_ridge_systems(
+        z.values,
+        u.values,
+        v.values,
+        lat,
+        lon,
+        confidence,
+        support_distance_km=z.support_distance_km,
+    )
     systems.extend(
-        legacy._trough_ridge_systems(
+        item for item in legacy_axes if item.get("feature_type") == "ridge_candidate"
+    )
+    systems.extend(
+        detect_sounding_multitrack_troughs(
             z.values,
             u.values,
             v.values,
             lat,
             lon,
-            confidence,
             support_distance_km=z.support_distance_km,
+            support_mask=z.support_mask,
+            confidence=confidence,
         )
     )
-    systems.extend(_shear_systems(u.values, v.values, t.values, lat, lon, confidence))
+
+    shear_systems = _shear_systems(
+        u.values,
+        v.values,
+        t.values,
+        lat,
+        lon,
+        confidence,
+    )
+    south_china_shear = detect_south_china_shear_system(
+        z.values,
+        u.values,
+        v.values,
+        lat,
+        lon,
+        support_distance_km=z.support_distance_km,
+        support_mask=z.support_mask,
+        confidence=confidence,
+    )
+    systems.extend(merge_shear_systems(shear_systems, south_china_shear))
 
     result = dict(result)
     result["analysis_fields"] = {
@@ -439,6 +480,7 @@ def diagnose_sounding_situation(
         "height_center_field": "z500",
         "trough_ridge_field": "z500",
         "analysis_version": Z500_ANALYSIS_VERSION,
+        "weather_system_version": "sounding_multitrack_v4",
     }
     result["station_features"] = legacy._station_features(frame, level)
     result["preprocess_report"] = _sounding_display_report(preprocess_report)
@@ -446,6 +488,7 @@ def diagnose_sounding_situation(
     result["summary"] = (
         f"{result['observation_time']} {level} multiscale synoptic sounding objective analysis "
         f"generated {len(result.get('systems') or [])} weather systems; "
-        f"multilevel fields {result.get('multilevel_summary', {}).get('added_field_count', 0)}."
+        f"multilevel fields {result.get('multilevel_summary', {}).get('added_field_count', 0)}; "
+        "trough/shear paths sounding_multitrack_v4."
     )
     return result
