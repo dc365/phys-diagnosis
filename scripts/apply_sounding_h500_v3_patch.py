@@ -67,6 +67,11 @@ def patch_sounding_optimized() -> None:
     replace_once(path, old, new)
 
 
+def patch_adaptive_analysis() -> None:
+    path = ROOT / "weather_diag/diagnosis/sounding_z500_adaptive.py"
+    replace_once(path, '"background_used": False,', '"background_used": True,')
+
+
 def patch_contour_trough() -> None:
     path = ROOT / "weather_diag/features/contour_trough.py"
     old = '''    eligible = [*multi_level, *strong_single]
@@ -149,14 +154,27 @@ def patch_contour_trough() -> None:
     replace_once(path, old_bounds, new_bounds)
 
 
+def patch_tests() -> None:
+    path = ROOT / "tests/test_sounding_analysis.py"
+    replace_once(
+        path,
+        'assert z500["quality"]["analysis_version"] == "sounding_z500_synoptic_v2"',
+        'assert z500["quality"]["analysis_version"] == "sounding_z500_synoptic_v3"',
+    )
+
+
 def main() -> None:
     patch_sounding_optimized()
+    patch_adaptive_analysis()
     patch_contour_trough()
+    patch_tests()
 
     output_dir = ROOT / "artifacts/sounding-h500/patched-files"
     for relative in [
         Path("weather_diag/diagnosis/sounding_optimized.py"),
+        Path("weather_diag/diagnosis/sounding_z500_adaptive.py"),
         Path("weather_diag/features/contour_trough.py"),
+        Path("tests/test_sounding_analysis.py"),
     ]:
         destination = output_dir / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
