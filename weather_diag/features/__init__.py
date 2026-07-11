@@ -35,6 +35,41 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         }
         return {"contour_trough": mapping}
 
+    def _line_intersects(feature: dict, bounds: tuple[float, float, float, float]) -> bool:
+        lon_min, lat_min, lon_max, lat_max = bounds
+        coordinates = (feature.get("geometry") or {}).get("coordinates") or []
+        return any(
+            len(point) >= 2
+            and lon_min <= float(point[0]) <= lon_max
+            and lat_min <= float(point[1]) <= lat_max
+            for point in coordinates
+        )
+
+    def _merge_southern_fallback(
+        contour_troughs: list[dict],
+        original_troughs: list[dict],
+    ) -> list[dict]:
+        """Keep one legacy weak southern track only when contours miss it.
+
+        The original synoptic-score components are intentionally not merged after
+        contour seeds succeed, because those broad components caused the unwanted
+        Northeast diagonal bridge. The legacy meridional recovery remains a safe
+        fallback for sparse low-latitude observations.
+        """
+
+        if not contour_troughs:
+            return original_troughs
+        southern_bounds = (104.0, 13.0, 115.0, 26.0)
+        if any(_line_intersects(feature, southern_bounds) for feature in contour_troughs):
+            return contour_troughs
+        for feature in original_troughs:
+            props = feature.get("properties") or {}
+            if props.get("candidate_source") != "meridional_valley_track":
+                continue
+            if _line_intersects(feature, (95.0, 15.0, 120.0, 32.0)):
+                return [*contour_troughs, feature]
+        return contour_troughs
+
     def _detect_trough_ridge_with_contour_seeds(
         z500,
         lat,
@@ -71,7 +106,7 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
             # Operational fallback: a contour extraction failure must not remove
             # the established height-trough product.
             return original_troughs, ridges
-        return (contour_troughs or original_troughs), ridges
+        return _merge_southern_fallback(contour_troughs, original_troughs), ridges
 
     _detect_trough_ridge_with_contour_seeds._contour_seeded_wrapper = True
     _trough_ridge.detect_trough_ridge = _detect_trough_ridge_with_contour_seeds
