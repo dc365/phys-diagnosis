@@ -58,12 +58,6 @@ jobs:
           echo "$code" > artifacts/sounding-h500-multitime/render.exit-code
           exit "$code"
 
-      - name: Pack source snapshot for review
-        if: always()
-        run: |
-          tar -czf artifacts/sounding-h500-multitime/phys-diagnosis-source.tar.gz \
-            weather_diag backend frontend tests scripts docs pyproject.toml Makefile
-
       - name: Upload H500 diagnostics
         if: always()
         uses: actions/upload-artifact@v4
