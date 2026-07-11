@@ -8,10 +8,12 @@ on:
       - "weather_diag/diagnosis/objective_analysis.py"
       - "weather_diag/diagnosis/sounding.py"
       - "weather_diag/diagnosis/sounding_optimized.py"
+      - "weather_diag/diagnosis/sounding_z500_adaptive.py"
       - "weather_diag/features/trough_ridge.py"
       - "weather_diag/features/contour_trough.py"
       - "weather_diag/features/__init__.py"
       - "backend/app/api/v1/sounding.py"
+      - "scripts/apply_sounding_h500_v3_patch.py"
       - "scripts/render_sounding_h500_regression.py"
       - "scripts/render_sounding_h500_wind_experiment.py"
       - "tests/test_sounding_analysis.py"
@@ -42,6 +44,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
+
+      - name: Apply H500 v3 candidate patch
+        run: python scripts/apply_sounding_h500_v3_patch.py
 
       - name: Render reference diagnostics
         shell: bash
@@ -84,6 +89,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
           python -m pip install pytest
+
+      - name: Apply H500 v3 candidate patch
+        run: python scripts/apply_sounding_h500_v3_patch.py
 
       - name: Run focused regression tests
         run: |
