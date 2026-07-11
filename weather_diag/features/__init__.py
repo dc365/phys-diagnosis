@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 # Sounding analysis enables ``enable_meridional_valley_tracks`` in its
-# trough/ridge thresholds.  Use that existing opt-in as the compatibility gate
+# trough/ridge thresholds. Use that existing opt-in as the compatibility gate
 # for the contour-seeded detector, while leaving model-grid/NAFP detection on the
 # established trough_ridge implementation.
 from . import trough_ridge as _trough_ridge
-from .contour_trough import detect_contour_seeded_troughs
 
 
 if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", False):
@@ -58,6 +57,9 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
             return original_troughs, ridges
 
         try:
+            # Lazy import avoids loading Matplotlib for model/NAFP feature paths.
+            from .contour_trough import detect_contour_seeded_troughs
+
             contour_troughs = detect_contour_seeded_troughs(
                 z500,
                 lat,
