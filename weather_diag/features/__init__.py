@@ -49,6 +49,110 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         }
         return {"contour_trough": mapping}
 
+    def _install_contour_runtime_patches(module) -> None:
+        """Install sounding-only seed selection and trace-bound improvements.
+
+        The detector stays lazily imported, so model/NAFP feature paths do not pay
+        the Matplotlib startup cost. Multi-level and exceptional single-level tips
+        are retained together, and northern tips may trace farther along a
+        continuous height valley.
+        """
+
+        if getattr(module, "_sounding_contour_v3_patch", False):
+            return
+
+        def _select_seeds(clusters: list[dict], cfg):
+            multi_level = [
+                cluster
+                for cluster in clusters
+                if cluster["level_count"] >= cfg.contour_seed_min_levels
+            ]
+            strong_single = [
+                cluster
+                for cluster in clusters
+                if cluster["level_count"] < cfg.contour_seed_min_levels
+                and cluster["depth_mean_deg"]
+                >= 2.0 * cfg.contour_tip_min_depth_deg
+            ]
+            eligible = [*multi_level, *strong_single]
+            if not eligible:
+                return [], float("inf")
+
+            single_threshold = module._otsu(
+                np.asarray([cluster["score"] for cluster in strong_single]),
+                cfg.contour_seed_otsu_bins,
+            )
+            selected = [
+                *multi_level,
+                *[
+                    cluster
+                    for cluster in strong_single
+                    if cluster["score"] >= single_threshold
+                ],
+            ]
+            if not selected:
+                selected = [max(eligible, key=lambda cluster: cluster["score"])]
+
+            kept: list[dict] = []
+            for item in sorted(
+                selected,
+                key=lambda cluster: (cluster["level_count"], cluster["score"]),
+                reverse=True,
+            ):
+                point = np.asarray([item["lon"], item["lat"]], dtype=float)
+                if any(
+                    module._distance_km(
+                        point,
+                        np.asarray([old["lon"], old["lat"]], dtype=float),
+                    )
+                    < min(cfg.contour_cluster_radius_km * 0.40, 360.0)
+                    for old in kept
+                ):
+                    continue
+                kept.append(item)
+            return kept, single_threshold
+
+        def _seed_bounds(seed: dict, cfg):
+            lat_span = max(
+                0.0,
+                float(seed["tip_lat_max"] - seed["tip_lat_min"]),
+            )
+            lon_span = max(
+                0.0,
+                float(seed["tip_lon_max"] - seed["tip_lon_min"]),
+            )
+            seed_lat = float(seed["lat"])
+            if seed_lat >= 34.0:
+                south_margin = max(5.0, min(9.0, 0.35 * lat_span + 4.0))
+                north_margin = max(9.0, min(15.0, 0.65 * lat_span + 8.0))
+                lon_margin = max(4.0, min(7.0, 0.65 * lon_span + 3.0))
+            else:
+                south_margin = max(3.0, min(5.0, 0.25 * lat_span + 2.0))
+                north_margin = max(3.5, min(6.0, 0.30 * lat_span + 2.5))
+                lon_margin = max(3.0, min(5.5, 0.50 * lon_span + 2.0))
+            return (
+                max(
+                    cfg.analysis_lat_min,
+                    float(seed["tip_lat_min"]) - south_margin,
+                ),
+                min(
+                    cfg.analysis_lat_max,
+                    float(seed["tip_lat_max"]) + north_margin,
+                ),
+                max(
+                    cfg.analysis_lon_min,
+                    float(seed["tip_lon_min"]) - lon_margin,
+                ),
+                min(
+                    cfg.analysis_lon_max,
+                    float(seed["tip_lon_max"]) + lon_margin,
+                ),
+            )
+
+        module._select_seeds = _select_seeds
+        module._seed_bounds = _seed_bounds
+        module._sounding_contour_v3_patch = True
+
     def _coordinates(feature: dict) -> np.ndarray:
         values = np.asarray(
             (feature.get("geometry") or {}).get("coordinates") or [],
@@ -124,13 +228,7 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         region_name: str,
         global_domain: dict,
     ) -> list[dict]:
-        """Build regional valley tracks without component-overlap suppression.
-
-        The general detector intentionally removes a valley track when it overlaps
-        a broad score component.  That is useful for the global product, but it
-        also removed the real 105E Mongolia/Russia axis.  Regional corridors are
-        already narrow, so direct valley tracing is both safer and more complete.
-        """
+        """Build regional valley tracks without component-overlap suppression."""
 
         z, lat_values, lon_values, vorticity = _trough_ridge._prepare_lat_lon_field(
             _trough_ridge._maybe_geopotential_to_height(np.asarray(z500, dtype=float)),
@@ -205,9 +303,6 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         global_domain = _raw_thresholds(thresholds)
         regions = [
             {
-                # Restrict the southern corridor to the weak Hainan/South China
-                # Sea valley.  The former 13-31N corridor selected the stronger
-                # Vietnam valley at 22-29N instead of the NMC-style Hainan axis.
                 "name": "south_china_hainan",
                 "lon_min": 105.0,
                 "lon_max": 114.0,
@@ -221,9 +316,6 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
                 "min_peak_depth_gpm": 0.14,
             },
             {
-                # The reference northern trough follows the strong 105-107E
-                # station-derived height valley.  A separate corridor prevents the
-                # weaker 93-97E minimum from outranking it.
                 "name": "mongolia_russia_central",
                 "lon_min": 99.0,
                 "lon_max": 112.0,
@@ -277,8 +369,6 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
                 output.append(feature)
         if output:
             return output
-        # Preserve the old operational fallback when neither automatic contour
-        # tips nor regional valley tracks can form a valid line.
         return original_troughs
 
     def _detect_trough_ridge_with_contour_seeds(
@@ -305,9 +395,10 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
 
         try:
             # Lazy import avoids loading Matplotlib for model/NAFP feature paths.
-            from .contour_trough import detect_contour_seeded_troughs
+            from . import contour_trough as _contour_trough
 
-            contour_troughs = detect_contour_seeded_troughs(
+            _install_contour_runtime_patches(_contour_trough)
+            contour_troughs = _contour_trough.detect_contour_seeded_troughs(
                 z500,
                 lat,
                 lon,
@@ -322,8 +413,6 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
                 vorticity500,
             )
         except Exception:
-            # Operational fallback: a contour extraction failure must not remove
-            # the established height-trough product.
             return original_troughs, ridges
         return _merge_tracks(contour_troughs, supplemental, original_troughs), ridges
 
