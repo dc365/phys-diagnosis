@@ -186,7 +186,7 @@ def test_sounding_troughs_recover_the_hainan_valley_track():
     assert hainan_axes
     assert any(
         item["candidate_source"] == "meridional_valley_track"
-        and item.get("supplement_region") == "south_china_hainan"
+        and str(item.get("id") or "").startswith("trough_south_china_hainan")
         for item in hainan_axes
     )
 
