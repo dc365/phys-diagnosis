@@ -42,6 +42,8 @@ def test_sounding_500hpa_analysis_uses_sounding_contract():
     assert z500["quality"]["station_count"] > 150
     assert z500["quality"]["method"] == "barnes_successive_correction"
     assert z500["quality"]["analysis_version"] == "sounding_z500_synoptic_v2"
+    assert z500["quality"]["adaptive_analysis_version"] == "sounding_z500_synoptic_v3"
+    assert z500["quality"]["adaptive_station_only"] is True
     assert z500["quality"]["field_role"] == "synoptic_z500"
     assert z500["quality"]["distance_method"] == "great_circle_haversine"
     assert z500["quality"]["background_used"] is True
@@ -163,26 +165,30 @@ def test_sounding_troughs_keep_a_meridional_axis_in_the_nmc_china_domain():
     assert central_axes
 
 
-def test_sounding_troughs_recover_the_weak_southern_china_valley_track():
+def test_sounding_troughs_recover_the_hainan_valley_track():
     diagnose_sounding_situation = _diagnose_sounding_situation()
     result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
 
-    lower_axes = []
+    hainan_axes = []
     for item in result["systems"]:
         if item["feature_type"] != "trough_candidate":
             continue
         coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
         core = coordinates[
-            (coordinates[:, 0] >= 102.0)
+            (coordinates[:, 0] >= 105.0)
             & (coordinates[:, 0] <= 114.0)
-            & (coordinates[:, 1] >= 22.0)
-            & (coordinates[:, 1] <= 36.0)
+            & (coordinates[:, 1] >= 13.0)
+            & (coordinates[:, 1] <= 21.0)
         ]
-        if len(core) >= 2 and float(np.ptp(core[:, 1])) >= 4.0:
-            lower_axes.append(item)
+        if len(core) >= 2 and float(np.ptp(core[:, 1])) >= 3.0:
+            hainan_axes.append(item)
 
-    assert lower_axes
-    assert any(item["candidate_source"] == "meridional_valley_track" for item in lower_axes)
+    assert hainan_axes
+    assert any(
+        item["candidate_source"] == "meridional_valley_track"
+        and str(item.get("id") or "").startswith("trough_south_china_hainan")
+        for item in hainan_axes
+    )
 
 
 def test_sounding_troughs_do_not_promote_low_latitude_zonal_components():
