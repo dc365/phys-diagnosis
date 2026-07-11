@@ -16,55 +16,22 @@ on:
       - "backend/app/api/v1/sounding.py"
       - "scripts/render_sounding_h500_regression.py"
       - "scripts/render_sounding_h500_wind_experiment.py"
-      - "scripts/update_sounding_h500_v3_tests.py"
       - "tests/test_sounding_analysis.py"
       - "tests/test_contour_seeded_trough.py"
       - "tests/test_trough_ridge_features.py"
       - ".github/workflows/sounding-h500-regression.yml"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 env:
   PYTHONPATH: .
 
 jobs:
-  migrate-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Check out head branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
-
-      - name: Update H500 regression contract
-        run: python scripts/update_sounding_h500_v3_tests.py
-
-      - name: Commit regression migration when needed
-        shell: bash
-        run: |
-          if git diff --quiet -- tests/test_sounding_analysis.py; then
-            echo "H500 regression contract is already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/test_sounding_analysis.py
-          git commit -m "Update sounding H500 v3 regression contract"
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
-
   diagnostic:
-    needs: migrate-tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out head branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -101,14 +68,11 @@ jobs:
           retention-days: 14
 
   validate:
-    needs: migrate-tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out head branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
