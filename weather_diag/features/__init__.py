@@ -58,17 +58,6 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
             return np.empty((0, 2), dtype=float)
         return values[:, :2]
 
-    def _is_meridional_track(feature: dict) -> bool:
-        props = feature.get("properties") or {}
-        if props.get("candidate_source") != "meridional_valley_track":
-            return False
-        coordinates = _coordinates(feature)
-        if coordinates.size == 0:
-            return False
-        lon_span = float(np.ptp(coordinates[:, 0]))
-        lat_span = float(np.ptp(coordinates[:, 1]))
-        return lat_span >= 4.0 and lon_span <= 1.7 * max(lat_span, 0.5)
-
     def _is_duplicate(feature: dict, existing: list[dict], distance_km: float = 220.0) -> bool:
         coordinates = _coordinates(feature)
         if coordinates.size == 0:
@@ -90,6 +79,7 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         lat_max: float,
         max_lines: int,
         min_length_km: float,
+        min_lat_span_deg: float,
         min_depth_gpm: float,
         min_mean_depth_gpm: float,
         min_peak_depth_gpm: float,
@@ -119,10 +109,91 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
                 "meridional_track_max_lon_step_deg": 2.8,
                 "meridional_track_max_gap_rows": 2,
                 "meridional_track_min_points": 4,
-                "meridional_track_min_lat_span_deg": 4.0,
+                "meridional_track_min_lat_span_deg": min_lat_span_deg,
             }
         )
         return output
+
+    def _direct_valley_tracks(
+        z500,
+        lat,
+        lon,
+        regional_thresholds: dict,
+        vorticity500,
+        *,
+        region_name: str,
+        global_domain: dict,
+    ) -> list[dict]:
+        """Build regional valley tracks without component-overlap suppression.
+
+        The general detector intentionally removes a valley track when it overlaps
+        a broad score component.  That is useful for the global product, but it
+        also removed the real 105E Mongolia/Russia axis.  Regional corridors are
+        already narrow, so direct valley tracing is both safer and more complete.
+        """
+
+        z, lat_values, lon_values, vorticity = _trough_ridge._prepare_lat_lon_field(
+            _trough_ridge._maybe_geopotential_to_height(np.asarray(z500, dtype=float)),
+            lat,
+            lon,
+            vorticity500,
+        )
+        cfg = _trough_ridge._cfg_from_thresholds(regional_thresholds)
+        dy_km, dx_km = _trough_ridge._grid_spacing_km(lat_values, lon_values)
+        sigma_y = max(cfg.min_sigma_grid, cfg.smooth_radius_km / max(dy_km, 1.0))
+        sigma_x = max(cfg.min_sigma_grid, cfg.smooth_radius_km / max(dx_km, 1.0))
+        z_large = _trough_ridge._nan_gaussian(z, (sigma_y, sigma_x))
+        score, maps = _trough_ridge._build_score(
+            z_large,
+            lat_values,
+            lon_values,
+            cfg,
+            "trough",
+            vorticity,
+        )
+        second_y = max(0.0, cfg.second_smooth_radius_km / max(dy_km, 1.0))
+        second_x = max(0.0, cfg.second_smooth_radius_km / max(dx_km, 1.0))
+        score_smooth = (
+            _trough_ridge._nan_gaussian(score, (second_y, second_x))
+            if cfg.second_smooth_radius_km > 0
+            else score
+        )
+        maps = {**maps, "score": score_smooth}
+
+        features: list[dict] = []
+        for rank, track in enumerate(
+            _trough_ridge._zonal_valley_tracks(z, lat_values, lon_values, cfg),
+            start=1,
+        ):
+            line = _trough_ridge._valley_track_to_line(
+                track,
+                z,
+                lat_values,
+                lon_values,
+                score_smooth,
+                maps,
+                cfg,
+            )
+            if line is None:
+                continue
+            feature = _trough_ridge._feature_from_line(line, rank, "trough", cfg)
+            properties = feature.get("properties") or {}
+            properties.update(
+                {
+                    "id": f"trough_{region_name}_{rank:02d}",
+                    "candidate_source": "meridional_valley_track",
+                    "supplement_region": region_name,
+                    "analysis_domain": {
+                        "lon_min": float(global_domain.get("analysis_lon_min", 60.0)),
+                        "lon_max": float(global_domain.get("analysis_lon_max", 150.0)),
+                        "lat_min": float(global_domain.get("analysis_lat_min", 15.0)),
+                        "lat_max": float(global_domain.get("analysis_lat_max", 55.0)),
+                    },
+                }
+            )
+            feature["properties"] = properties
+            features.append(feature)
+        return features
 
     def _regional_meridional_tracks(
         z500,
@@ -131,30 +202,39 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
         thresholds: dict | None,
         vorticity500,
     ) -> list[dict]:
+        global_domain = _raw_thresholds(thresholds)
         regions = [
             {
+                # Restrict the southern corridor to the weak Hainan/South China
+                # Sea valley.  The former 13-31N corridor selected the stronger
+                # Vietnam valley at 22-29N instead of the NMC-style Hainan axis.
                 "name": "south_china_hainan",
-                "lon_min": 102.0,
-                "lon_max": 115.0,
+                "lon_min": 105.0,
+                "lon_max": 114.0,
                 "lat_min": 13.0,
-                "lat_max": 31.0,
+                "lat_max": 21.0,
                 "max_lines": 1,
-                "min_length_km": 250.0,
-                "min_depth_gpm": 0.25,
-                "min_mean_depth_gpm": 0.35,
-                "min_peak_depth_gpm": 0.70,
+                "min_length_km": 240.0,
+                "min_lat_span_deg": 3.0,
+                "min_depth_gpm": 0.04,
+                "min_mean_depth_gpm": 0.08,
+                "min_peak_depth_gpm": 0.14,
             },
             {
-                "name": "mongolia_russia_west",
-                "lon_min": 88.0,
-                "lon_max": 113.0,
-                "lat_min": 32.0,
+                # The reference northern trough follows the strong 105-107E
+                # station-derived height valley.  A separate corridor prevents the
+                # weaker 93-97E minimum from outranking it.
+                "name": "mongolia_russia_central",
+                "lon_min": 99.0,
+                "lon_max": 112.0,
+                "lat_min": 38.0,
                 "lat_max": 55.0,
-                "max_lines": 2,
-                "min_length_km": 320.0,
-                "min_depth_gpm": 0.40,
-                "min_mean_depth_gpm": 0.55,
-                "min_peak_depth_gpm": 1.00,
+                "max_lines": 1,
+                "min_length_km": 500.0,
+                "min_lat_span_deg": 6.0,
+                "min_depth_gpm": 0.55,
+                "min_mean_depth_gpm": 0.90,
+                "min_peak_depth_gpm": 1.50,
             },
         ]
         tracks: list[dict] = []
@@ -167,29 +247,23 @@ if not getattr(_trough_ridge.detect_trough_ridge, "_contour_seeded_wrapper", Fal
                 lat_max=region["lat_max"],
                 max_lines=region["max_lines"],
                 min_length_km=region["min_length_km"],
+                min_lat_span_deg=region["min_lat_span_deg"],
                 min_depth_gpm=region["min_depth_gpm"],
                 min_mean_depth_gpm=region["min_mean_depth_gpm"],
                 min_peak_depth_gpm=region["min_peak_depth_gpm"],
             )
-            candidates, _ = _original_detect_trough_ridge(
+            candidates = _direct_valley_tracks(
                 z500,
                 lat,
                 lon,
                 regional,
-                vorticity500=vorticity500,
+                vorticity500,
+                region_name=region["name"],
+                global_domain=global_domain,
             )
             for feature in candidates:
-                if not _is_meridional_track(feature):
-                    continue
-                copied = {
-                    **feature,
-                    "properties": {
-                        **(feature.get("properties") or {}),
-                        "supplement_region": region["name"],
-                    },
-                }
-                if not _is_duplicate(copied, tracks, 180.0):
-                    tracks.append(copied)
+                if not _is_duplicate(feature, tracks, 180.0):
+                    tracks.append(feature)
         return tracks
 
     def _merge_tracks(
