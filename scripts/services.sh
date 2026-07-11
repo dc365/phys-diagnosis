@@ -116,6 +116,14 @@ start_api() {
     echo "$service already running (pid $(service_pid "$service"))"
     return 0
   fi
+  if command -v lsof >/dev/null 2>&1; then
+    local listeners
+    listeners="$(lsof -tiTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "$listeners" ]]; then
+      echo "$service cannot start: port $API_PORT is already used by unmanaged pid(s): ${listeners//$'\n'/,}" >&2
+      return 1
+    fi
+  fi
 
   local command=("$PYTHON_BIN" -m uvicorn "$API_APP" --host "$API_HOST" --port "$API_PORT")
   if [[ "$API_RELOAD" == "1" || "$API_RELOAD" == "true" ]]; then
@@ -128,7 +136,7 @@ start_api() {
     nohup "${command[@]}" >>"$logfile" 2>&1 &
     echo $! >"$pidfile"
   )
-  confirm_started "$service"
+  confirm_api_started "$service"
 }
 
 start_area_risk_mcp() {
@@ -163,6 +171,26 @@ confirm_started() {
     return 0
   fi
   echo "$service failed to start. Last log lines:" >&2
+  tail -n 40 "$(log_file "$service")" >&2 || true
+  return 1
+}
+
+confirm_api_started() {
+  local service="$1"
+  local pid
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pid="$(service_pid "$service")"
+    if ! is_running "$service"; then
+      break
+    fi
+    if ! command -v lsof >/dev/null 2>&1 || lsof -tiTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null | grep -qx "$pid"; then
+      echo "$service started (pid $pid, log $(log_file "$service"))"
+      return 0
+    fi
+    sleep 1
+  done
+  rm -f "$(pid_file "$service")"
+  echo "$service failed to start or bind port $API_PORT. Last log lines:" >&2
   tail -n 40 "$(log_file "$service")" >&2 || true
   return 1
 }

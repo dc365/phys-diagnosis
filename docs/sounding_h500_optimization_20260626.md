@@ -6,18 +6,27 @@ This update changes the public sounding analysis path from a quick triangulated 
 
 The first implementation used `griddata(linear) + nearest fill`. That is useful for a demo but it creates hard triangles, fake support over station-sparse areas, and noisy H500 contours. It is not suitable for comparison with an operational 500hPa weather chart.
 
-The new path uses a Barnes-style successive-correction objective analysis:
+The current `sounding_z500_synoptic_v2` path uses a multiscale Barnes-style
+successive-correction objective analysis:
 
 ```text
-station values
-  -> broad first pass
-  -> medium correction pass
-  -> fine correction pass
-  -> light smoothing
-  -> support-distance mask
+profile rows
+  -> log-pressure interpolation to exact 500hPa
+  -> robust quadratic station-trend first guess
+  -> 900/650/450km great-circle correction passes
+  -> damped fine correction and synoptic smoothing
+  -> 850km observation-support mask
 ```
 
-Default radii are 720/480/300 km. Values farther than 520 km from the nearest station are masked for map layers and contours.
+The correction gains are `1.0/0.85/0.55`. The final pass therefore restores
+supported trough curvature without forcing every station increment into the
+synoptic field. Distances use a haversine great-circle metric; the old
+single-reference-latitude planar approximation is no longer used.
+
+When a first-guess background is supplied, all three correction radii are now
+applied. Previously the broadest correction was accidentally skipped. Values
+farther than 850 km from the nearest station are retained internally for
+diagnostics but masked from the public Z500 grid and contours.
 
 ## Runtime path
 
@@ -39,6 +48,10 @@ Each sounding analysis field now includes:
 - `quality.supported_grid_ratio`
 - `quality.station_residual_rmse`
 - `quality.station_residual_abs_p90`
+- `quality.analysis_version = sounding_z500_synoptic_v2`
+- `quality.distance_method = great_circle_haversine`
+- `quality.correction_radii_km` and `quality.correction_gains`
+- exact/interpolated 500hPa station counts
 
 The public API metadata exposes support ratio, mean nearest-station distance, and station residual RMSE.
 
@@ -49,7 +62,11 @@ The sounding layer API now supports:
 - `z500`: 500hPa height, displayed as dagpm
 - `t500`: 500hPa temperature, displayed as degC
 
-Both layers use supported-area masking before generating grids or contours.
+Z500 uses supported-area masking before generating grids or contours. Its
+contour endpoint does not smooth the scalar field a second time, so contours,
+height centres, and trough/ridge extraction all reference the same canonical
+`analysis_fields.z500` field. Geometric Chaikin smoothing remains enabled only
+for drawing a clean line.
 
 ## NMC-style contour support
 
@@ -63,7 +80,11 @@ Both layers use supported-area masking before generating grids or contours.
 
 ## Weather systems
 
-The optimized wrapper regenerates H/L/W/C and trough/ridge systems from the Barnes field. It also adds a 500hPa wind-shear line pass so station-derived systems can distinguish height trough axes from wind-shear support.
+The optimized wrapper regenerates H/L/W/C and trough/ridge systems from the
+canonical Z500 field. Sounding trough/ridge axes are rejected when their mean
+or upper-tail nearest-station distance indicates weak observational support.
+It also adds a 500hPa wind-shear line pass so station-derived systems can
+distinguish height trough axes from wind-shear support.
 
 ## Remaining front-end work
 

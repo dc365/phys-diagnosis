@@ -430,19 +430,30 @@ def _trough_ridge_systems(
     lat: np.ndarray,
     lon: np.ndarray,
     confidence: float,
+    support_distance_km: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
     thresholds = {
         "trough_ridge": {
-            "analysis_lat_min": 10.0,
+            "analysis_lat_min": 15.0,
             "analysis_lat_max": 55.0,
-            "smooth_radius_km": 180.0,
-            "second_smooth_radius_km": 90.0,
-            "component_percentile": 80.0,
-            "seed_percentile": 88.0,
-            "min_points_per_line": 5,
-            "min_length_km": 450.0,
-            "max_lines": 4,
-            "output_points": 20,
+            "analysis_lon_min": 60.0,
+            "analysis_lon_max": 150.0,
+            "smooth_radius_km": 170.0,
+            "second_smooth_radius_km": 75.0,
+            "component_percentile": 76.0,
+            "seed_percentile": 86.0,
+            "min_points_per_line": 4,
+            "min_length_km": 320.0,
+            "max_lines": 8,
+            "output_points": 28,
+            "low_lat_zonal_filter_max_lat": 30.0,
+            "low_lat_zonal_max_aspect_ratio": 1.5,
+            "enable_meridional_valley_tracks": True,
+            "meridional_track_lon_min": 95.0,
+            "meridional_track_lon_max": 120.0,
+            "meridional_track_lat_min": 15.0,
+            "meridional_track_lat_max": 52.0,
+            "meridional_track_max_lines": 2,
         }
     }
     vort = None
@@ -457,6 +468,25 @@ def _trough_ridge_systems(
     for feature in [*troughs, *ridges]:
         props = dict(feature.get("properties") or {})
         geometry = feature.get("geometry") or {}
+        coordinates = np.asarray(geometry.get("coordinates") or [], dtype=float)
+        support_mean_km = None
+        support_p90_km = None
+        if (
+            support_distance_km is not None
+            and np.asarray(support_distance_km).shape == np.asarray(z500).shape
+            and coordinates.ndim == 2
+            and coordinates.shape[0] >= 2
+        ):
+            support = np.asarray(support_distance_km, dtype=float)
+            y_index = np.abs(np.asarray(lat, dtype=float)[:, None] - coordinates[:, 1][None, :]).argmin(axis=0)
+            x_index = np.abs(np.asarray(lon, dtype=float)[:, None] - coordinates[:, 0][None, :]).argmin(axis=0)
+            line_support = support[y_index, x_index]
+            line_support = line_support[np.isfinite(line_support)]
+            if line_support.size:
+                support_mean_km = float(np.nanmean(line_support))
+                support_p90_km = float(np.nanpercentile(line_support, 90))
+                if support_mean_km > 380.0 or support_p90_km > 650.0:
+                    continue
         feature_type = str(props.get("feature_type") or props.get("type") or "trough_candidate")
         feature_type = {"trough": "trough_candidate", "ridge": "ridge_candidate"}.get(feature_type, feature_type)
         systems.append(
@@ -467,6 +497,11 @@ def _trough_ridge_systems(
                 "name": props.get("name") or props.get("label") or feature_type,
                 "level": "500hPa",
                 "confidence": round(min(float(props.get("confidence") or confidence), confidence), 2),
+                "method": props.get("method"),
+                "analysis_domain": props.get("analysis_domain"),
+                "candidate_source": props.get("candidate_source"),
+                "support_mean_distance_km": round(support_mean_km, 1) if support_mean_km is not None else None,
+                "support_p90_distance_km": round(support_p90_km, 1) if support_p90_km is not None else None,
                 "geometry": {"type": "line", "coordinates": geometry.get("coordinates") or []},
                 "evidence": [
                     "500hPa sounding objective height field axis extraction",

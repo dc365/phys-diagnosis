@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from weather_diag.features.trough_ridge import trough_ridge_axis_candidates
+from weather_diag.features.trough_ridge import detect_trough_ridge, trough_ridge_axis_candidates
 
 
 def test_trough_axis_prefers_curved_synoptic_band_over_compact_deep_low():
@@ -87,3 +87,42 @@ def test_trough_axis_snaps_to_local_height_minimum_and_returns_smooth_line():
     assert len(axis["coordinates"]) >= 30
     assert np.nanmean(np.abs(errors)) < 1.0
     assert np.nanmax(np.abs(errors)) < 1.6
+
+
+def test_trough_detection_honors_longitude_analysis_domain_before_ranking():
+    lat = np.linspace(20.0, 52.0, 65)
+    lon = np.linspace(50.0, 160.0, 111)
+    lon2d, lat2d = np.meshgrid(lon, lat)
+
+    background = 5900.0 - 5.0 * (lat2d - 20.0)
+    axis_lon = 104.0 + 2.0 * np.sin((lat2d - 24.0) / 22.0 * np.pi)
+    china_trough = -48.0 * np.exp(-((lon2d - axis_lon) / 1.8) ** 2) * np.exp(-((lat2d - 35.0) / 14.0) ** 4)
+    stronger_outside_low = -180.0 * np.exp(-(((lon2d - 151.0) / 3.5) ** 2 + ((lat2d - 42.0) / 4.0) ** 2))
+
+    troughs, _ = detect_trough_ridge(
+        background + china_trough + stronger_outside_low,
+        lat,
+        lon,
+        {
+            "trough_ridge": {
+                "analysis_lat_min": 20.0,
+                "analysis_lat_max": 52.0,
+                "analysis_lon_min": 75.0,
+                "analysis_lon_max": 135.0,
+                "smooth_radius_km": 160.0,
+                "second_smooth_radius_km": 70.0,
+                "component_percentile": 78.0,
+                "seed_percentile": 88.0,
+                "min_points_per_line": 5,
+                "min_length_km": 350.0,
+                "max_lines": 1,
+                "output_points": 24,
+                "detect_ridge": False,
+            }
+        },
+    )
+
+    assert troughs
+    coordinates = np.asarray(troughs[0]["geometry"]["coordinates"], dtype=float)
+    assert float(np.nanmin(coordinates[:, 0])) >= 75.0
+    assert float(np.nanmax(coordinates[:, 0])) <= 135.0

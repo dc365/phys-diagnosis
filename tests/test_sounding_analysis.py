@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -40,9 +41,183 @@ def test_sounding_500hpa_analysis_uses_sounding_contract():
     assert np.isfinite(z500["values"]).any()
     assert z500["quality"]["station_count"] > 150
     assert z500["quality"]["method"] == "barnes_successive_correction"
+    assert z500["quality"]["analysis_version"] == "sounding_z500_synoptic_v2"
+    assert z500["quality"]["field_role"] == "synoptic_z500"
+    assert z500["quality"]["distance_method"] == "great_circle_haversine"
+    assert z500["quality"]["background_used"] is True
+    assert z500["quality"]["correction_radii_km"] == z500["quality"]["radii_km"]
+    assert z500["quality"]["vertical_interpolated_station_count"] >= 1
     assert 0.0 < z500["quality"]["supported_grid_ratio"] <= 1.0
     assert "support_distance_km" in z500
     assert "support_mask" in z500
+
+
+def test_sounding_multilevel_augmentation_preserves_primary_z500_analysis():
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    from weather_diag.diagnosis.sounding_optimized import SOUNDING_ANALYSIS_CONFIG
+
+    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+    quality = result["analysis_fields"]["z500"]["quality"]
+
+    assert quality["radii_km"] == list(SOUNDING_ANALYSIS_CONFIG.radii_km)
+    assert quality["correction_gains"] == list(SOUNDING_ANALYSIS_CONFIG.correction_gains)
+    assert quality["smoothing_sigma_grid"] == SOUNDING_ANALYSIS_CONFIG.smoothing_sigma_grid
+
+
+def test_objective_analysis_applies_the_broad_correction_to_a_supplied_background():
+    from weather_diag.diagnosis.objective_analysis import ObjectiveAnalysisConfig, objective_analysis_field
+
+    frame = pd.DataFrame(
+        {
+            "station_lon": [100.0, 110.0, 100.0, 110.0],
+            "station_lat": [25.0, 25.0, 35.0, 35.0],
+            "height": [5860.0, 5840.0, 5780.0, 5740.0],
+        }
+    )
+    config = ObjectiveAnalysisConfig(
+        radii_km=(900.0, 450.0),
+        correction_gains=(1.0, 0.5),
+        smoothing_sigma_grid=0.0,
+        max_support_distance_km=1200.0,
+    )
+    field = objective_analysis_field(
+        frame,
+        "height",
+        [25.0, 30.0, 35.0],
+        [100.0, 105.0, 110.0],
+        config=config,
+        background=np.full((3, 3), 5800.0),
+    )
+
+    assert field.quality["background_used"] is True
+    assert field.quality["correction_radii_km"] == [900.0, 450.0]
+    assert field.quality["correction_gains"] == [1.0, 0.5]
+    assert field.quality["distance_method"] == "great_circle_haversine"
+    assert not np.allclose(field.values, 5800.0)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "regional_radiosonde_5N55N_50E160E_20260624_08BJT.csv",
+        "regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv",
+        "regional_radiosonde_5N55N_50E160E_20260625_08BJT.csv",
+        "regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv",
+    ],
+)
+def test_sounding_z500_synoptic_field_regression_across_all_reference_times(filename: str):
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    from weather_diag.diagnosis.objective_analysis import mask_unsupported
+    from weather_diag.io.contours import contours_to_geojson
+
+    result = diagnose_sounding_situation(SOUNDING_FILE.with_name(filename), pressure_level=500)
+    field = result["analysis_fields"]["z500"]
+    quality = field["quality"]
+    values = np.asarray(field["values"], dtype=float)
+    supported = mask_unsupported(values * 0.1, field["support_mask"])
+    contours = contours_to_geojson(
+        "z500",
+        "500hPa 位势高度",
+        "dagpm",
+        supported,
+        lat=field["lat"],
+        lon=field["lon"],
+        interval=4.0,
+        min_length_km=360.0,
+    )
+
+    assert quality["station_count"] >= 180
+    assert quality["station_residual_rmse"] <= 18.0
+    assert quality["supported_grid_ratio"] >= 0.85
+    assert quality["correction_radii_km"] == quality["radii_km"]
+    assert 5400.0 <= float(np.nanmin(values)) < 5800.0
+    assert 5880.0 < float(np.nanmax(values)) <= 6050.0
+    assert 10 <= len(contours["features"]) <= 30
+    assert any(item["properties"]["value"] == 588.0 for item in contours["features"])
+
+
+def test_sounding_troughs_keep_a_meridional_axis_in_the_nmc_china_domain():
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+
+    troughs = [item for item in result["systems"] if item["feature_type"] == "trough_candidate"]
+    assert troughs
+    assert all(item["method"] == "nmc_style_synoptic_axis_v7" for item in troughs)
+    assert all(
+        item["analysis_domain"]
+        == {"lon_min": 60.0, "lon_max": 150.0, "lat_min": 15.0, "lat_max": 55.0}
+        for item in troughs
+    )
+
+    central_axes = []
+    for item in troughs:
+        coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
+        if coordinates.ndim != 2 or len(coordinates) < 2:
+            continue
+        lon_span = float(np.ptp(coordinates[:, 0]))
+        lat_span = float(np.ptp(coordinates[:, 1]))
+        intersects_central_domain = float(np.nanmin(coordinates[:, 0])) <= 112.0 and float(np.nanmax(coordinates[:, 0])) >= 98.0
+        if intersects_central_domain and lat_span >= 5.0 and lat_span >= lon_span:
+            central_axes.append(item)
+
+    assert central_axes
+
+
+def test_sounding_troughs_recover_the_weak_southern_china_valley_track():
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+
+    lower_axes = []
+    for item in result["systems"]:
+        if item["feature_type"] != "trough_candidate":
+            continue
+        coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
+        core = coordinates[
+            (coordinates[:, 0] >= 102.0)
+            & (coordinates[:, 0] <= 114.0)
+            & (coordinates[:, 1] >= 22.0)
+            & (coordinates[:, 1] <= 36.0)
+        ]
+        if len(core) >= 2 and float(np.ptp(core[:, 1])) >= 4.0:
+            lower_axes.append(item)
+
+    assert lower_axes
+    assert any(item["candidate_source"] == "meridional_valley_track" for item in lower_axes)
+
+
+def test_sounding_troughs_do_not_promote_low_latitude_zonal_components():
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    files = [
+        SOUNDING_FILE,
+        SOUNDING_FILE.with_name("regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv"),
+    ]
+
+    for sounding_file in files:
+        result = diagnose_sounding_situation(sounding_file, pressure_level=500)
+        for item in result["systems"]:
+            if item["feature_type"] != "trough_candidate":
+                continue
+            coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
+            lon_span = float(np.ptp(coordinates[:, 0]))
+            lat_span = float(np.ptp(coordinates[:, 1]))
+            if float(np.nanmean(coordinates[:, 1])) < 30.0:
+                assert lon_span <= 1.5 * max(lat_span, 0.5)
+
+
+def test_sounding_meridional_recovery_stays_in_core_china_longitudes():
+    diagnose_sounding_situation = _diagnose_sounding_situation()
+    result = diagnose_sounding_situation(SOUNDING_FILE, pressure_level=500)
+
+    recovered = [
+        item
+        for item in result["systems"]
+        if item.get("candidate_source") == "meridional_valley_track"
+    ]
+    assert recovered
+    for item in recovered:
+        coordinates = np.asarray(item["geometry"]["coordinates"], dtype=float)
+        assert float(np.nanmin(coordinates[:, 0])) >= 95.0
+        assert float(np.nanmax(coordinates[:, 0])) <= 120.0
 
 
 def test_sounding_situation_outputs_weather_systems_and_station_winds():
@@ -114,6 +289,13 @@ def test_public_sounding_situation_api_returns_map_ready_objects():
     assert body["data"]["data_type"] == "sounding"
     assert "values" not in body["data"]["analysis_fields"]["z500"]
     assert body["data"]["analysis_fields"]["z500"]["quality"]["method"] == "barnes_successive_correction"
+    assert body["data"]["analysis_contract"] == {
+        "synoptic_height_field": "z500",
+        "height_contour_field": "z500",
+        "height_center_field": "z500",
+        "trough_ridge_field": "z500",
+        "analysis_version": "sounding_z500_synoptic_v2",
+    }
     assert body["data"]["systems"]
     assert body["data"]["station_features"]["features"]
     assert body["data"]["station_diagnostics"]
@@ -259,6 +441,7 @@ def test_public_sounding_z500_layer_grid_and_contours_reuse_map_contract():
     assert md["data_type"] == "sounding"
     assert md["analysis_method"] == "barnes_successive_correction"
     assert md["station_count"] > 150
+    assert md["apply_support_mask"] is True
     assert 500 <= md["min"] <= md["max"] <= 600
     assert 0.0 < md["support_ratio"] <= 1.0
 
@@ -274,6 +457,7 @@ def test_public_sounding_z500_layer_grid_and_contours_reuse_map_contract():
     assert contour_data["type"] == "FeatureCollection"
     assert contour_data["properties"]["layer_id"] == "z500"
     assert contour_data["properties"]["smooth"] is True
+    assert contour_data["properties"]["data_smoothing_sigma"] == 0.0
     assert contour_data["features"]
     first = contour_data["features"][0]["properties"]
     assert first["line_color"] == "#3155d4"

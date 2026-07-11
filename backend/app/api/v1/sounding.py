@@ -56,9 +56,12 @@ SOUNDING_LAYER_DEFS: dict[str, dict[str, Any]] = {
         "contour_interval": 4.0,
         "contour_min_length_km": 360.0,
         "contour_smooth_iterations": 2,
-        "contour_data_smoothing_sigma": 0.30,
+        # The canonical Z500 field is already synoptically smoothed.  Applying a
+        # second scalar-field smoothing here would make contours and troughs use
+        # different height geometry.
+        "contour_data_smoothing_sigma": 0.0,
         "contour_simplify_tolerance_deg": 0.012,
-        "apply_support_mask": False,
+        "apply_support_mask": True,
     },
     "t500": _base_layer("t500", "500hPa 温度", "degC", contour_interval=4.0, apply_support_mask=False),
     "wind500_speed": _base_layer("wind500_speed", "500hPa 风速", "m/s"),
@@ -258,6 +261,7 @@ def _public_payload(result: dict[str, Any]) -> dict[str, Any]:
         "station_risk_diagnoses": result["station_risk_diagnoses"],
         "preprocess_report": result.get("preprocess_report"),
         "multilevel_summary": result.get("multilevel_summary"),
+        "analysis_contract": result.get("analysis_contract"),
         "summary": result["summary"],
     }
 

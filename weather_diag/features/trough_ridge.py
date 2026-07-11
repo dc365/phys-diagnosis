@@ -88,6 +88,8 @@ class NmcStyleConfig:
     # artefacts like the Sri Lanka/Indian Ocean wiggles in the screenshot.
     analysis_lat_min: float = 18.0
     analysis_lat_max: float = 68.0
+    analysis_lon_min: float = -180.0
+    analysis_lon_max: float = 360.0
 
     # Smooth by physical scale, not by raw grid count.  This is important when EC
     # fields are 0.1/0.25 deg: hand-analysis troughs are synoptic-scale systems.
@@ -108,6 +110,28 @@ class NmcStyleConfig:
     max_lines: int = 6
     edge_margin_grid: int = 2
     reject_tropical_zonal: bool = True
+    low_lat_zonal_filter_max_lat: float = 26.0
+    low_lat_zonal_max_aspect_ratio: float = 2.5
+
+    # Sparse sounding fields can contain a persistent but weak north-south
+    # height valley that falls below the global component percentile.  Keep this
+    # recovery path opt-in so the model-grid detector contract is unchanged.
+    enable_meridional_valley_tracks: bool = False
+    meridional_track_lon_min: float = 75.0
+    meridional_track_lon_max: float = 135.0
+    meridional_track_lat_min: float = 20.0
+    meridional_track_lat_max: float = 55.0
+    meridional_track_window_km: float = 280.0
+    meridional_track_min_depth_gpm: float = 0.6
+    meridional_track_max_gap_rows: int = 2
+    meridional_track_max_lon_step_deg: float = 2.2
+    meridional_track_min_points: int = 5
+    meridional_track_min_lat_span_deg: float = 4.0
+    meridional_track_min_mean_depth_gpm: float = 0.8
+    meridional_track_min_peak_depth_gpm: float = 1.6
+    meridional_track_overlap_distance_km: float = 250.0
+    meridional_track_max_existing_coverage: float = 0.5
+    meridional_track_max_lines: int = 2
 
     # Axis construction and drawing style.
     axis_control_spacing_km: float = 260.0
@@ -317,7 +341,8 @@ def _directional_extreme_score(field: np.ndarray, mode: Mode, radius_grid: int =
 
 def _domain_mask(lat: np.ndarray, lon: np.ndarray, cfg: NmcStyleConfig) -> np.ndarray:
     yy = (lat >= cfg.analysis_lat_min) & (lat <= cfg.analysis_lat_max)
-    mask = np.repeat(yy[:, None], lon.size, axis=1)
+    xx = (lon >= cfg.analysis_lon_min) & (lon <= cfg.analysis_lon_max)
+    mask = yy[:, None] & xx[None, :]
     m = max(0, int(cfg.edge_margin_grid))
     if m > 0 and mask.shape[0] > 2 * m and mask.shape[1] > 2 * m:
         mask[:m, :] = False
@@ -658,7 +683,11 @@ def _component_to_line(
 
     # Most of the screenshot artefact near Sri Lanka is a tropical, nearly zonal
     # boundary-following line.  Keep genuine high-latitude horizontal troughs.
-    if cfg.reject_tropical_zonal and lat_mean < 26.0 and lon_span > 2.5 * max(lat_span, 0.5):
+    if (
+        cfg.reject_tropical_zonal
+        and lat_mean < cfg.low_lat_zonal_filter_max_lat
+        and lon_span > cfg.low_lat_zonal_max_aspect_ratio * max(lat_span, 0.5)
+    ):
         return None
 
     line_scores = _nearest_grid_values(coords, lat, lon, score)
@@ -729,6 +758,164 @@ def _polyline_mean_distance_km(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.nanmean(np.sqrt(np.nanmin(d2, axis=1))))
 
 
+def _zonal_valley_tracks(
+    z500: np.ndarray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    cfg: NmcStyleConfig,
+) -> list[list[tuple[int, int, float]]]:
+    """Track persistent zonal height minima from south to north.
+
+    This complements the two-dimensional percentile components.  It is aimed at
+    sparse sounding analyses where a shallow trough is coherent over latitude
+    but too weak to exceed a single full-domain score threshold.
+    """
+    _, dx_km = _grid_spacing_km(lat, lon)
+    radius = max(2, int(round(cfg.meridional_track_window_km / max(dx_km, 1.0))))
+    track_field = _nan_gaussian(z500, (0.45, 0.45))
+    row_candidates: list[list[tuple[int, float]]] = []
+
+    for y, latitude in enumerate(lat):
+        candidates: list[tuple[int, float]] = []
+        if cfg.meridional_track_lat_min <= latitude <= cfg.meridional_track_lat_max:
+            for x in range(radius, lon.size - radius):
+                if not cfg.meridional_track_lon_min <= lon[x] <= cfg.meridional_track_lon_max:
+                    continue
+                values = track_field[y, [x - radius, x - 1, x, x + 1, x + radius]]
+                if not np.isfinite(values).all():
+                    continue
+                if not (track_field[y, x] <= track_field[y, x - 1] and track_field[y, x] < track_field[y, x + 1]):
+                    continue
+                depth = min(
+                    float(track_field[y, x - radius] - track_field[y, x]),
+                    float(track_field[y, x + radius] - track_field[y, x]),
+                )
+                if depth >= cfg.meridional_track_min_depth_gpm:
+                    candidates.append((x, depth))
+        row_candidates.append(candidates)
+
+    tracks: list[list[tuple[int, int, float]]] = []
+    for y, candidates in enumerate(row_candidates):
+        pairs: list[tuple[float, int, int]] = []
+        for track_index, track in enumerate(tracks):
+            last_y, last_x, _ = track[-1]
+            row_gap = y - last_y
+            if not 1 <= row_gap <= cfg.meridional_track_max_gap_rows + 1:
+                continue
+            for candidate_index, (x, depth) in enumerate(candidates):
+                lon_step = abs(float(lon[x] - lon[last_x]))
+                if lon_step <= cfg.meridional_track_max_lon_step_deg * row_gap:
+                    pairs.append((lon_step - 0.08 * min(depth, 10.0), track_index, candidate_index))
+
+        used_tracks: set[int] = set()
+        used_candidates: set[int] = set()
+        for _, track_index, candidate_index in sorted(pairs):
+            if track_index in used_tracks or candidate_index in used_candidates:
+                continue
+            x, depth = candidates[candidate_index]
+            tracks[track_index].append((y, x, depth))
+            used_tracks.add(track_index)
+            used_candidates.add(candidate_index)
+        for candidate_index, (x, depth) in enumerate(candidates):
+            if candidate_index not in used_candidates:
+                tracks.append([(y, x, depth)])
+
+    accepted: list[list[tuple[int, int, float]]] = []
+    for track in tracks:
+        ys = np.asarray([item[0] for item in track], dtype=int)
+        depths = np.asarray([item[2] for item in track], dtype=float)
+        if len(track) < cfg.meridional_track_min_points:
+            continue
+        if float(np.ptp(lat[ys])) < cfg.meridional_track_min_lat_span_deg:
+            continue
+        if float(np.nanmean(depths)) < cfg.meridional_track_min_mean_depth_gpm:
+            continue
+        if float(np.nanmax(depths)) < cfg.meridional_track_min_peak_depth_gpm:
+            continue
+        accepted.append(track)
+
+    accepted.sort(
+        key=lambda track: (
+            float(np.ptp(lat[np.asarray([item[0] for item in track], dtype=int)]))
+            * float(np.nanmean([item[2] for item in track])),
+            len(track),
+        ),
+        reverse=True,
+    )
+    return accepted
+
+
+def _valley_track_to_line(
+    track: list[tuple[int, int, float]],
+    z500: np.ndarray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    score: np.ndarray,
+    maps: dict[str, np.ndarray],
+    cfg: NmcStyleConfig,
+) -> dict | None:
+    ys = np.asarray([item[0] for item in track], dtype=int)
+    xs = np.asarray([item[1] for item in track], dtype=int)
+    depths = np.asarray([item[2] for item in track], dtype=float)
+    source_coords = np.column_stack([lon[xs], lat[ys]]).astype(float)
+    lat0 = float(np.nanmedian(source_coords[:, 1]))
+    source_xy = _lonlat_to_xy_km(source_coords[:, 0], source_coords[:, 1], lat0)
+    output_count = max(12, min(cfg.output_points, source_coords.shape[0] * 2))
+    final_xy = _smooth_xy_spline(source_xy, count=output_count, smooth_factor=0.8)
+    coords = _xy_km_to_lonlat(final_xy, lat0)
+    coords[:, 0] = np.clip(coords[:, 0], float(np.nanmin(source_coords[:, 0])), float(np.nanmax(source_coords[:, 0])))
+    coords[:, 1] = np.clip(coords[:, 1], float(np.nanmin(source_coords[:, 1])), float(np.nanmax(source_coords[:, 1])))
+    coords = _remove_lonlat_close_points(coords, min_step_km=35.0)
+    if coords.shape[0] < 2:
+        return None
+
+    length_km = _haversine_length_km(coords)
+    if length_km < cfg.min_length_km:
+        return None
+    chord = _chord_length_km(coords)
+    sinuosity = length_km / max(chord, 1.0)
+    if sinuosity > cfg.max_sinuosity:
+        return None
+
+    lons = coords[:, 0]
+    lats = coords[:, 1]
+    line_scores = _nearest_grid_values(coords, lat, lon, score)
+    line_lap = _nearest_grid_values(coords, lat, lon, maps["lap_score"])
+    line_local = _nearest_grid_values(coords, lat, lon, maps["local_score"])
+    return {
+        "coordinates": [[float(lo), float(la)] for lo, la in coords],
+        "bbox": [float(np.nanmin(lons)), float(np.nanmin(lats)), float(np.nanmax(lons)), float(np.nanmax(lats))],
+        "axis_length_km": float(length_km),
+        "sinuosity": float(sinuosity),
+        "point_count": int(len(track)),
+        "score_mean": float(np.nanmean(line_scores)),
+        "score_max": float(np.nanmax(line_scores)),
+        "local_score_mean": float(np.nanmean(line_local)),
+        "curvature_score_mean": float(np.nanmean(line_lap)),
+        "min_z": float(np.nanmin(z500[ys, xs])),
+        "max_z": float(np.nanmax(z500[ys, xs])),
+        "lat_mean": float(np.nanmean(lats)),
+        "lon_span": float(np.ptp(lons)),
+        "lat_span": float(np.ptp(lats)),
+        "mode": "trough",
+        "candidate_source": "meridional_valley_track",
+        "valley_depth_mean_gpm": float(np.nanmean(depths)),
+        "valley_depth_max_gpm": float(np.nanmax(depths)),
+    }
+
+
+def _line_coverage_near_existing(line: dict, existing: list[dict], distance_km: float) -> float:
+    if not existing:
+        return 0.0
+    coords = np.asarray(line["coordinates"], dtype=float)
+    reference = np.vstack([np.asarray(item["coordinates"], dtype=float) for item in existing])
+    lat0 = float(np.nanmedian(np.concatenate([coords[:, 1], reference[:, 1]])))
+    xy = _lonlat_to_xy_km(coords[:, 0], coords[:, 1], lat0)
+    reference_xy = _lonlat_to_xy_km(reference[:, 0], reference[:, 1], lat0)
+    distances = np.sqrt(np.min(((xy[:, None, :] - reference_xy[None, :, :]) ** 2).sum(axis=2), axis=1))
+    return float(np.mean(distances <= distance_km))
+
+
 def _detect_axis_features(
     z500: np.ndarray,
     lat: np.ndarray,
@@ -770,7 +957,24 @@ def _detect_axis_features(
         reverse=True,
     )
     lines = _deduplicate_lines(lines)
-    return lines[: cfg.max_lines]
+    if mode != "trough" or not cfg.enable_meridional_valley_tracks:
+        return lines[: cfg.max_lines]
+
+    supplemental: list[dict] = []
+    for track in _zonal_valley_tracks(z500, lat, lon, cfg):
+        line = _valley_track_to_line(track, z500, lat, lon, score_smooth, maps, cfg)
+        if line is None:
+            continue
+        coverage = _line_coverage_near_existing(line, lines, cfg.meridional_track_overlap_distance_km)
+        if coverage > cfg.meridional_track_max_existing_coverage:
+            continue
+        line["existing_line_coverage"] = coverage
+        supplemental.append(line)
+        if len(supplemental) >= cfg.meridional_track_max_lines:
+            break
+
+    primary_limit = max(0, cfg.max_lines - len(supplemental))
+    return [*lines[:primary_limit], *supplemental]
 
 
 def _feature_from_line(line: dict, rank: int, mode: Mode, cfg: NmcStyleConfig) -> dict:
@@ -785,7 +989,13 @@ def _feature_from_line(line: dict, rank: int, mode: Mode, cfg: NmcStyleConfig) -
             "title": title,
             "level": "500hPa",
             "confidence": float(confidence),
-            "method": "nmc_style_synoptic_axis_v5",
+            "method": "nmc_style_synoptic_axis_v7",
+            "analysis_domain": {
+                "lon_min": float(cfg.analysis_lon_min),
+                "lon_max": float(cfg.analysis_lon_max),
+                "lat_min": float(cfg.analysis_lat_min),
+                "lat_max": float(cfg.analysis_lat_max),
+            },
             "axis_length_km": float(line["axis_length_km"]),
             "sinuosity": float(line["sinuosity"]),
             "point_count": int(line["point_count"]),
@@ -795,10 +1005,15 @@ def _feature_from_line(line: dict, rank: int, mode: Mode, cfg: NmcStyleConfig) -
             "curvature_score_mean": float(line["curvature_score_mean"]),
             "min_z500_gpm": float(line["min_z"]),
             "max_z500_gpm": float(line["max_z"]),
+            "candidate_source": line.get("candidate_source", "synoptic_score_component"),
+            "valley_depth_mean_gpm": line.get("valley_depth_mean_gpm"),
+            "valley_depth_max_gpm": line.get("valley_depth_max_gpm"),
             "evidence": [
                 "500hPa 位势高度场经过天气尺度平滑",
                 "轴线由局地槽脊极值、拉普拉斯曲率、等高线弯曲、纬向距平综合评分确定",
                 "候选区域按强评分种子约束，轴线用主曲线/样条平滑生成",
+                "候选提取和排序仅在配置的经纬度业务范围内进行",
+                "稀疏实况场中的弱槽可由逐纬度局地低谷连续跟踪补充",
                 "过滤热带近东西向边界伪线和过短、过弯折线段",
             ],
         },

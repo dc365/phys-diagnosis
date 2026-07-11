@@ -14,20 +14,29 @@ from weather_diag.diagnosis.sounding_preprocess import preprocess_sounding_csv
 from weather_diag.features.shear_line import detect_shear_lines
 
 
-# Tuned for the 2026-06-24/25 sounding H500 comparisons against the CMA/NMC
-# 500hPa weather charts.  This version makes two important changes:
-# 1) z500 uses a broad polynomial first guess plus station increments, so the
-#    subtropical 588-dagpm belt is preserved better over South China/Hainan.
-# 2) obvious 500hPa height outliers are filtered before Barnes analysis, which
-#    suppresses unrealistically dense closed contours over the northern domain.
+# Synoptic-scale Z500 analysis for sparse sounding observations.  The final
+# correction is intentionally damped: it retains supported trough curvature
+# without turning individual station increments into closed contour centres.
 SOUNDING_ANALYSIS_CONFIG = ObjectiveAnalysisConfig(
-    radii_km=(800.0, 560.0, 340.0),
-    smoothing_sigma_grid=0.80,
+    radii_km=(900.0, 650.0, 450.0),
+    correction_gains=(1.0, 0.85, 0.55),
+    smoothing_sigma_grid=1.0,
     max_support_distance_km=850.0,
 )
 
 Z500_HARD_MIN_M = 5400.0
 Z500_HARD_MAX_M = 6020.0
+Z500_ANALYSIS_VERSION = "sounding_z500_synoptic_v2"
+
+_VERTICAL_SCALAR_COLUMNS = (
+    "geopotential_height_m",
+    "temperature_c",
+    "dew_point_temperature_c",
+    "ice_point_temperature_c",
+    "relative_humidity_pct",
+    "humidity_wrt_ice_pct",
+    "mixing_ratio_g_per_kg",
+)
 
 
 def _field_payload(obj, *, unit: str, lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
@@ -136,6 +145,91 @@ def _background_surface(frame: pd.DataFrame, value_column: str, lat: np.ndarray,
     return background.astype(float)
 
 
+def _interpolate_station_level(group: pd.DataFrame, pressure_level: int) -> pd.Series | None:
+    target = float(pressure_level)
+    profile = group.copy()
+    profile["pressure_hpa"] = pd.to_numeric(profile["pressure_hpa"], errors="coerce")
+    profile = profile.dropna(subset=["pressure_hpa"]).sort_values("pressure_hpa", ascending=False)
+    profile = profile.drop_duplicates(subset=["pressure_hpa"], keep="last")
+    if profile.empty:
+        return None
+
+    distance = (profile["pressure_hpa"] - target).abs()
+    nearest = profile.loc[distance.idxmin()].copy()
+    nearest_pressure = float(nearest["pressure_hpa"])
+    if abs(nearest_pressure - target) <= 0.5:
+        nearest["pressure_hpa"] = target
+        nearest["vertical_interpolated"] = False
+        nearest["vertical_source_pressure_low_hpa"] = target
+        nearest["vertical_source_pressure_high_hpa"] = target
+        return nearest
+
+    below = profile[profile["pressure_hpa"] > target].sort_values("pressure_hpa")
+    above = profile[profile["pressure_hpa"] < target].sort_values("pressure_hpa", ascending=False)
+    if below.empty or above.empty:
+        nearest["vertical_interpolated"] = False
+        nearest["vertical_source_pressure_low_hpa"] = nearest_pressure
+        nearest["vertical_source_pressure_high_hpa"] = nearest_pressure
+        return nearest
+
+    low_row = below.iloc[0]
+    high_row = above.iloc[0]
+    low_pressure = float(low_row["pressure_hpa"])
+    high_pressure = float(high_row["pressure_hpa"])
+    if low_pressure - high_pressure > 220.0:
+        nearest["vertical_interpolated"] = False
+        nearest["vertical_source_pressure_low_hpa"] = nearest_pressure
+        nearest["vertical_source_pressure_high_hpa"] = nearest_pressure
+        return nearest
+
+    denominator = np.log(high_pressure) - np.log(low_pressure)
+    if abs(float(denominator)) <= 1.0e-9:
+        return nearest
+    weight = float((np.log(target) - np.log(low_pressure)) / denominator)
+    output = nearest.copy()
+    for column in _VERTICAL_SCALAR_COLUMNS:
+        if column not in profile:
+            continue
+        low_value = pd.to_numeric(pd.Series([low_row.get(column)]), errors="coerce").iloc[0]
+        high_value = pd.to_numeric(pd.Series([high_row.get(column)]), errors="coerce").iloc[0]
+        if np.isfinite(low_value) and np.isfinite(high_value):
+            output[column] = float(low_value + weight * (high_value - low_value))
+
+    low_direction = pd.to_numeric(pd.Series([low_row.get("wind_direction_degree")]), errors="coerce").iloc[0]
+    high_direction = pd.to_numeric(pd.Series([high_row.get("wind_direction_degree")]), errors="coerce").iloc[0]
+    low_speed = pd.to_numeric(pd.Series([low_row.get("wind_speed_m_s")]), errors="coerce").iloc[0]
+    high_speed = pd.to_numeric(pd.Series([high_row.get("wind_speed_m_s")]), errors="coerce").iloc[0]
+    if all(np.isfinite(item) for item in [low_direction, high_direction, low_speed, high_speed]):
+        low_u, low_v = legacy._wind_components(np.asarray([low_direction]), np.asarray([low_speed]))
+        high_u, high_v = legacy._wind_components(np.asarray([high_direction]), np.asarray([high_speed]))
+        u = float(low_u[0] + weight * (high_u[0] - low_u[0]))
+        v = float(low_v[0] + weight * (high_v[0] - low_v[0]))
+        output["wind_speed_m_s"] = float(np.hypot(u, v))
+        output["wind_direction_degree"] = float((np.rad2deg(np.arctan2(-u, -v)) + 360.0) % 360.0)
+
+    output["requested_level"] = f"{int(pressure_level)}hPa"
+    output["pressure_hpa"] = target
+    output["vertical_interpolated"] = True
+    output["vertical_source_pressure_low_hpa"] = low_pressure
+    output["vertical_source_pressure_high_hpa"] = high_pressure
+    return output
+
+
+def _interpolate_pressure_level(all_rows: pd.DataFrame, pressure_level: int) -> pd.DataFrame:
+    rows: list[pd.Series] = []
+    for _, group in all_rows.groupby("station_id", sort=False, dropna=True):
+        row = _interpolate_station_level(group, pressure_level)
+        if row is not None:
+            rows.append(row)
+    if not rows:
+        return pd.DataFrame(columns=all_rows.columns)
+    frame = pd.DataFrame(rows).reset_index(drop=True)
+    interpolated = frame.get("vertical_interpolated", pd.Series(False, index=frame.index)).fillna(False).astype(bool)
+    frame.attrs["vertical_interpolated_station_count"] = int(interpolated.sum())
+    frame.attrs["vertical_exact_station_count"] = int((~interpolated).sum())
+    return frame
+
+
 def _qc_500_height(frame: pd.DataFrame) -> pd.DataFrame:
     """Filter obvious z500 station outliers before objective analysis.
 
@@ -175,13 +269,19 @@ def _qc_500_height(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _selected_frame(csv_path: str | Path, level: str, pressure_level: int) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
-    frame = df[df["requested_level"].astype(str) == level].copy()
+    if int(pressure_level) == 500:
+        frame = _interpolate_pressure_level(df, pressure_level)
+    else:
+        frame = df[df["requested_level"].astype(str) == level].copy()
     if frame.empty:
         raise ValueError(f"no sounding rows for {level}")
     frame = frame.dropna(subset=["station_lat", "station_lon", "geopotential_height_m", "temperature_c"])
     if int(pressure_level) == 500:
         frame = frame[frame["geopotential_height_m"].between(4500.0, 6500.0)]
         frame = _qc_500_height(frame)
+        interpolated = frame.get("vertical_interpolated", pd.Series(False, index=frame.index)).fillna(False).astype(bool)
+        frame.attrs["vertical_interpolated_station_count"] = int(interpolated.sum())
+        frame.attrs["vertical_exact_station_count"] = int((~interpolated).sum())
     if frame.empty:
         raise ValueError(f"no quality-controlled sounding rows for {level}")
     u, v = legacy._wind_components(frame["wind_direction_degree"].to_numpy(), frame["wind_speed_m_s"].to_numpy())
@@ -269,6 +369,15 @@ def diagnose_sounding_situation(
         config=SOUNDING_ANALYSIS_CONFIG,
         background=z_background,
     )
+    z.quality.update(
+        {
+            "analysis_version": Z500_ANALYSIS_VERSION,
+            "field_role": "synoptic_z500",
+            "background_method": "robust_quadratic_station_trend",
+            "vertical_interpolated_station_count": int(frame.attrs.get("vertical_interpolated_station_count", 0)),
+            "vertical_exact_station_count": int(frame.attrs.get("vertical_exact_station_count", 0)),
+        }
+    )
     t = objective_analysis_field(frame, "temperature_c", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
     u = objective_analysis_field(frame, "u_wind_m_s", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
     v = objective_analysis_field(frame, "v_wind_m_s", lat, lon, config=SOUNDING_ANALYSIS_CONFIG)
@@ -303,7 +412,17 @@ def diagnose_sounding_situation(
             confidence=confidence,
         )
     )
-    systems.extend(legacy._trough_ridge_systems(z.values, u.values, v.values, lat, lon, confidence))
+    systems.extend(
+        legacy._trough_ridge_systems(
+            z.values,
+            u.values,
+            v.values,
+            lat,
+            lon,
+            confidence,
+            support_distance_km=z.support_distance_km,
+        )
+    )
     systems.extend(_shear_systems(u.values, v.values, t.values, lat, lon, confidence))
 
     result = dict(result)
@@ -314,11 +433,18 @@ def diagnose_sounding_situation(
         "v500": _field_payload(v, unit="m/s", lat=lat, lon=lon),
     }
     result["systems"] = systems
+    result["analysis_contract"] = {
+        "synoptic_height_field": "z500",
+        "height_contour_field": "z500",
+        "height_center_field": "z500",
+        "trough_ridge_field": "z500",
+        "analysis_version": Z500_ANALYSIS_VERSION,
+    }
     result["station_features"] = legacy._station_features(frame, level)
     result["preprocess_report"] = _sounding_display_report(preprocess_report)
     result = augment_sounding_result(result, analysis_csv, lat, lon)
     result["summary"] = (
-        f"{result['observation_time']} {level} NMC-tuned Barnes sounding objective analysis "
+        f"{result['observation_time']} {level} multiscale synoptic sounding objective analysis "
         f"generated {len(result.get('systems') or [])} weather systems; "
         f"multilevel fields {result.get('multilevel_summary', {}).get('added_field_count', 0)}."
     )

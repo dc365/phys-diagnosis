@@ -386,8 +386,14 @@ def augment_station_risks(station_risk_items: list[dict[str, Any]], station_diag
 
 
 def augment_sounding_result(result: dict[str, Any], analysis_csv: str | Path, lat: np.ndarray, lon: np.ndarray) -> dict[str, Any]:
+    primary_fields = dict(result.get("analysis_fields") or {})
     additions = build_multilevel_fields(analysis_csv, lat, lon)
     analyzed = additions.pop("_analyzed", {})
+    for field_name, payload in primary_fields.items():
+        values = payload.get("values") if isinstance(payload, dict) else None
+        if values is not None:
+            analyzed[field_name] = np.asarray(values, dtype=float)
+        additions.pop(field_name, None)
     additions_internal = {"_analyzed": analyzed}
     result["analysis_fields"].update(additions)
     systems = build_multilevel_systems({**additions, **additions_internal}, lat, lon)
