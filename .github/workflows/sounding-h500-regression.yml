@@ -13,6 +13,7 @@ on:
       - "weather_diag/features/__init__.py"
       - "backend/app/api/v1/sounding.py"
       - "scripts/render_sounding_h500_regression.py"
+      - "scripts/render_sounding_h500_wind_experiment.py"
       - "tests/test_sounding_analysis.py"
       - "tests/test_contour_seeded_trough.py"
       - "tests/test_trough_ridge_features.py"
@@ -25,7 +26,7 @@ env:
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -42,13 +43,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
 
-      - name: Render reference diagnostic
+      - name: Render reference diagnostics
         shell: bash
         run: |
           mkdir -p artifacts/sounding-h500
           set +e
           python scripts/render_sounding_h500_regression.py 2>&1 | tee artifacts/sounding-h500/render.log
-          code=${PIPESTATUS[0]}
+          first=${PIPESTATUS[0]}
+          python scripts/render_sounding_h500_wind_experiment.py 2>&1 | tee artifacts/sounding-h500/wind-render.log
+          second=${PIPESTATUS[0]}
+          code=$(( first != 0 ? first : second ))
           echo "$code" > artifacts/sounding-h500/render.exit-code
           exit "$code"
 
