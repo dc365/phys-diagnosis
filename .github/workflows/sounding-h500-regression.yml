@@ -19,6 +19,9 @@ on:
       - ".github/workflows/sounding-h500-regression.yml"
   workflow_dispatch:
 
+env:
+  PYTHONPATH: .
+
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
