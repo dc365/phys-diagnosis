@@ -1,0 +1,62 @@
+name: sounding-h500-regression
+
+on:
+  pull_request:
+    branches:
+      - codex/multi-hazard-risk-grids
+    paths:
+      - "weather_diag/diagnosis/objective_analysis.py"
+      - "weather_diag/diagnosis/sounding.py"
+      - "weather_diag/diagnosis/sounding_optimized.py"
+      - "weather_diag/features/trough_ridge.py"
+      - "weather_diag/features/contour_trough.py"
+      - "weather_diag/features/__init__.py"
+      - "backend/app/api/v1/sounding.py"
+      - "scripts/render_sounding_h500_regression.py"
+      - "tests/test_sounding_analysis.py"
+      - "tests/test_contour_seeded_trough.py"
+      - "tests/test_trough_ridge_features.py"
+      - ".github/workflows/sounding-h500-regression.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+          python -m pip install pytest
+
+      - name: Run focused regression tests
+        run: |
+          pytest -q \
+            tests/test_contour_seeded_trough.py \
+            tests/test_trough_ridge_features.py \
+            tests/test_sounding_analysis.py
+
+      - name: Render reference diagnostic
+        if: always()
+        run: |
+          python scripts/render_sounding_h500_regression.py
+
+      - name: Upload H500 diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sounding-h500-regression
+          path: artifacts/sounding-h500
+          if-no-files-found: warn
+          retention-days: 14
