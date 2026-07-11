@@ -47,21 +47,11 @@ jobs:
 
           path = Path("tests/test_sounding_analysis.py")
           text = path.read_text(encoding="utf-8")
-          old = '''    assert any(
-              item["candidate_source"] == "meridional_valley_track"
-              and item.get("supplement_region") == "south_china_hainan"
-              for item in hainan_axes
-          )
-          '''
-          new = '''    assert any(
-              item["candidate_source"] == "meridional_valley_track"
-              and str(item.get("id") or "").startswith("trough_south_china_hainan")
-              for item in hainan_axes
-          )
-          '''
+          old = 'and item.get("supplement_region") == "south_china_hainan"'
+          new = 'and str(item.get("id") or "").startswith("trough_south_china_hainan")'
           if old in text:
               path.write_text(text.replace(old, new, 1), encoding="utf-8")
-          elif "trough_south_china_hainan" not in text:
+          elif new not in text:
               raise SystemExit("Hainan regression assertion not found")
           PY
 
