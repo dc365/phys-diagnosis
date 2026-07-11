@@ -88,8 +88,24 @@ jobs:
           python -m pip install pytest
 
       - name: Run focused regression tests
+        shell: bash
         run: |
-          pytest -q \
+          mkdir -p artifacts/sounding-h500-tests
+          set +e
+          pytest -vv --maxfail=8 \
             tests/test_contour_seeded_trough.py \
             tests/test_trough_ridge_features.py \
-            tests/test_sounding_analysis.py
+            tests/test_sounding_analysis.py \
+            2>&1 | tee artifacts/sounding-h500-tests/pytest.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > artifacts/sounding-h500-tests/pytest.exit-code
+          exit "$code"
+
+      - name: Upload focused regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sounding-h500-tests
+          path: artifacts/sounding-h500-tests
+          if-no-files-found: error
+          retention-days: 14
