@@ -22,61 +22,16 @@ on:
       - ".github/workflows/sounding-h500-regression.yml"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 env:
   PYTHONPATH: .
 
 jobs:
-  migrate-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Check out head branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
-
-      - name: Align Hainan regression with public system contract
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("tests/test_sounding_analysis.py")
-          text = path.read_text(encoding="utf-8")
-          old = 'and item.get("supplement_region") == "south_china_hainan"'
-          new = 'and str(item.get("id") or "").startswith("trough_south_china_hainan")'
-          if old in text:
-              path.write_text(text.replace(old, new, 1), encoding="utf-8")
-          elif new not in text:
-              raise SystemExit("Hainan regression assertion not found")
-          PY
-
-      - name: Commit test migration when needed
-        shell: bash
-        run: |
-          if git diff --quiet -- tests/test_sounding_analysis.py; then
-            echo "Hainan regression is already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/test_sounding_analysis.py
-          git commit -m "Finalize Hainan H500 regression assertion"
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
-
   diagnostic:
-    needs: migrate-test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out head branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -113,14 +68,11 @@ jobs:
           retention-days: 14
 
   validate:
-    needs: migrate-test
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out head branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
