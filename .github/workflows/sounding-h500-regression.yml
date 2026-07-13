@@ -14,6 +14,7 @@ on:
       - "weather_diag/features/trough_ridge.py"
       - "weather_diag/features/contour_trough.py"
       - "weather_diag/features/sounding_trough_paths.py"
+      - "weather_diag/features/sounding_geometry_refine.py"
       - "weather_diag/features/__init__.py"
       - "backend/app/api/v1/sounding.py"
       - "scripts/render_sounding_h500_regression.py"
@@ -22,6 +23,7 @@ on:
       - "tests/test_contour_seeded_trough.py"
       - "tests/test_trough_ridge_features.py"
       - "tests/test_sounding_h500_v4.py"
+      - "tests/test_sounding_geometry_refine.py"
       - ".github/workflows/sounding-h500-regression.yml"
   workflow_dispatch:
 
@@ -97,6 +99,7 @@ jobs:
             tests/test_trough_ridge_features.py \
             tests/test_sounding_analysis.py \
             tests/test_sounding_h500_v4.py \
+            tests/test_sounding_geometry_refine.py \
             2>&1 | tee artifacts/sounding-h500-tests/pytest.log
           code=${PIPESTATUS[0]}
           echo "$code" > artifacts/sounding-h500-tests/pytest.exit-code
