@@ -102,15 +102,23 @@ if not getattr(_objective_analysis.objective_analysis_field, "_sounding_z500_v3_
 
 
 # ``sounding_optimized`` imports the geometry functions directly after the
-# diagnosis package is initialised.  Installing the patch here ensures those
-# direct imports receive the contour-guided v5 functions while model/NAFP paths
-# remain untouched.  Operational fallback is deliberate: a plotting-library
-# import failure must not prevent the established sounding service from loading.
+# diagnosis package is initialised.  Install the contour-guided geometry patch
+# first, then the trough/shear topology patch so the latter wraps the final
+# smoothed functions.  Model/NAFP paths remain untouched.
 try:
     from weather_diag.features.sounding_geometry_refine import (
         install_sounding_geometry_refinements,
     )
 
     install_sounding_geometry_refinements()
+except Exception:
+    pass
+
+try:
+    from weather_diag.features.sounding_topology_refine import (
+        install_sounding_topology_refinements,
+    )
+
+    install_sounding_topology_refinements()
 except Exception:
     pass
