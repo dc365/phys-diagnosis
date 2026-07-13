@@ -10,15 +10,18 @@ on:
       - "weather_diag/diagnosis/sounding.py"
       - "weather_diag/diagnosis/sounding_optimized.py"
       - "weather_diag/diagnosis/sounding_z500_adaptive.py"
+      - "weather_diag/diagnosis/sounding_z500_v4.py"
       - "weather_diag/features/trough_ridge.py"
       - "weather_diag/features/contour_trough.py"
+      - "weather_diag/features/sounding_trough_paths.py"
       - "weather_diag/features/__init__.py"
       - "backend/app/api/v1/sounding.py"
       - "scripts/render_sounding_h500_regression.py"
-      - "scripts/render_sounding_h500_wind_experiment.py"
+      - "scripts/render_sounding_h500_multitime.py"
       - "tests/test_sounding_analysis.py"
       - "tests/test_contour_seeded_trough.py"
       - "tests/test_trough_ridge_features.py"
+      - "tests/test_sounding_h500_v4.py"
       - ".github/workflows/sounding-h500-regression.yml"
   workflow_dispatch:
 
@@ -28,7 +31,7 @@ env:
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -45,31 +48,28 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
 
-      - name: Render reference diagnostics
+      - name: Render four-cycle diagnostics
         shell: bash
         run: |
-          mkdir -p artifacts/sounding-h500
+          mkdir -p artifacts/sounding-h500-multitime
           set +e
-          python scripts/render_sounding_h500_regression.py 2>&1 | tee artifacts/sounding-h500/render.log
-          first=${PIPESTATUS[0]}
-          python scripts/render_sounding_h500_wind_experiment.py 2>&1 | tee artifacts/sounding-h500/wind-render.log
-          second=${PIPESTATUS[0]}
-          code=$(( first != 0 ? first : second ))
-          echo "$code" > artifacts/sounding-h500/render.exit-code
+          python scripts/render_sounding_h500_multitime.py 2>&1 | tee artifacts/sounding-h500-multitime/render.log
+          code=${PIPESTATUS[0]}
+          echo "$code" > artifacts/sounding-h500-multitime/render.exit-code
           exit "$code"
 
       - name: Upload H500 diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sounding-h500-regression
-          path: artifacts/sounding-h500
+          name: sounding-h500-multitime
+          path: artifacts/sounding-h500-multitime
           if-no-files-found: error
           retention-days: 14
 
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,6 +96,7 @@ jobs:
             tests/test_contour_seeded_trough.py \
             tests/test_trough_ridge_features.py \
             tests/test_sounding_analysis.py \
+            tests/test_sounding_h500_v4.py \
             2>&1 | tee artifacts/sounding-h500-tests/pytest.log
           code=${PIPESTATUS[0]}
           echo "$code" > artifacts/sounding-h500-tests/pytest.exit-code
