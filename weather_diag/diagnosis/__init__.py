@@ -1,9 +1,10 @@
 """Weather situation diagnosis orchestration.
 
 The public sounding path imports :mod:`weather_diag.diagnosis.objective_analysis`
-through this package.  Install a narrowly scoped wrapper here so the primary
-500hPa height analysis can use the station-only adaptive v3 method without
-changing model-grid or other pressure-level objective analyses.
+through this package.  Install narrowly scoped sounding wrappers here so the
+primary 500hPa height analysis can use the station-only adaptive method and its
+weather-system geometry can be refined without changing model-grid or other
+pressure-level objective analyses.
 """
 
 from __future__ import annotations
@@ -98,3 +99,18 @@ if not getattr(_objective_analysis.objective_analysis_field, "_sounding_z500_v3_
 
     _objective_analysis_with_adaptive_sounding_z500._sounding_z500_v3_wrapper = True
     _objective_analysis.objective_analysis_field = _objective_analysis_with_adaptive_sounding_z500
+
+
+# ``sounding_optimized`` imports the geometry functions directly after the
+# diagnosis package is initialised.  Installing the patch here ensures those
+# direct imports receive the contour-guided v5 functions while model/NAFP paths
+# remain untouched.  Operational fallback is deliberate: a plotting-library
+# import failure must not prevent the established sounding service from loading.
+try:
+    from weather_diag.features.sounding_geometry_refine import (
+        install_sounding_geometry_refinements,
+    )
+
+    install_sounding_geometry_refinements()
+except Exception:
+    pass
