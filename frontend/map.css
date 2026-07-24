@@ -146,6 +146,16 @@ select:disabled { color: var(--radar-dim); background: var(--cloud-inset); }
   font-size: 12px;
   line-height: 1.25;
 }
+.back-to-workbench {
+  width: fit-content;
+  margin-top: 4px;
+  color: var(--radar-cyan-deep);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 720;
+  text-decoration: none;
+}
+.back-to-workbench:hover { text-decoration: underline; }
 .mode-strip {
   display: flex;
   align-items: end;

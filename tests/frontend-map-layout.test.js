@@ -11,6 +11,8 @@ const contourGlyphPath = 'frontend/vendor/maplibre-fonts/Noto Sans Regular/0-255
 
 test('map page keeps the meteorological map workbench structure', () => {
   assert.match(html, /class="skip-link" href="#main-content"/);
+  assert.match(html, /class="back-to-workbench" href="\/"/);
+  assert.match(html, />返回工作台</);
   assert.match(html, /<main id="main-content" class="map-stage">/);
   assert.match(html, /class="layer-panel" aria-label="要素、风险与天气系统"/);
   assert.match(html, /id="btnClearOverlays"/);
