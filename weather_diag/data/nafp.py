@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import gzip
+import os
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +13,8 @@ import numpy as np
 import xarray as xr
 
 
-NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC")
+NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC")
+_NETCDF_IO_LOCK = threading.RLock()
 
 
 @dataclass
@@ -79,16 +82,59 @@ def _normalize_coords(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
+def _open_loaded_dataset(path: Path) -> xr.Dataset:
+    kwargs: dict[str, Any] = {}
+    engine = os.getenv("WEATHER_DIAG_NAFP_NETCDF_ENGINE", "netcdf4").strip().lower()
+    if engine and engine != "auto":
+        # netcdf4 is substantially faster for the deployed NAFP volume. All
+        # calls now happen in a disposable worker process; scipy remains an
+        # operator-selectable fallback if a particular host has a broken C lib.
+        kwargs["engine"] = engine
+    with xr.open_dataset(path, **kwargs) as source:
+        return _normalize_coords(source).load()
+
+
 def open_nafp_dataset(path: str | Path) -> xr.Dataset:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(str(path))
-    if _is_gzip(path):
-        with gzip.open(path, "rb") as src, tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
-            tmp.write(src.read())
-            tmp.flush()
-            return _normalize_coords(xr.open_dataset(tmp.name).load())
-    return _normalize_coords(xr.open_dataset(path).load())
+    # Keep open/load/close in one critical section. The returned dataset is
+    # already memory-backed and its file manager has been closed explicitly.
+    with _NETCDF_IO_LOCK:
+        if _is_gzip(path):
+            with gzip.open(path, "rb") as src, tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
+                tmp.write(src.read())
+                tmp.flush()
+                return _open_loaded_dataset(Path(tmp.name))
+        return _open_loaded_dataset(path)
+
+
+def _numeric_attr(attrs: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        if key not in attrs:
+            continue
+        try:
+            return float(attrs[key])
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _mask_declared_missing(values: np.ndarray, attrs: dict[str, Any]) -> np.ndarray:
+    arr = np.asarray(values, dtype=float).copy()
+    missing = _numeric_attr(attrs, "MissingValue", "missing_value", "_FillValue")
+    if missing is not None and np.isfinite(missing):
+        if missing >= 0:
+            arr[arr >= missing] = np.nan
+        else:
+            arr[arr <= missing] = np.nan
+    fixed = _numeric_attr(attrs, "FixedValue")
+    if fixed is not None and np.isfinite(fixed):
+        if fixed >= 0:
+            arr[arr >= fixed] = np.nan
+        else:
+            arr[arr <= fixed] = np.nan
+    return arr
 
 
 def missing_field(
@@ -131,7 +177,10 @@ def load_nafp_field(
     ds = open_nafp_dataset(path)
     lat = ds["lat"].values
     lon = ds["lon"].values
-    values = {name: da.squeeze(drop=True).values.astype(float) for name, da in ds.data_vars.items()}
+    values = {
+        name: _mask_declared_missing(da.squeeze(drop=True).values, {**ds.attrs, **da.attrs})
+        for name, da in ds.data_vars.items()
+    }
     return NafpField(
         element=element,
         level=str(level),

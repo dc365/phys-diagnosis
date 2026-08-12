@@ -1,0 +1,69 @@
+{
+  "source": "University of Wyoming Atmospheric Science Radiosonde Archive",
+  "scope_name": "regional_5n55n_50e160e",
+  "scope_label": "5N-55N, 50E-160E 区域探空站",
+  "source_station_api": "https://weather.uwyo.edu/wsgi/sounding_json",
+  "source_sounding_api": "https://weather.uwyo.edu/wsgi/sounding",
+  "selection_rule": "数据抓取使用最近两个完整 UTC 日的标准探空时次 00Z/12Z，站点范围为 5N-55N、50E-160E，输出时间统一转换为北京时间",
+  "target_datetimes_bjt": [
+    "2026-06-24 08:00:00",
+    "2026-06-24 20:00:00",
+    "2026-06-25 08:00:00",
+    "2026-06-25 20:00:00"
+  ],
+  "requested_levels": [
+    "surface",
+    "1000hPa",
+    "950hPa",
+    "925hPa",
+    "850hPa",
+    "800hPa",
+    "750hPa",
+    "700hPa",
+    "600hPa",
+    "500hPa",
+    "400hPa",
+    "300hPa",
+    "250hPa",
+    "200hPa",
+    "150hPa",
+    "100hPa"
+  ],
+  "station_count_union": 231,
+  "bbox": {
+    "min_lat": 5.0,
+    "max_lat": 55.0,
+    "min_lon": 50.0,
+    "max_lon": 160.0
+  },
+  "cycles": {
+    "2026-06-24 08:00:00": {
+      "stations_in_cycle": 209,
+      "rows_written": 3344,
+      "missing_station_count": 0,
+      "missing_stations": [],
+      "output_file": "regional_radiosonde_5N55N_50E160E_20260624_08BJT.csv"
+    },
+    "2026-06-24 20:00:00": {
+      "stations_in_cycle": 188,
+      "rows_written": 3008,
+      "missing_station_count": 0,
+      "missing_stations": [],
+      "output_file": "regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv"
+    },
+    "2026-06-25 08:00:00": {
+      "stations_in_cycle": 209,
+      "rows_written": 3344,
+      "missing_station_count": 0,
+      "missing_stations": [],
+      "output_file": "regional_radiosonde_5N55N_50E160E_20260625_08BJT.csv"
+    },
+    "2026-06-25 20:00:00": {
+      "stations_in_cycle": 187,
+      "rows_written": 2992,
+      "missing_station_count": 0,
+      "missing_stations": [],
+      "output_file": "regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv"
+    }
+  }
+}

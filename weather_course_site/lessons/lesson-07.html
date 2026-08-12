@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 7 课：垂直运动｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-07.html" data-lesson-id="lesson-07">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 7 课：垂直运动</h1>
+          <p class="subtitle">水汽要变成云雨，关键是空气能不能上升。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会判断哪里有上升运动，以及上升运动为什么决定云雨发展。</p>
+<h2>1. 空气上升为什么会成云下雨</h2>
+<p>空气上升时气压降低，空气膨胀冷却；冷却到露点附近后，水汽凝结成云，云滴或冰晶继续增长就可能形成降水。</p>
+<blockquote>
+<p><strong>上升容易成云下雨，下沉容易晴朗少云。</strong></p>
+</blockquote>
+<h2>2. 垂直速度 ω</h2>
+<p>业务模式图常用气压坐标的垂直速度 ω，单位常见 Pa/s。</p>
+<table>
+<thead>
+<tr>
+  <th>ω</th>
+  <th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>ω &lt; 0</td>
+  <td>气压变小，空气上升</td>
+</tr>
+<tr>
+  <td>ω &gt; 0</td>
+  <td>气压变大，空气下沉</td>
+</tr>
+</tbody>
+</table>
+<p>简单记：<strong>气压坐标里，负值通常是上升。</strong></p>
+<h2>3. 为什么常看 700hPa 垂直速度</h2>
+<p>700hPa 位于中低层，常能反映大尺度上升运动，与云雨发展关系较密切。低层水汽充足且 700hPa 有上升，降水可信度更高。</p>
+<h2>4. 常见上升来源</h2>
+<table>
+<thead>
+<tr>
+  <th>来源</th>
+  <th>解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>低层辐合</td>
+  <td>空气在低层挤到一起，被迫上升</td>
+</tr>
+<tr>
+  <td>高空辐散</td>
+  <td>上方空气流走，下方空气被抽上来</td>
+</tr>
+<tr>
+  <td>冷锋</td>
+  <td>冷空气像铲子抬升暖湿空气</td>
+</tr>
+<tr>
+  <td>暖锋</td>
+  <td>暖空气沿冷空气上方滑升</td>
+</tr>
+<tr>
+  <td>地形</td>
+  <td>湿空气遇山被迫爬升</td>
+</tr>
+<tr>
+  <td>地面加热</td>
+  <td>近地面空气变暖变轻上升</td>
+</tr>
+<tr>
+  <td>高空槽前</td>
+  <td>高空动力扰动有利于上升</td>
+</tr>
+<tr>
+  <td>对流释放</td>
+  <td>不稳定空气被触发后快速上升</td>
+</tr>
+</tbody>
+</table>
+<div class="sketch">
+<pre>
+有利上升：
+高空辐散  ←   ↑   →
+             ↑
+低层辐合  →   ↑   ←
+
+<p>下面挤，上面抽，空气上升。
+</pre></p>
+</div>
+
+<h2>5. 大尺度上升和对流上升</h2>
+<p>大尺度上升像电梯，范围大、速度相对弱、持续时间长；对流上升像火箭，范围小、速度强、发展快。</p>
+<h2>本课一句话</h2>
+<blockquote>
+<p>有水汽没有上升，不一定下雨；有上升没有水汽，也不一定有明显降水。水汽是原料，上升是加工过程。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-06.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-08.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

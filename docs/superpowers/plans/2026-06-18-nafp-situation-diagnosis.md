@@ -56,7 +56,7 @@ def test_nafp_product_path_formats_directory_layout():
     path = nafp_product_path(NAFP_SAMPLE_ROOT, "gh", "500", RUN_TIME, 24)
 
     assert path == Path(
-        "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC/"
+        "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC/"
         "gh/500/2026/06/17/20/26061720.024"
     )
 
@@ -127,7 +127,7 @@ import numpy as np
 import xarray as xr
 
 
-NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC")
+NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC")
 
 
 @dataclass
@@ -618,7 +618,7 @@ Request:
 
 ```json
 {
-  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24
 }

@@ -1,0 +1,214 @@
+{
+  "name": "气象物理量课程 Web 网站",
+  "version": "1.0.0",
+  "type": "static-html-course",
+  "lessons": [
+    {
+      "id": "lesson-01",
+      "title": "第 1 课：天气学核心逻辑",
+      "href": "lessons/lesson-01.html",
+      "summary": "建立天气分析的最小闭环：水汽是原料，抬升是动作，不稳定是能量，系统维持决定持续时间。",
+      "tags": [
+        "天气学主线",
+        "入门",
+        "降水逻辑"
+      ],
+      "duration": "20 分钟"
+    },
+    {
+      "id": "lesson-02",
+      "title": "第 2 课：气压、高压、低压和等压线",
+      "href": "lessons/lesson-02.html",
+      "summary": "理解高压下沉、低压上升、等压线密集对应大风，以及北半球低逆高顺的基本规律。",
+      "tags": [
+        "地面图",
+        "高压",
+        "低压",
+        "等压线"
+      ],
+      "duration": "25 分钟"
+    },
+    {
+      "id": "lesson-03",
+      "title": "第 3 课：风、气流来源和 850hPa 低空急流",
+      "href": "lessons/lesson-03.html",
+      "summary": "掌握风向、风速、气流来源、低层辐合和低空急流的业务意义。",
+      "tags": [
+        "风",
+        "850hPa",
+        "低空急流",
+        "辐合"
+      ],
+      "duration": "30 分钟"
+    },
+    {
+      "id": "lesson-04",
+      "title": "第 4 课：温度、冷暖空气和冷暖平流",
+      "href": "lessons/lesson-04.html",
+      "summary": "掌握冷暖空气、等温线、冷平流、暖平流和冷暖交汇的业务意义。",
+      "tags": [
+        "温度",
+        "冷空气",
+        "暖平流",
+        "冷平流"
+      ],
+      "duration": "30 分钟"
+    },
+    {
+      "id": "lesson-05",
+      "title": "第 5 课：湿度、露点和比湿",
+      "href": "lessons/lesson-05.html",
+      "summary": "理解 RH、Td、q 的区别，掌握低层水汽和湿层厚度的判断方法。",
+      "tags": [
+        "相对湿度",
+        "露点",
+        "比湿",
+        "水汽"
+      ],
+      "duration": "30 分钟"
+    },
+    {
+      "id": "lesson-06",
+      "title": "第 6 课：水汽输送和水汽辐合",
+      "href": "lessons/lesson-06.html",
+      "summary": "掌握水汽通量、水汽通量散度、PW 和水汽辐合的基本用法。",
+      "tags": [
+        "水汽通量",
+        "水汽辐合",
+        "PW",
+        "暴雨"
+      ],
+      "duration": "30 分钟"
+    },
+    {
+      "id": "lesson-07",
+      "title": "第 7 课：垂直运动",
+      "href": "lessons/lesson-07.html",
+      "summary": "理解空气上升冷却、下沉增温，掌握 ω、700hPa 垂直速度和上升来源。",
+      "tags": [
+        "垂直速度",
+        "上升运动",
+        "700hPa",
+        "辐合辐散"
+      ],
+      "duration": "30 分钟"
+    },
+    {
+      "id": "lesson-08",
+      "title": "第 8 课：500hPa 位势高度、槽、脊和副高",
+      "href": "lessons/lesson-08.html",
+      "summary": "理解位势高度、槽、脊、副热带高压、冷涡与天气发展的关系。",
+      "tags": [
+        "500hPa",
+        "位势高度",
+        "槽",
+        "脊",
+        "副高"
+      ],
+      "duration": "35 分钟"
+    },
+    {
+      "id": "lesson-09",
+      "title": "第 9 课：CAPE 和 CIN",
+      "href": "lessons/lesson-09.html",
+      "summary": "掌握 CAPE、CIN、LCL、LFC、EL 的业务含义，理解为什么闷热不一定雷暴。",
+      "tags": [
+        "CAPE",
+        "CIN",
+        "不稳定",
+        "强对流"
+      ],
+      "duration": "35 分钟"
+    },
+    {
+      "id": "lesson-10",
+      "title": "第 10 课：垂直风切变",
+      "href": "lessons/lesson-10.html",
+      "summary": "理解风随高度变化如何影响脉冲雷暴、多单体、飑线、超级单体和雷暴大风。",
+      "tags": [
+        "垂直风切变",
+        "0-6km",
+        "0-1km",
+        "SRH",
+        "强对流组织"
+      ],
+      "duration": "35 分钟"
+    },
+    {
+      "id": "lesson-11",
+      "title": "第 11 课：常用指数与动力诊断量",
+      "href": "lessons/lesson-11.html",
+      "summary": "快速掌握常见经验指数和动力诊断量的含义、使用场景与误区。",
+      "tags": [
+        "K指数",
+        "LI",
+        "SI",
+        "DCAPE",
+        "湿球温度",
+        "涡度",
+        "散度"
+      ],
+      "duration": "45 分钟"
+    },
+    {
+      "id": "lesson-12",
+      "title": "第 12 课：探空图怎么看",
+      "href": "lessons/lesson-12.html",
+      "summary": "从 T、Td、风羽、逆温、CAPE/CIN、LCL/LFC/EL、0℃ 层开始读懂探空图。",
+      "tags": [
+        "探空图",
+        "Skew-T",
+        "T/Td",
+        "CAPE",
+        "相态"
+      ],
+      "duration": "50 分钟"
+    },
+    {
+      "id": "lesson-13",
+      "title": "第 13 课：雷达图怎么看",
+      "href": "lessons/lesson-13.html",
+      "summary": "掌握反射率 dBZ、基本/组合反射率、径向速度、回波形态、列车效应、弓形回波和旋转信号。",
+      "tags": [
+        "雷达",
+        "反射率",
+        "径向速度",
+        "短临",
+        "强对流"
+      ],
+      "duration": "50 分钟"
+    },
+    {
+      "id": "lesson-14",
+      "title": "第 14 课：数值模式释用入门",
+      "href": "lessons/lesson-14.html",
+      "summary": "理解数值模式释用：解释模式为什么这么报、可信不可信、哪里可能偏、如何结合实况订正。",
+      "tags": [
+        "数值模式",
+        "模式释用",
+        "多模式对比",
+        "集合预报"
+      ],
+      "duration": "45 分钟"
+    },
+    {
+      "id": "lesson-15",
+      "title": "第 15 课：个例复盘与业务分析模板",
+      "href": "lessons/lesson-15.html",
+      "summary": "提供暴雨、强对流、冷空气、雨雪相态和模式检验的复盘模板，帮助形成稳定分析流程。",
+      "tags": [
+        "复盘",
+        "业务分析",
+        "模板",
+        "训练"
+      ],
+      "duration": "40 分钟"
+    }
+  ],
+  "pages": [
+    "index.html",
+    "glossary.html",
+    "cases.html",
+    "learning-path.html"
+  ]
+}

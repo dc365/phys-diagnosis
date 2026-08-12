@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>天气形势智能诊断可视化管理后台</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <title>天气形势分析与物理量诊断工作台</title>
+  <link rel="stylesheet" href="/static/styles.css?v=auto-diagnosis-20260629" />
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳转到主内容</a>
@@ -13,170 +13,628 @@
       <div class="brand-block">
         <span class="brand-mark" aria-hidden="true">WD</span>
         <div>
-          <h1>可视化管理后台</h1>
-          <p>天气形势智能诊断</p>
+          <h1>天气形势分析与物理量诊断工作台</h1>
         </div>
       </div>
+      <div class="sidebar-context" aria-label="值班闭环">
+        <span class="sidebar-context-label">值班闭环</span>
+        <ol class="sidebar-flow">
+          <li>资料</li>
+          <li>形势</li>
+          <li>风险</li>
+          <li>证据</li>
+        </ol>
+      </div>
       <nav class="nav-list">
-        <a class="nav-item active" href="#workspace">工作台</a>
-        <a class="nav-item" href="#jobs">诊断任务</a>
-        <a class="nav-item" href="#data-source">数据源管理</a>
-        <a class="nav-item" href="#results">诊断结果库</a>
-        <a class="nav-item" href="#evidence">证据链分析</a>
-        <a class="nav-item" href="#monitor">服务监控</a>
+        <span class="nav-section-label">研判</span>
+        <a class="nav-item active" href="#system-overview" data-view="system-overview" aria-current="page">
+          <strong>系统概览</strong>
+          <span>流程与说明</span>
+        </a>
+        <a class="nav-item" href="#diagnosis-workbench" data-view="diagnosis-workbench">
+          <strong>诊断工作台</strong>
+          <span>自动诊断</span>
+        </a>
+        <a class="nav-item" href="#area-risk-workbench" data-view="area-risk-workbench">
+          <strong>区域风险</strong>
+          <span>乡镇风险评估</span>
+        </a>
+        <span class="nav-section-label">治理</span>
+        <a class="nav-item" href="#algorithm-governance" data-view="algorithm-governance">
+          <strong>算法治理</strong>
+          <span>算法 / 阈值 / 规则</span>
+        </a>
+        <a class="nav-item" href="#data-fields" data-view="data-fields">
+          <strong>数据字段</strong>
+          <span>字段完整性</span>
+        </a>
+        <a class="nav-item" href="#service-status" data-view="service-status">
+          <strong>服务状态</strong>
+          <span>运行记录</span>
+        </a>
       </nav>
-      <a class="map-link" href="/map">打开 GIS 地图</a>
+      <a class="map-link" href="/map">
+        <span>GIS</span>
+        打开地图研判
+      </a>
     </aside>
 
     <main id="main-content" class="main-stage">
-      <header class="workbar" id="workspace">
-        <div class="title-stack">
-          <span class="eyebrow">NAFP EC 业务后台</span>
-          <h2>天气形势诊断工作台</h2>
-        </div>
-        <form id="diagnosisForm" class="run-controls" aria-label="诊断参数">
-          <label class="field wide-field">
-            <span>数据目录</span>
-            <input id="rootInput" name="root" type="text" autocomplete="off" />
-          </label>
-          <label class="field">
-            <span>起报时间</span>
-            <input id="runTimeInput" name="run_time" type="datetime-local" />
-          </label>
-          <label class="field compact-field">
-            <span>时效</span>
-            <select id="forecastHourSelect" name="forecast_hour"></select>
-          </label>
-          <button id="runButton" class="primary-action" type="submit">
-            <span aria-hidden="true">▶</span>
-            运行诊断
-          </button>
-        </form>
-      </header>
+      <div class="workspace-ribbon" data-active-view="system-overview" aria-label="工作台路径">
+        <span class="ribbon-label">工作台路径</span>
+        <span class="ribbon-step" data-ribbon-step="data-fields">模式资料</span>
+        <span class="ribbon-step" data-ribbon-step="diagnosis-workbench">自动诊断</span>
+        <span class="ribbon-step" data-ribbon-step="system-overview">天气系统</span>
+        <span class="ribbon-step" data-ribbon-step="area-risk-workbench">风险复核</span>
+        <span class="ribbon-step" data-ribbon-step="algorithm-governance">规则治理</span>
+      </div>
+      <section class="module-panel active" id="system-overview" data-view-panel="system-overview" aria-labelledby="systemOverviewTitle">
+        <header class="module-head compact-head overview-head">
+          <div class="title-stack">
+            <span class="eyebrow">系统概览</span>
+            <h2 id="systemOverviewTitle">从数值预报格点到天气形势诊断</h2>
+            <p>后台把 ECTHIN、CMA-GFS 等模式资料映射到 NetCDF 格点场，转成天气系统、风险评分和可追溯证据链。</p>
+          </div>
+        </header>
 
-      <section class="status-strip" aria-label="诊断状态摘要">
-        <div class="metric-cell">
-          <span>有效时间</span>
-          <strong id="validTimeMetric">-</strong>
+        <div class="overview-layout">
+          <section class="section-panel overview-briefing" aria-labelledby="overviewBriefTitle">
+            <div class="overview-summary">
+              <span class="panel-kicker">总体概述</span>
+              <h3 id="overviewBriefTitle">把模式资料翻译成可复核的业务判断</h3>
+              <p>系统围绕天气学最小分析闭环组织算法：先看大尺度形势背景，再检查水汽、抬升、不稳定和风切变，最后用阈值与权重矩阵给出诊断结论、评分和证据来源。</p>
+            </div>
+            <div class="overview-facts" aria-label="概览关键点">
+              <div class="overview-fact">
+                <span>输入资料</span>
+                <strong>ECTHIN / CMA-GFS</strong>
+              </div>
+              <div class="overview-fact">
+                <span>核心对象</span>
+                <strong>高低压 / 槽脊 / 副高 / 急流 / 锋面</strong>
+              </div>
+              <div class="overview-fact">
+                <span>诊断方式</span>
+                <strong>算法库 + 阈值矩阵 + 证据链</strong>
+              </div>
+              <div class="overview-fact">
+                <span>服务输出</span>
+                <strong>API / 管理后台 / GIS 地图 / 任意点评分</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-panel" aria-labelledby="overviewFlowTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">处理流程</span>
+                <h3 id="overviewFlowTitle">一次诊断从资料到结论的路径</h3>
+              </div>
+              <span class="count-badge">5 步</span>
+            </div>
+            <div id="overviewFlow" class="overview-flow">
+              <article class="flow-step" data-step="01">
+                <h4>数据接入</h4>
+                <p>按模式、起报时间和预报时效读取 NetCDF，统一经纬度、层次、单位和缺测状态。</p>
+                <span>data_code / run_time / forecast_hour</span>
+              </article>
+              <article class="flow-step" data-step="02">
+                <h4>物理量诊断</h4>
+                <p>解析 500hPa、850hPa、700hPa、200/300hPa 等关键层次，计算散度、水汽通量、垂直速度和指数。</p>
+                <span>gh500 / div850 / w700 / kindex</span>
+              </article>
+              <article class="flow-step" data-step="03">
+                <h4>天气系统识别</h4>
+                <p>结合等值线、中心检测、线状对象和多边形区域识别高低压、槽线、脊线、副高、急流和锋面。</p>
+                <span>center / contour / line / polygon</span>
+              </article>
+              <article class="flow-step" data-step="04">
+                <h4>风险评分</h4>
+                <p>按六类风险评分算法输出持续性强降水、短时强降水、雷暴大风、冰雹、旋转风暴和强对流综合风险。</p>
+                <span>risk grid / score / source field</span>
+              </article>
+              <article class="flow-step" data-step="05">
+                <h4>服务输出</h4>
+                <p>输出天气对象、风险诊断、证据链、字段完整性和地图图层，支持接口调用与后台复核。</p>
+                <span>systems / risks / layers / point score</span>
+              </article>
+            </div>
+          </section>
+
+          <section class="section-panel" aria-labelledby="overviewCapabilityTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">功能结构</span>
+                <h3 id="overviewCapabilityTitle">后台模块如何配合</h3>
+              </div>
+            </div>
+            <div id="overviewCapabilityGrid" class="overview-capability-grid">
+              <a class="capability-card" href="#diagnosis-workbench" data-overview-link="diagnosis-workbench">
+                <span>01</span>
+                <strong>诊断工作台</strong>
+                <p>查看数值预报预计算和探空预处理状态，复核天气系统与风险诊断。</p>
+              </a>
+              <a class="capability-card" href="/map">
+                <span>02</span>
+                <strong>GIS 地图</strong>
+                <p>查看系统对象、等值线、标注值和任意点评分结果。</p>
+              </a>
+              <a class="capability-card" href="#area-risk-workbench" data-overview-link="area-risk-workbench">
+                <span>03</span>
+                <strong>区域风险</strong>
+                <p>按地区、乡镇和有效时间查询六类风险评分，查看 source_grid 和证据链。</p>
+              </a>
+              <a class="capability-card" href="#algorithm-governance" data-overview-link="algorithm-governance">
+                <span>04</span>
+                <strong>算法治理</strong>
+                <p>管理算法库、默认阈值矩阵和诊断规则说明。</p>
+              </a>
+              <a class="capability-card" href="#data-fields" data-overview-link="data-fields">
+                <span>05</span>
+                <strong>数据字段</strong>
+                <p>检查关键输入字段完整性。</p>
+              </a>
+              <a class="capability-card" href="#service-status" data-overview-link="service-status">
+                <span>06</span>
+                <strong>服务状态</strong>
+                <p>查看运行记录、接口路径和后台服务可用性。</p>
+              </a>
+            </div>
+          </section>
+
+          <div class="overview-bottom-grid single-overview">
+            <section class="section-panel" aria-labelledby="overviewReasoningTitle">
+              <div class="section-head">
+                <div>
+                  <span class="panel-kicker">诊断思路</span>
+                  <h3 id="overviewReasoningTitle">天气学证据链主线</h3>
+                </div>
+              </div>
+              <div id="overviewReasoningRail" class="reasoning-rail">
+                <article class="reasoning-step">
+                  <strong>形势背景</strong>
+                  <p>500hPa 位势高度、槽脊、副高和海平面气压决定系统配置。</p>
+                  <span>gh500 / mslp / 5880gpm</span>
+                </article>
+                <article class="reasoning-step">
+                  <strong>水汽条件</strong>
+                  <p>850hPa 比湿、整层水汽和水汽输送带判断原料是否充足。</p>
+                  <span>q850 / tcwv / moisture_flux850</span>
+                </article>
+                <article class="reasoning-step">
+                  <strong>抬升触发</strong>
+                  <p>低层辐合、高空辐散、700hPa 上升运动和锋区提供抬升条件。</p>
+                  <span>div850 / div200 / w700 / front</span>
+                </article>
+                <article class="reasoning-step">
+                  <strong>不稳定</strong>
+                  <p>K 指数、CAPE、CIN 和温湿垂直结构决定对流能量释放难度。</p>
+                  <span>kindex / cape / cin</span>
+                </article>
+                <article class="reasoning-step">
+                  <strong>风切变</strong>
+                  <p>垂直风切变和低空急流影响强对流组织化和降水维持。</p>
+                  <span>shr850-200 / uv850 / low level jet</span>
+                </article>
+              </div>
+            </section>
+
+          </div>
         </div>
-        <div class="metric-cell">
-          <span>数据完整率</span>
-          <strong id="completenessMetric">-</strong>
-        </div>
-        <div class="metric-cell">
-          <span>天气系统</span>
-          <strong id="systemMetric">-</strong>
-        </div>
-        <div class="metric-cell risk-cell">
-          <span>风险链</span>
-          <strong id="riskMetric">-</strong>
-        </div>
-        <div class="status-message" id="statusMessage" role="status">等待诊断</div>
       </section>
 
-      <div class="workspace-grid">
-        <section class="section-panel systems-panel" id="results" aria-labelledby="systemsTitle">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">天气系统</span>
-              <h3 id="systemsTitle">形势对象</h3>
+      <section class="module-panel" id="diagnosis-workbench" data-view-panel="diagnosis-workbench" hidden aria-labelledby="diagnosisWorkbenchTitle">
+        <header class="module-head">
+          <div class="title-stack">
+            <span class="eyebrow">诊断工作台</span>
+            <h2 id="diagnosisWorkbenchTitle">自动诊断结果</h2>
+            <p>后台自动准备数值预报诊断和探空站预处理结果；这里用于查看状态、复核结论，并在异常时补算。</p>
+          </div>
+          <details class="manual-diagnosis-panel">
+            <summary>手动补算</summary>
+            <form id="diagnosisForm" class="run-controls" aria-label="诊断补算参数">
+              <div class="run-primary-row">
+                <label class="field wide-field" for="dataCodeSelect">
+                  <span>模式</span>
+                  <select id="dataCodeSelect" name="data_code"></select>
+                  <small id="dataCodeHint">后台映射数据编码</small>
+                </label>
+                <label class="field" for="runTimeInput">
+                  <span>起报时间</span>
+                  <input id="runTimeInput" name="run_time" type="datetime-local" />
+                </label>
+                <button id="runButton" class="primary-action" type="submit">
+                  <span aria-hidden="true">▶</span>
+                  补算诊断
+                </button>
+              </div>
+              <section class="forecast-picker" aria-labelledby="forecastHourLabel">
+                <div class="forecast-picker-head">
+                  <div>
+                    <span id="forecastHourLabel" class="field-label">预报时效</span>
+                    <small id="forecastHourHint">ECTHIN：0-240 小时 / 3 小时间隔</small>
+                  </div>
+                  <strong id="forecastSelectionSummary">已选 +24h</strong>
+                </div>
+                <div class="hour-tools" aria-label="时效快捷选择">
+                  <button id="selectCoreForecastHours" class="subtle-action" type="button">0-72</button>
+                  <button id="selectAllForecastHours" class="subtle-action" type="button">全选 0-240</button>
+                  <button id="selectDefaultForecastHour" class="subtle-action" type="button">+24</button>
+                  <button id="clearForecastHours" class="subtle-action" type="button">清空</button>
+                </div>
+                <div id="forecastHourChips" class="forecast-hour-grid" role="group" aria-label="预报时效"></div>
+              </section>
+            </form>
+          </details>
+        </header>
+
+        <div id="automaticDiagnosisPanels" class="automatic-diagnosis-grid" aria-label="自动诊断任务"></div>
+
+        <section class="status-strip" aria-label="诊断状态摘要">
+          <div class="metric-cell primary-metric">
+            <span>有效时间</span>
+            <strong id="validTimeMetric">-</strong>
+          </div>
+          <div class="metric-cell">
+            <span>数据完整率</span>
+            <strong id="completenessMetric">-</strong>
+          </div>
+          <div class="metric-cell">
+            <span>天气系统</span>
+            <strong id="systemMetric">-</strong>
+          </div>
+          <div class="metric-cell risk-cell risk-metric">
+            <span>风险诊断</span>
+            <strong id="riskMetric">-</strong>
+          </div>
+          <div class="status-message briefing-strip" id="statusMessage" role="status">等待自动诊断结果</div>
+        </section>
+        <section id="batchSummary" class="batch-summary" hidden aria-label="批量诊断结果"></section>
+
+        <div class="workspace-grid">
+          <section class="section-panel systems-panel" id="results" aria-labelledby="systemsTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">天气系统</span>
+                <h3 id="systemsTitle">形势对象</h3>
+              </div>
+              <span id="systemCountBadge" class="count-badge">0</span>
             </div>
-            <span id="systemCountBadge" class="count-badge">0</span>
+            <div id="systemsGroupList" class="system-group-list">
+              <div class="empty-state">暂无诊断结果</div>
+            </div>
+          </section>
+
+          <section class="section-panel evidence-panel" id="evidence" aria-labelledby="chainsTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">诊断结论</span>
+                <h3 id="chainsTitle">风险诊断</h3>
+              </div>
+              <span id="chainCountBadge" class="count-badge">0</span>
+            </div>
+            <div id="chainList" class="chain-list">
+              <div class="empty-state">暂无风险诊断</div>
+            </div>
+          </section>
+
+          <aside class="inspector-panel" aria-label="诊断详情">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">详情</span>
+                <h3 id="inspectorTitle">诊断详情</h3>
+              </div>
+            </div>
+            <div id="inspectorBody" class="inspector-body">
+              <div class="empty-state">选择天气系统或风险诊断</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="module-panel" id="area-risk-workbench" data-view-panel="area-risk-workbench" hidden aria-labelledby="areaRiskWorkbenchTitle">
+        <header class="module-head compact-head">
+          <div class="title-stack">
+            <span class="eyebrow">区域风险</span>
+            <h2 id="areaRiskWorkbenchTitle">乡镇风险评估</h2>
+            <p>按地区、乡镇和有效时间查询六类风险评分，查看每类风险的 source_grid、主导因子和样本站点证据链。</p>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>类型</th>
-                  <th>层次</th>
-                  <th class="number-col">可信度</th>
-                  <th>范围</th>
-                </tr>
-              </thead>
-              <tbody id="systemsTableBody">
-                <tr><td colspan="4" class="empty-cell">暂无诊断结果</td></tr>
-              </tbody>
-            </table>
+          <form id="areaRiskForm" class="area-risk-controls" aria-label="区域风险查询参数">
+            <label class="field" for="areaRiskDataCategorySelect">
+              <span>资料类别</span>
+              <select id="areaRiskDataCategorySelect" name="data_category">
+                <option value="forecast" selected>数值预报</option>
+                <option value="sounding">实况探空</option>
+              </select>
+            </label>
+            <label class="field forecast-area-risk-field" for="areaRiskDataCodeSelect">
+              <span>模式</span>
+              <select id="areaRiskDataCodeSelect" name="data_code"></select>
+            </label>
+            <label class="field forecast-area-risk-field" for="areaRiskRunTimeInput">
+              <span>起报时间</span>
+              <input id="areaRiskRunTimeInput" name="run_time" type="datetime-local" />
+            </label>
+            <label class="field wide-field sounding-area-risk-field" for="areaRiskSoundingFileSelect" hidden>
+              <span>探空时次</span>
+              <select id="areaRiskSoundingFileSelect" name="sounding_file">
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_20BJT.csv">2026-06-25 20时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260625_08BJT.csv">2026-06-25 08时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_20BJT.csv">2026-06-24 20时</option>
+                <option value="test_datas/regional_radiosonde_5N55N_50E160E_20260624_20260625/regional_radiosonde_5N55N_50E160E_20260624_08BJT.csv">2026-06-24 08时</option>
+              </select>
+            </label>
+            <label class="field wide-field" for="areaRiskScopeSelect">
+              <span>区域范围</span>
+              <select id="areaRiskScopeSelect" name="scope"></select>
+            </label>
+            <label class="field forecast-area-risk-field" for="areaRiskStartTimeInput">
+              <span>开始时间</span>
+              <input id="areaRiskStartTimeInput" name="start_time" type="datetime-local" />
+            </label>
+            <label class="field forecast-area-risk-field" for="areaRiskEndTimeInput">
+              <span>结束时间</span>
+              <input id="areaRiskEndTimeInput" name="end_time" type="datetime-local" />
+            </label>
+            <label class="field" for="areaRiskTypeSelect">
+              <span>风险类别</span>
+              <select id="areaRiskTypeSelect" name="risk_type"></select>
+            </label>
+            <button id="areaRiskQueryButton" class="primary-action" type="submit">
+              <span aria-hidden="true">▶</span>
+              查询风险
+            </button>
+          </form>
+        </header>
+
+        <section class="status-strip area-risk-summary" aria-label="区域风险摘要">
+          <div class="metric-cell primary-metric">
+            <span>乡镇数量</span>
+            <strong id="areaRiskTownMetric">-</strong>
           </div>
+          <div class="metric-cell risk-cell risk-metric">
+            <span>高风险项</span>
+            <strong id="areaRiskHighMetric">-</strong>
+          </div>
+          <div class="metric-cell">
+            <span>最高评分</span>
+            <strong id="areaRiskMaxMetric">-</strong>
+          </div>
+          <div class="metric-cell">
+            <span>主导风险</span>
+            <strong id="areaRiskLeadingMetric">-</strong>
+          </div>
+          <div class="status-message briefing-strip" id="areaRiskStatusMessage" role="status">等待查询</div>
         </section>
 
-        <section class="section-panel evidence-panel" id="evidence" aria-labelledby="chainsTitle">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">诊断结论</span>
-              <h3 id="chainsTitle">风险证据链</h3>
+        <div class="area-risk-layout">
+          <section class="section-panel area-risk-results-panel" aria-labelledby="areaRiskRowsTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">乡镇风险</span>
+                <h3 id="areaRiskRowsTitle">风险排序</h3>
+              </div>
+              <span id="areaRiskRowBadge" class="count-badge">0</span>
             </div>
-            <span id="chainCountBadge" class="count-badge">0</span>
-          </div>
-          <div id="chainList" class="chain-list">
-            <div class="empty-state">暂无证据链</div>
-          </div>
-        </section>
+            <div class="area-risk-table-head" aria-hidden="true">
+              <span>区域 / 风险</span>
+              <span>时效</span>
+              <span>评分</span>
+            </div>
+            <div id="areaRiskRows" class="area-risk-row-list">
+              <div class="empty-state">请选择区域并查询风险</div>
+            </div>
+          </section>
 
-        <aside class="inspector-panel" aria-label="证据链详情">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">详情</span>
-              <h3 id="inspectorTitle">证据检查器</h3>
+          <aside class="section-panel area-risk-inspector" aria-label="区域风险详情">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">证据链</span>
+                <h3 id="areaRiskInspectorTitle">区域风险详情</h3>
+              </div>
             </div>
-          </div>
-          <div id="inspectorBody" class="inspector-body">
-            <div class="empty-state">选择天气系统或风险链</div>
-          </div>
-        </aside>
-      </div>
+            <div id="areaRiskInspectorBody" class="area-risk-inspector-body">
+              <div class="empty-state">选择一条乡镇风险</div>
+            </div>
+          </aside>
+        </div>
+      </section>
 
-      <div class="lower-grid">
-        <section class="section-panel" id="data-source" aria-labelledby="fieldMatrixTitle">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">数据源</span>
-              <h3 id="fieldMatrixTitle">字段完整性</h3>
-            </div>
-            <span id="missingBadge" class="count-badge">0 缺测</span>
+      <section class="module-panel" id="algorithm-governance" data-view-panel="algorithm-governance" hidden aria-labelledby="algorithmGovernanceTitle">
+        <header class="module-head compact-head">
+          <div class="title-stack">
+            <span class="eyebrow">算法治理</span>
+            <h2 id="algorithmGovernanceTitle">算法资产、阈值和规则说明</h2>
+            <p>按治理对象审查天气系统识别和风险诊断规则，保持一个默认阈值矩阵，不做多版本干扰。</p>
           </div>
-          <div id="fieldMatrix" class="field-matrix"></div>
-        </section>
+        </header>
+        <div class="governance-layout">
+          <div class="governance-domain-switch" role="tablist" aria-label="算法治理对象">
+            <button class="governance-domain-button active" type="button" role="tab" data-governance-domain="weather-systems" aria-selected="true">
+              <strong>天气系统</strong>
+              <span>识别对象 / 系统阈值 / 规则证据</span>
+            </button>
+            <button class="governance-domain-button" type="button" role="tab" data-governance-domain="risk-diagnosis" aria-selected="false">
+              <strong>风险诊断</strong>
+              <span>六类风险 / 评分因子 / 输出契约</span>
+            </button>
+          </div>
+          <div id="governanceDomainSummary" class="governance-domain-summary">
+            选择天气系统或风险诊断，查看对应算法资产、阈值矩阵和规则说明。
+          </div>
 
-        <section class="section-panel" aria-labelledby="diagnosticsTitle">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">物理量</span>
-              <h3 id="diagnosticsTitle">诊断统计</h3>
-            </div>
+          <div class="governance-tabs" role="tablist" aria-label="算法治理">
+            <button class="governance-tab active" type="button" role="tab" data-governance-tab="algorithms" aria-selected="true">算法库</button>
+            <button class="governance-tab" type="button" role="tab" data-governance-tab="thresholds" aria-selected="false">阈值矩阵</button>
+            <button class="governance-tab" type="button" role="tab" data-governance-tab="rule-explanations" aria-selected="false">规则说明</button>
           </div>
-          <div class="table-wrap diagnostics-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>字段</th>
-                  <th class="number-col">最小</th>
-                  <th class="number-col">平均</th>
-                  <th class="number-col">最大</th>
-                  <th class="number-col">P90</th>
-                </tr>
-              </thead>
-              <tbody id="diagnosticsTableBody">
-                <tr><td colspan="5" class="empty-cell">暂无统计</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
 
-        <section class="section-panel" id="jobs" aria-labelledby="taskLogTitle">
-          <div class="section-head">
-            <div>
-              <span class="panel-kicker">任务</span>
-              <h3 id="taskLogTitle">运行记录</h3>
+          <section class="governance-panel active" data-governance-panel="algorithms" id="algorithms" aria-labelledby="algorithmLibraryTitle">
+            <div class="section-panel">
+              <div class="section-head">
+                <div>
+                  <span class="panel-kicker">算法库</span>
+                  <h3 id="algorithmLibraryTitle">诊断算法资产</h3>
+                </div>
+                <span id="algorithmDomainBadge" class="count-badge">天气系统</span>
+                <span id="algorithmCountBadge" class="count-badge">0</span>
+              </div>
+              <div id="algorithmLibrary" class="algorithm-library">
+                <div class="empty-state">加载算法库</div>
+              </div>
             </div>
+          </section>
+
+          <section class="governance-panel" data-governance-panel="thresholds" id="thresholds" hidden aria-labelledby="thresholdMatrixTitle">
+            <div class="section-panel">
+              <div class="section-head">
+                <div>
+                  <span class="panel-kicker">默认规则</span>
+                  <h3 id="thresholdMatrixTitle">阈值与权重矩阵</h3>
+                </div>
+                <span id="thresholdMatrixBadge" class="count-badge">default</span>
+              </div>
+              <div class="version-toolbar" aria-label="默认阈值矩阵工具条">
+                <button id="saveThresholdMatrix" class="primary-action" type="button">保存默认矩阵</button>
+              </div>
+              <div class="threshold-workbench">
+                <aside id="thresholdGroupList" class="threshold-group-list" aria-label="阈值矩阵组别">
+                  <div class="empty-state">加载组别</div>
+                </aside>
+                <div class="threshold-editor">
+                  <div class="threshold-editor-head">
+                    <div>
+                      <span class="panel-kicker">当前组</span>
+                      <strong id="thresholdGroupTitle">全部规则</strong>
+                    </div>
+                    <span id="thresholdGroupMeta" class="count-badge">0 项</span>
+                  </div>
+                  <div id="thresholdMatrixGuide" class="threshold-guide">
+                    <strong>读法</strong>
+                    <span>参考阈值决定从哪里开始计分；满分跨度表示从起算到高分还需要增强多少；贡献权重决定该证据汇入本类风险总分的占比。风险区生成规则只用于从 source_grid 提取风险区对象。</span>
+                  </div>
+                  <div class="table-wrap threshold-matrix">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>
+                            <span>物理量 / 参数</span>
+                            <small class="threshold-column-hint">字段与来源</small>
+                          </th>
+                          <th>
+                            <span>类别</span>
+                            <small class="threshold-column-hint">热力 / 水汽 / 动力</small>
+                          </th>
+                          <th>
+                            <span>业务判断</span>
+                            <small class="threshold-column-hint">评分方式与证据含义</small>
+                          </th>
+                          <th class="number-col">
+                            <span>参考阈值</span>
+                            <small class="threshold-column-hint">达到后开始计分/判定</small>
+                          </th>
+                          <th class="number-col">
+                            <span>满分跨度</span>
+                            <small class="threshold-column-hint">到高分所需变化量</small>
+                          </th>
+                          <th class="number-col">
+                            <span>贡献权重</span>
+                            <small class="threshold-column-hint">汇入总分占比</small>
+                          </th>
+                          <th>
+                            <span>纳入</span>
+                            <small class="threshold-column-hint">是否启用</small>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody id="thresholdMatrixBody">
+                        <tr><td colspan="7" class="empty-cell">加载阈值矩阵</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="governance-panel" data-governance-panel="rule-explanations" id="rule-explanations" hidden aria-labelledby="ruleExplanationTitle">
+            <div class="section-panel rule-explanation-section">
+              <div class="section-head">
+                <div>
+                  <span class="panel-kicker">诊断依据</span>
+                  <h3 id="ruleExplanationTitle">规则说明</h3>
+                </div>
+                <span id="ruleExplanationDomainBadge" class="count-badge">天气系统</span>
+                <span id="ruleExplanationBadge" class="count-badge">0</span>
+              </div>
+              <div id="ruleExplanationPanel" class="rule-explanation-panel">
+                <div class="empty-state">加载诊断规则</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="module-panel" id="data-fields" data-view-panel="data-fields" hidden aria-labelledby="dataFieldsTitle">
+        <header class="module-head compact-head">
+          <div class="title-stack">
+            <span class="eyebrow">数据字段</span>
+            <h2 id="dataFieldsTitle">资料完整性</h2>
+            <p>回答这次诊断资料是否够用、缺哪些字段。</p>
           </div>
-          <ol id="taskLog" class="task-log"></ol>
-        </section>
-      </div>
+        </header>
+        <div class="data-grid">
+          <section class="section-panel" id="data-source" aria-labelledby="fieldMatrixTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">数据源</span>
+                <h3 id="fieldMatrixTitle">字段完整性</h3>
+              </div>
+              <span id="missingBadge" class="count-badge">0 缺测</span>
+            </div>
+            <div id="fieldMatrix" class="field-matrix"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="module-panel" id="service-status" data-view-panel="service-status" hidden aria-labelledby="serviceStatusTitle">
+        <header class="module-head compact-head">
+          <div class="title-stack">
+            <span class="eyebrow">服务状态</span>
+            <h2 id="serviceStatusTitle">运行记录和服务可用性</h2>
+            <p>保留最近诊断和阈值保存动作，辅助排查接口可用性。</p>
+          </div>
+        </header>
+        <div class="service-grid">
+          <section class="section-panel" id="jobs" aria-labelledby="taskLogTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">任务</span>
+                <h3 id="taskLogTitle">运行记录</h3>
+              </div>
+            </div>
+            <ol id="taskLog" class="task-log"></ol>
+          </section>
+          <section class="section-panel" id="monitor" aria-labelledby="serviceProbeTitle">
+            <div class="section-head">
+              <div>
+                <span class="panel-kicker">接口</span>
+                <h3 id="serviceProbeTitle">服务探针</h3>
+              </div>
+              <span class="count-badge">local</span>
+            </div>
+            <div class="service-probe">
+              <div class="detail-item"><span>诊断接口</span><strong>/api/v1/diagnosis/nafp/situation</strong></div>
+              <div class="detail-item"><span>批量诊断接口</span><strong>/api/v1/diagnosis/nafp/situations</strong></div>
+              <div class="detail-item"><span>算法接口</span><strong>/api/v1/admin/algorithms/catalog</strong></div>
+            </div>
+          </section>
+        </div>
+      </section>
     </main>
   </div>
 
-  <script src="/static/admin-utils.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/admin-utils.js?v=primary-weather-systems-20260625"></script>
+  <script src="/static/app.js?v=auto-diagnosis-20260629"></script>
 </body>
 </html>

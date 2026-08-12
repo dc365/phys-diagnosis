@@ -184,7 +184,7 @@ Default request:
 
 ```json
 {
-  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24
 }
@@ -224,7 +224,7 @@ Run:
 curl --noproxy '*' -s http://127.0.0.1:8000/ | head
 curl --noproxy '*' -s -X POST http://127.0.0.1:8000/api/v1/diagnosis/nafp/situation \
   -H 'content-type: application/json' \
-  -d '{"root":"/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC","run_time":"2026-06-17T20:00:00","forecast_hour":24}'
+  -d '{"root":"/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC","run_time":"2026-06-17T20:00:00","forecast_hour":24}'
 ```
 
 Expected: dashboard HTML loads and API returns `code: 0`, `msg: ok`.

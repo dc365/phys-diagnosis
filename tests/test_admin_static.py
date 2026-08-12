@@ -7,7 +7,7 @@ def test_root_serves_management_dashboard():
     response = TestClient(app).get("/")
 
     assert response.status_code == 200
-    assert "可视化管理后台" in response.text
+    assert "天气形势分析与物理量诊断工作台" in response.text
 
 
 def test_map_view_remains_available():
@@ -15,6 +15,14 @@ def test_map_view_remains_available():
 
     assert response.status_code == 200
     assert "天气诊断 GIS 地图" in response.text
+
+
+def test_map_view_injects_configured_local_tile_template():
+    response = TestClient(app).get("/map")
+
+    assert response.status_code == 200
+    assert '"basemap": "local-xyz"' in response.text
+    assert '"localTileTemplate": "http://10.144.168.42:10001/MapFile/HW/quanguo&blue_gray&name/Mercator/{xyz}.jpg"' in response.text
 
 
 def test_favicon_does_not_emit_browser_404():

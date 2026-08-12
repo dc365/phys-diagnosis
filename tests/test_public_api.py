@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -9,6 +7,7 @@ from weather_diag.data.synthetic import create_demo_ecmwf_netcdf
 
 
 client = TestClient(app)
+PRIVATE_PATH_KEYS = {"data_dir", "file_path", "path", "root", "source_file", "source_path", "source_paths", "stored_path"}
 
 
 def envelope(body: dict) -> dict:
@@ -16,6 +15,16 @@ def envelope(body: dict) -> dict:
     assert isinstance(body["trace_id"], str)
     assert body["trace_id"]
     return body
+
+
+def assert_no_private_paths(value):
+    if isinstance(value, dict):
+        assert not (PRIVATE_PATH_KEYS & set(value))
+        for item in value.values():
+            assert_no_private_paths(item)
+    elif isinstance(value, list):
+        for item in value:
+            assert_no_private_paths(item)
 
 
 def test_public_file_upload_stores_netcdf_and_returns_envelope(tmp_path):
@@ -34,7 +43,8 @@ def test_public_file_upload_stores_netcdf_and_returns_envelope(tmp_path):
     assert body["data"]["file_id"]
     assert body["data"]["original_filename"] == "upload_demo.nc"
     assert body["data"]["size"] > 0
-    assert Path(body["data"]["stored_path"]).exists()
+    assert "stored_path" not in body["data"]
+    assert_no_private_paths(body["data"])
 
 
 def test_public_diagnose_job_accepts_file_path_and_can_be_looked_up(tmp_path):
@@ -56,8 +66,10 @@ def test_public_diagnose_job_accepts_file_path_and_can_be_looked_up(tmp_path):
     assert data["job_id"]
     assert data["status"] == "succeeded"
     assert data["run_id"] == "public_api_job_demo"
+    assert "file_path" not in data
     assert data["result"]["run_id"] == "public_api_job_demo"
     assert data["result"]["forecast_hours"]
+    assert_no_private_paths(data)
 
     lookup = client.get(f"/api/v1/jobs/{data['job_id']}")
 
@@ -66,6 +78,7 @@ def test_public_diagnose_job_accepts_file_path_and_can_be_looked_up(tmp_path):
     assert lookup_body["code"] == 0
     assert lookup_body["data"]["job_id"] == data["job_id"]
     assert lookup_body["data"]["status"] == "succeeded"
+    assert_no_private_paths(lookup_body["data"])
 
 
 def test_public_diagnose_job_records_failure_for_missing_file():
@@ -84,6 +97,7 @@ def test_public_diagnose_job_records_failure_for_missing_file():
     assert body["msg"] == "diagnosis failed"
     assert body["data"]["status"] == "failed"
     assert body["data"]["error"]
+    assert_no_private_paths(body["data"])
 
 
 def test_public_run_routes_wrap_existing_product_index():

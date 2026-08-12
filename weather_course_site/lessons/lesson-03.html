@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 3 课：风、气流来源和 850hPa 低空急流｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-03.html" data-lesson-id="lesson-03">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 3 课：风、气流来源和 850hPa 低空急流</h1>
+          <p class="subtitle">风是水汽、冷暖空气和天气系统的搬运工。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会看风场时不仅问“风大不大”，还要问：<strong>风从哪里来、带来什么、在哪里汇聚、能不能持续</strong>。</p>
+<h2>1. 风向的规则</h2>
+<p>风向指的是<strong>风从哪里来</strong>。</p>
+<table>
+<thead>
+<tr>
+  <th>风向</th>
+  <th>意思</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>北风</td>
+  <td>从北边来，往南吹</td>
+</tr>
+<tr>
+  <td>南风</td>
+  <td>从南边来，往北吹</td>
+</tr>
+<tr>
+  <td>西南风</td>
+  <td>从西南来，往东北吹</td>
+</tr>
+<tr>
+  <td>东南风</td>
+  <td>从东南来，往西北吹</td>
+</tr>
+</tbody>
+</table>
+<h2>2. 气流来源比风向名称更重要</h2>
+<p>同样是南风，如果来自暖湿海洋，可能输送水汽；如果路径较短或空气干，意义就不同。分析时固定问：<strong>这股风经过哪里？带来冷、暖、湿、干中的哪一种？</strong></p>
+<h2>3. 风的四个作用</h2>
+<table>
+<thead>
+<tr>
+  <th>作用</th>
+  <th>天气意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>输送水汽</td>
+  <td>暴雨水汽来源</td>
+</tr>
+<tr>
+  <td>输送冷暖空气</td>
+  <td>冷空气南下、暖湿北上</td>
+</tr>
+<tr>
+  <td>造成辐合/辐散</td>
+  <td>触发上升或抑制上升</td>
+</tr>
+<tr>
+  <td>引导系统移动</td>
+  <td>影响雨带、台风、对流云团移动</td>
+</tr>
+</tbody>
+</table>
+<h2>4. 水汽输送的简化公式</h2>
+<blockquote>
+<p><strong>水汽输送 ≈ 风 × 水汽。</strong></p>
+</blockquote>
+<p>风强但空气干，输送不强；空气湿但风弱，输送也不强。风又强、空气又湿，才是强水汽输送。</p>
+<h2>5. 为什么常看 850hPa 风</h2>
+<p>850hPa 大约在低层，受地面摩擦影响较小，又处在水汽输送关键层。业务上常用它看：</p>
+<ul>
+<li>低空急流；</li>
+<li>暖湿输送；</li>
+<li>低涡切变；</li>
+<li>暴雨水汽通道。</li>
+</ul>
+<h2>6. 低空急流</h2>
+<p>低空急流是低层大气中一条风速明显偏大的气流带。它像“水汽高速公路”。</p>
+<div class="sketch">
+<pre>
+南海/低纬水汽
+      ↗ ↗ ↗  850hPa 西南急流
+    ↗ ↗ ↗
+  降水区附近遇切变线/地形/冷空气 → 辐合抬升 → 强降水
+</pre>
+</div>
+
+<p>低空急流本身不等于暴雨。关键是它输送来的水汽在哪里辐合、抬升、维持。</p>
+<h2>7. 切变线</h2>
+<p>切变线是风向或风速发生明显变化的一条带状区域。切变线附近常有低层辐合，容易触发降水。</p>
+<h2>看风场 5 步法</h2>
+<ol>
+<li>看主导风向。</li>
+<li>看气流来源。</li>
+<li>看风速强弱。</li>
+<li>看有没有辐合、切变线、风速减弱区。</li>
+<li>看这种输送能否持续。</li>
+</ol>
+<h2>本课一句话</h2>
+<blockquote>
+<p>看风，不是只看风大不大，而是看风从哪里来、带来什么、在哪里汇聚、能不能持续。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-02.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-04.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

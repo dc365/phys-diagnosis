@@ -9,7 +9,7 @@ are not priorities for this phase.
 The real EC/NAFP test data lives at:
 
 ```text
-/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC
+/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC
 ```
 
 This data is not a single multi-variable NetCDF file. It is a directory product
@@ -309,7 +309,7 @@ Request:
 
 ```json
 {
-  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC",
+  "root": "/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC",
   "run_time": "2026-06-17T20:00:00",
   "forecast_hour": 24
 }
@@ -370,7 +370,7 @@ Use the real NAFP test data for integration tests with a narrow sample:
 
 - `run_time=2026-06-17T20:00:00`
 - `forecast_hour=24`
-- `root=/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NEW_NC`
+- `root=/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC`
 
 Tests should cover:
 

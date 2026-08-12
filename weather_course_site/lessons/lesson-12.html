@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 12 课：探空图怎么看｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-12.html" data-lesson-id="lesson-12">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 12 课：探空图怎么看</h1>
+          <p class="subtitle">探空图把温度、湿度、能量、风切变和相态集中在一张图里。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>探空图看起来复杂，但先看三件事就够：<strong>温度怎么变、湿度在哪里、风随高度怎么变</strong>。</p>
+<h2>1. 探空图是什么</h2>
+<p>探空图是某一站点上空从地面到高空的大气垂直结构图。典型图叫 Skew-T log-P 图，中文常叫斜温图。</p>
+<h2>2. 纵轴与横向</h2>
+<p>纵轴通常是气压，越往上气压越低；横向是温度，越往右越暖，越往左越冷。</p>
+<table>
+<thead>
+<tr>
+  <th>气压层</th>
+  <th>常看内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>925/850hPa</td>
+  <td>低层水汽、低空急流、冷暖空气</td>
+</tr>
+<tr>
+  <td>700hPa</td>
+  <td>中层湿度、云雨维持</td>
+</tr>
+<tr>
+  <td>500hPa</td>
+  <td>高空冷空气、槽、层结不稳定</td>
+</tr>
+<tr>
+  <td>300/200hPa</td>
+  <td>高空急流、高空出流</td>
+</tr>
+</tbody>
+</table>
+<h2>3. 最重要的两根线：T 和 Td</h2>
+<p>温度线 T 表示环境温度，露点线 Td 表示露点。两线越靠近，空气越湿；离得越远，空气越干。</p>
+<div class="sketch">
+<pre>
+湿层：T 和 Td 靠得近
+干层：T 和 Td 分得远
+
+<p>暴雨型：低层到中层都靠近 → 湿层厚
+大风型：低层湿，中层干 → 蒸发冷却潜力大
+雾型：近地面靠近，但湿层浅
+</pre></p>
+</div>
+
+<h2>4. 逆温层</h2>
+<p>如果某一层温度随高度升高反而升高，就是逆温。逆温像盖子，会抑制对流，也容易造成雾、霾和污染积累。</p>
+<h2>5. CAPE 和 CIN 在探空图上</h2>
+<p>气块抬升线在环境温度线右侧，气块更暖、更轻，是 CAPE 区；气块线在环境线左侧，气块更冷、更重，是 CIN 区。</p>
+<h2>6. LCL、LFC、EL</h2>
+<table>
+<thead>
+<tr>
+  <th>名称</th>
+  <th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>LCL</td>
+  <td>抬升凝结高度，大致云底</td>
+</tr>
+<tr>
+  <td>LFC</td>
+  <td>自由对流高度，到这里后可自行上升</td>
+</tr>
+<tr>
+  <td>EL</td>
+  <td>平衡高度，对流云发展上限</td>
+</tr>
+</tbody>
+</table>
+<p>低 LCL 常说明低层湿、云底低；高 LCL 常与蒸发冷却和雷暴大风潜势有关。</p>
+<h2>7. 0℃ 层和湿球 0℃ 层</h2>
+<p>雨雪相态不能只看地面温度，要看整层温度结构。湿球 0℃ 层常比普通 0℃ 层更贴近降水相态判断。</p>
+<table>
+<thead>
+<tr>
+  <th>结构</th>
+  <th>可能相态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>整层低于 0℃</td>
+  <td>雪</td>
+</tr>
+<tr>
+  <td>中间暖层、近地面暖</td>
+  <td>雨</td>
+</tr>
+<tr>
+  <td>中间暖层、近地面冷层</td>
+  <td>冻雨、冰粒、雨夹雪</td>
+</tr>
+</tbody>
+</table>
+<h2>8. 右侧风羽</h2>
+<p>风羽显示不同高度风向风速。它能看低空急流、垂直风切变、低层旋转和水汽输送。</p>
+<pre><code class="language-text">地面：东南风弱
+850hPa：西南风增强 → 低层暖湿输送
+500hPa：西风更强 → 深层风切变增强
+</code></pre>
+<h2>9. 探空图 8 步法</h2>
+<ol>
+<li>看时间地点。</li>
+<li>看地面 T/Td，低层是否暖湿。</li>
+<li>看湿层厚度。</li>
+<li>看逆温和盖子。</li>
+<li>看 CAPE/CIN。</li>
+<li>看 LCL/LFC/EL。</li>
+<li>看 0℃ 层和湿球 0℃ 层。</li>
+<li>看右侧风羽和风切变。</li>
+</ol>
+<h2>10. 典型结构速记</h2>
+<table>
+<thead>
+<tr>
+  <th>类型</th>
+  <th>探空特征</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>暴雨型</td>
+  <td>深厚湿层、低层水汽足、PW 高、低空急流</td>
+</tr>
+<tr>
+  <td>雷暴大风型</td>
+  <td>低层湿或干热、中层干、DCAPE 大、倒 V 型</td>
+</tr>
+<tr>
+  <td>冰雹型</td>
+  <td>CAPE 较大、中层冷、0℃ 层适中、深层切变好</td>
+</tr>
+<tr>
+  <td>雾低云型</td>
+  <td>近地面 T/Td 接近、逆温、风弱、湿层浅</td>
+</tr>
+</tbody>
+</table>
+<h2>本课一句话</h2>
+<blockquote>
+<p>探空图的核心，是看一根空气柱里温度怎么变、湿度在哪里、有没有盖子、能量多不多、云能长多高、风随高度怎么变。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-11.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-13.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

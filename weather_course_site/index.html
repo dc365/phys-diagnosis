@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>课程首页｜气象物理量课程</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body  >
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="index.html">课程首页</a>
+        <a class="side-home" href="glossary.html">物理量速查</a>
+        <a class="side-home" href="cases.html">个例复盘</a>
+        <a class="side-home" href="learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content home">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>课程首页</h1>
+          <p class="subtitle">天气学与气象物理量入门到业务应用</p>
+        </div>
+        <div class="hero-actions">
+          
+          <a class="btn ghost" href="glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          
+<section class="hero home-hero">
+  <div>
+    <p class="eyebrow">气象知识 · 天气学与物理量</p>
+    <h1>从看懂物理量，到能解释天气过程</h1>
+    <p class="subtitle">一套面向气象行业从事者的简明课程：天气图、探空、雷达、数值模式释用和个例复盘。</p>
+    <div class="hero-actions">
+      <a class="btn primary" href="lessons/lesson-01.html">开始学习</a>
+      <a class="btn ghost" href="glossary.html">物理量速查</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <strong>学习主线</strong>
+    <pre>水汽 → 抬升 → 不稳定 → 风切变 → 实况验证 → 模式释用</pre>
+    <div class="progress-bar"><span id="homeProgressBar"></span></div>
+    <p id="homeProgressCaption">已完成 0 / 15 课</p>
+  </div>
+</section>
+<section class="panel">
+  <h2>课程目录</h2>
+  <p>建议按顺序学习。每课保留“核心概念、怎么看图、常见误区、小练习、业务表达”的结构。</p>
+  <div class="course-grid">
+    <a class="course-card" href="lessons/lesson-01.html" data-lesson-id="lesson-01">
+  <div class="card-num">01</div>
+  <h3>天气学核心逻辑</h3>
+  <p>建立天气分析的最小闭环：水汽是原料，抬升是动作，不稳定是能量，系统维持决定持续时间。</p>
+  <div class="tags"><span>天气学主线</span><span>入门</span><span>降水逻辑</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-02.html" data-lesson-id="lesson-02">
+  <div class="card-num">02</div>
+  <h3>气压、高压、低压和等压线</h3>
+  <p>理解高压下沉、低压上升、等压线密集对应大风，以及北半球低逆高顺的基本规律。</p>
+  <div class="tags"><span>地面图</span><span>高压</span><span>低压</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-03.html" data-lesson-id="lesson-03">
+  <div class="card-num">03</div>
+  <h3>风、气流来源和 850hPa 低空急流</h3>
+  <p>掌握风向、风速、气流来源、低层辐合和低空急流的业务意义。</p>
+  <div class="tags"><span>风</span><span>850hPa</span><span>低空急流</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-04.html" data-lesson-id="lesson-04">
+  <div class="card-num">04</div>
+  <h3>温度、冷暖空气和冷暖平流</h3>
+  <p>掌握冷暖空气、等温线、冷平流、暖平流和冷暖交汇的业务意义。</p>
+  <div class="tags"><span>温度</span><span>冷空气</span><span>暖平流</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-05.html" data-lesson-id="lesson-05">
+  <div class="card-num">05</div>
+  <h3>湿度、露点和比湿</h3>
+  <p>理解 RH、Td、q 的区别，掌握低层水汽和湿层厚度的判断方法。</p>
+  <div class="tags"><span>相对湿度</span><span>露点</span><span>比湿</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-06.html" data-lesson-id="lesson-06">
+  <div class="card-num">06</div>
+  <h3>水汽输送和水汽辐合</h3>
+  <p>掌握水汽通量、水汽通量散度、PW 和水汽辐合的基本用法。</p>
+  <div class="tags"><span>水汽通量</span><span>水汽辐合</span><span>PW</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-07.html" data-lesson-id="lesson-07">
+  <div class="card-num">07</div>
+  <h3>垂直运动</h3>
+  <p>理解空气上升冷却、下沉增温，掌握 ω、700hPa 垂直速度和上升来源。</p>
+  <div class="tags"><span>垂直速度</span><span>上升运动</span><span>700hPa</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-08.html" data-lesson-id="lesson-08">
+  <div class="card-num">08</div>
+  <h3>500hPa 位势高度、槽、脊和副高</h3>
+  <p>理解位势高度、槽、脊、副热带高压、冷涡与天气发展的关系。</p>
+  <div class="tags"><span>500hPa</span><span>位势高度</span><span>槽</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-09.html" data-lesson-id="lesson-09">
+  <div class="card-num">09</div>
+  <h3>CAPE 和 CIN</h3>
+  <p>掌握 CAPE、CIN、LCL、LFC、EL 的业务含义，理解为什么闷热不一定雷暴。</p>
+  <div class="tags"><span>CAPE</span><span>CIN</span><span>不稳定</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-10.html" data-lesson-id="lesson-10">
+  <div class="card-num">10</div>
+  <h3>垂直风切变</h3>
+  <p>理解风随高度变化如何影响脉冲雷暴、多单体、飑线、超级单体和雷暴大风。</p>
+  <div class="tags"><span>垂直风切变</span><span>0-6km</span><span>0-1km</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-11.html" data-lesson-id="lesson-11">
+  <div class="card-num">11</div>
+  <h3>常用指数与动力诊断量</h3>
+  <p>快速掌握常见经验指数和动力诊断量的含义、使用场景与误区。</p>
+  <div class="tags"><span>K指数</span><span>LI</span><span>SI</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-12.html" data-lesson-id="lesson-12">
+  <div class="card-num">12</div>
+  <h3>探空图怎么看</h3>
+  <p>从 T、Td、风羽、逆温、CAPE/CIN、LCL/LFC/EL、0℃ 层开始读懂探空图。</p>
+  <div class="tags"><span>探空图</span><span>Skew-T</span><span>T/Td</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-13.html" data-lesson-id="lesson-13">
+  <div class="card-num">13</div>
+  <h3>雷达图怎么看</h3>
+  <p>掌握反射率 dBZ、基本/组合反射率、径向速度、回波形态、列车效应、弓形回波和旋转信号。</p>
+  <div class="tags"><span>雷达</span><span>反射率</span><span>径向速度</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-14.html" data-lesson-id="lesson-14">
+  <div class="card-num">14</div>
+  <h3>数值模式释用入门</h3>
+  <p>理解数值模式释用：解释模式为什么这么报、可信不可信、哪里可能偏、如何结合实况订正。</p>
+  <div class="tags"><span>数值模式</span><span>模式释用</span><span>多模式对比</span></div>
+</a>
+<a class="course-card" href="lessons/lesson-15.html" data-lesson-id="lesson-15">
+  <div class="card-num">15</div>
+  <h3>个例复盘与业务分析模板</h3>
+  <p>提供暴雨、强对流、冷空气、雨雪相态和模式检验的复盘模板，帮助形成稳定分析流程。</p>
+  <div class="tags"><span>复盘</span><span>业务分析</span><span>模板</span></div>
+</a>
+  </div>
+</section>
+<section class="panel two-col">
+  <div>
+    <h2>你会获得什么能力</h2>
+    <ul class="check-list">
+      <li>能用 500hPa、850hPa、700hPa 和地面图解释天气背景。</li>
+      <li>能判断暴雨的水汽输送、水汽辐合和上升维持条件。</li>
+      <li>能用 CAPE/CIN、风切变、DCAPE 分析强对流风险。</li>
+      <li>能看探空图、雷达图，并把实况和环境条件连起来。</li>
+      <li>能判断数值模式预报是否有物理一致性。</li>
+    </ul>
+  </div>
+  <div class="callout">
+    <h3>最小分析闭环</h3>
+    <p><strong>形势背景</strong> 看 500hPa；<strong>水汽输送</strong> 看 850hPa；<strong>上升运动</strong> 看 700hPa；<strong>触发</strong> 看地面；<strong>热力和组织</strong> 看探空与指数；<strong>实况</strong> 看雷达卫星；<strong>未来</strong> 看模式释用。</p>
+  </div>
+</section>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="assets/js/search-index.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+- generic [ref=e1]:
+  - link "跳转到主内容" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - complementary "主导航" [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: WD
+        - generic [ref=e7]:
+          - heading "天气诊断后台" [level=1] [ref=e8]
+          - paragraph [ref=e9]: NAFP EC 值班研判台
+      - navigation [ref=e10]:
+        - link "诊断工作台 运行与研判" [ref=e11] [cursor=pointer]:
+          - /url: "#diagnosis-workbench"
+          - strong [ref=e12]: 诊断工作台
+          - generic [ref=e13]: 运行与研判
+        - link "诊断回放 批量校验" [ref=e14] [cursor=pointer]:
+          - /url: "#diagnosis-replay"
+          - strong [ref=e15]: 诊断回放
+          - generic [ref=e16]: 批量校验
+        - link "算法治理 算法 / 阈值 / 规则" [ref=e17] [cursor=pointer]:
+          - /url: "#algorithm-governance"
+          - strong [ref=e18]: 算法治理
+          - generic [ref=e19]: 算法 / 阈值 / 规则
+        - link "数据字段 物理量与缺测" [ref=e20] [cursor=pointer]:
+          - /url: "#data-fields"
+          - strong [ref=e21]: 数据字段
+          - generic [ref=e22]: 物理量与缺测
+        - link "服务状态 运行记录" [active] [ref=e23] [cursor=pointer]:
+          - /url: "#service-status"
+          - strong [ref=e24]: 服务状态
+          - generic [ref=e25]: 运行记录
+      - link "打开 GIS 地图" [ref=e26] [cursor=pointer]:
+        - /url: /map
+    - main [ref=e27]:
+      - region "运行记录和服务可用性" [ref=e2022]:
+        - generic [ref=e2024]:
+          - generic [ref=e2025]: 服务状态
+          - heading "运行记录和服务可用性" [level=2] [ref=e2026]
+          - paragraph [ref=e2027]: 保留最近诊断、回放和阈值保存动作，辅助排查接口可用性。
+        - generic [ref=e2028]:
+          - region "运行记录" [ref=e2029]:
+            - generic [ref=e2031]:
+              - generic [ref=e2032]: 任务
+              - heading "运行记录" [level=3] [ref=e2033]
+            - list [ref=e2034]:
+              - listitem [ref=e2035]:
+                - time [ref=e2036]: 23:20
+                - generic [ref=e2037]:
+                  - strong [ref=e2038]: 诊断完成
+                  - generic [ref=e2039]: 906 个系统，4 条证据链
+              - listitem [ref=e2040]:
+                - time [ref=e2041]: 23:20
+                - generic [ref=e2042]:
+                  - strong [ref=e2043]: 提交诊断
+                  - generic [ref=e2044]: 2026-06-17T20:00:00 24h
+          - region "服务探针" [ref=e2045]:
+            - generic [ref=e2046]:
+              - generic [ref=e2047]:
+                - generic [ref=e2048]: 接口
+                - heading "服务探针" [level=3] [ref=e2049]
+              - generic [ref=e2050]: local
+            - generic [ref=e2051]:
+              - generic [ref=e2052]:
+                - generic [ref=e2053]: 诊断接口
+                - strong [ref=e2054]: /api/v1/diagnosis/nafp/situation
+              - generic [ref=e2055]:
+                - generic [ref=e2056]: 算法接口
+                - strong [ref=e2057]: /api/v1/admin/algorithms/catalog
+              - generic [ref=e2058]:
+                - generic [ref=e2059]: 回放接口
+                - strong [ref=e2060]: /api/v1/admin/diagnosis/replay

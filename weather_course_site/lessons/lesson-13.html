@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 13 课：雷达图怎么看｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-13.html" data-lesson-id="lesson-13">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 13 课：雷达图怎么看</h1>
+          <p class="subtitle">雷达看天气现在发展到什么程度，以及短时间往哪里走。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>学会从雷达图判断降水强弱、回波形态、移动方向、发展趋势以及短时强降水、雷暴大风、冰雹和旋转风暴风险。</p>
+<h2>1. 雷达主要看两个产品</h2>
+<table>
+<thead>
+<tr>
+  <th>产品</th>
+  <th>主要看什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>反射率</td>
+  <td>哪里有降水，强不强，形态如何</td>
+</tr>
+<tr>
+  <td>径向速度</td>
+  <td>朝雷达/离雷达的风，有无旋转、出流、辐合</td>
+</tr>
+</tbody>
+</table>
+<h2>2. 反射率 dBZ</h2>
+<p>dBZ 越大，回波越强，但不等于雨量一定越大。冰雹、霰、融化层、杂波都可能造成强回波。</p>
+<table>
+<thead>
+<tr>
+  <th>dBZ</th>
+  <th>粗略意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>10–20</td>
+  <td>弱回波</td>
+</tr>
+<tr>
+  <td>20–30</td>
+  <td>小到中雨</td>
+</tr>
+<tr>
+  <td>30–40</td>
+  <td>中等偏强</td>
+</tr>
+<tr>
+  <td>40–50</td>
+  <td>强降水/对流</td>
+</tr>
+<tr>
+  <td>50–60</td>
+  <td>短时强降水、冰雹、强对流可能</td>
+</tr>
+<tr>
+  <td>60+</td>
+  <td>极强回波，需警惕冰雹或强核心</td>
+</tr>
+</tbody>
+</table>
+<h2>3. 基本反射率与组合反射率</h2>
+<p>基本反射率是某一仰角的回波，低仰角更接近低层降水。组合反射率取多个高度的最大值，适合看整层强对流，但可能显示高空强回波，不代表地面雨量同样强。</p>
+<h2>4. 常见回波形态</h2>
+<table>
+<thead>
+<tr>
+  <th>形态</th>
+  <th>典型意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>片状层状回波</td>
+  <td>大范围稳定性降水</td>
+</tr>
+<tr>
+  <td>孤立单体</td>
+  <td>午后热雷暴、短生命史对流</td>
+</tr>
+<tr>
+  <td>多单体</td>
+  <td>雷暴群，新旧单体替换</td>
+</tr>
+<tr>
+  <td>线状回波</td>
+  <td>飑线、冷锋、雷暴大风风险</td>
+</tr>
+<tr>
+  <td>弓形回波</td>
+  <td>强出流、雷暴大风信号</td>
+</tr>
+<tr>
+  <td>钩状回波</td>
+  <td>旋转风暴/超级单体可疑信号</td>
+</tr>
+</tbody>
+</table>
+<div class="sketch">
+<pre>
+列车效应：
+单体移动方向 →
+● → ● → ● → ● → ●
+      ▲
+      同一地点反复被强回波影响 → 累计雨量大
+</pre>
+</div>
+
+<h2>5. 短时强降水信号</h2>
+<p>重点看：强回波核心持续、移动慢、上游新生回波、列车效应、低层水汽充足、湿层深厚。</p>
+<h2>6. 雷暴大风信号</h2>
+<p>重点看：线状回波、弓形回波、快速推进、后侧入流缺口、速度图强出流、环境 DCAPE 较大和中层干空气。</p>
+<h2>7. 冰雹信号</h2>
+<p>重点看：强反射率核心、高回波顶、单体垂直发展旺盛、深层切变好、中层冷、0℃ 层合适。双偏振产品可进一步辅助。</p>
+<h2>8. 径向速度图</h2>
+<p>雷达速度只测朝雷达来或离雷达去的风。看速度图前先确认颜色含义，不同系统配色可能不同。</p>
+<p>速度偶极子是朝向和远离速度紧挨在一起，若出现在风暴内部且持续，可能提示旋转。</p>
+<h2>9. 阵风锋</h2>
+<p>阵风锋是雷暴冷池向外推进的前沿，雷达上可能表现为低层弱回波细线，速度图有风向风速突变。阵风锋前沿可触发新对流。</p>
+<h2>10. 雷达 7 步法</h2>
+<ol>
+<li>看回波范围。</li>
+<li>看强回波核心。</li>
+<li>看形态。</li>
+<li>看移动方向和速度。</li>
+<li>看增强、减弱、新生、合并。</li>
+<li>看速度图的出流、辐合、旋转。</li>
+<li>结合环境：CAPE、风切变、DCAPE、水汽、低层辐合。</li>
+</ol>
+<h2>本课一句话</h2>
+<blockquote>
+<p>雷达图的核心不是看颜色，而是看强度、形态、移动、趋势和速度场，再结合环境条件判断短时强降水、雷暴大风、冰雹和旋转风暴风险。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-12.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-14.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

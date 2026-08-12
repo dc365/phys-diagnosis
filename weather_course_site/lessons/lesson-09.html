@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 9 课：CAPE 和 CIN｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-09.html" data-lesson-id="lesson-09">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 9 课：CAPE 和 CIN</h1>
+          <p class="subtitle">CAPE 看对流能量，CIN 看盖子厚不厚。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>理解空气被抬升后能否继续上升，以及为什么有能量也不一定发生强对流。</p>
+<h2>1. CAPE</h2>
+<p>CAPE 是对流有效位能，表示空气被抬起来后能释放多少上升能量。</p>
+<blockquote>
+<p><strong>CAPE 像汽油。</strong>汽油多，车有跑起来的潜力，但还要点火、路通、有人开。</p>
+</blockquote>
+<h2>2. CIN</h2>
+<p>CIN 是对流抑制能量，表示空气自由上升前需要克服的阻力。</p>
+<blockquote>
+<p><strong>CIN 像锅盖。</strong>低层暖湿、有能量，但盖子厚时，对流可能暂时爆发不了。</p>
+</blockquote>
+<div class="sketch">
+<pre>
+高空
+│        CAPE：气块比环境暖，可继续上升
+│     ┌─────────────────────┐
+│     │        能量区         │
+│     └─────────────────────┘
+│        LFC：自由对流高度
+│     ┌─────────────────────┐
+│     │        CIN 盖子       │
+│     └─────────────────────┘
+│        LCL：云底附近
+地面：暖湿空气
+</pre>
+</div>
+
+<h2>3. 为什么闷热不一定打雷</h2>
+<p>闷热说明低层暖湿，但如果 CIN 大、缺少锋面/辐合线/地形触发，对流可能被抑制。</p>
+<h2>4. LCL、LFC、EL</h2>
+<table>
+<thead>
+<tr>
+  <th>名称</th>
+  <th>简单理解</th>
+  <th>业务意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>LCL</td>
+  <td>抬升凝结高度，大致云底</td>
+  <td>低 LCL 常说明低层湿度好</td>
+</tr>
+<tr>
+  <td>LFC</td>
+  <td>自由对流高度</td>
+  <td>到这里后气块可自行上升</td>
+</tr>
+<tr>
+  <td>EL</td>
+  <td>平衡高度</td>
+  <td>对流云大致发展上限</td>
+</tr>
+</tbody>
+</table>
+<h2>5. CAPE/CIN 组合</h2>
+<table>
+<thead>
+<tr>
+  <th>组合</th>
+  <th>判断</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>CAPE 小、CIN 大</td>
+  <td>强对流不容易</td>
+</tr>
+<tr>
+  <td>CAPE 大、CIN 大</td>
+  <td>有潜力但被压住，等待强触发</td>
+</tr>
+<tr>
+  <td>CAPE 大、CIN 小</td>
+  <td>容易触发，但可能分散发展</td>
+</tr>
+<tr>
+  <td>CAPE 中等、风切变好、触发强</td>
+  <td>也可能有组织化强对流</td>
+</tr>
+</tbody>
+</table>
+<h2>6. 不同 CAPE</h2>
+<table>
+<thead>
+<tr>
+  <th>类型</th>
+  <th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>SBCAPE</td>
+  <td>地面气块，午后地面加热敏感</td>
+</tr>
+<tr>
+  <td>MLCAPE</td>
+  <td>混合层平均，更稳健</td>
+</tr>
+<tr>
+  <td>MUCAPE</td>
+  <td>最不稳定气块，适合夜间/高架对流</td>
+</tr>
+</tbody>
+</table>
+<h2>本课一句话</h2>
+<blockquote>
+<p>CAPE 大只表示有潜力；要发生强对流，还要看 CIN 能否被突破、有没有触发、水汽是否充足、风切变是否支持组织。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-08.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-10.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

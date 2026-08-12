@@ -3,12 +3,29 @@ layers:
     title: 500hPa 位势高度
     variable: z500
     kind: raster
-    unit: gpm
+    unit: dagpm
+    contour:
+      enabled: true
+      interval: 4
+      max_segments: 16000
   mslp:
     title: 海平面气压
     variable: mslp
     kind: raster
     unit: hPa
+    contour:
+      enabled: true
+      interval: 2
+      max_segments: 16000
+  t850:
+    title: 850hPa 温度
+    variable: t850
+    kind: raster
+    unit: degC
+    contour:
+      enabled: true
+      interval: 2
+      max_segments: 16000
   wind850_speed:
     title: 850hPa 风速
     variable: wind850_speed
@@ -54,13 +71,33 @@ layers:
     variable: shear_0_6km
     kind: raster
     unit: m/s
-  heavy_rain_score:
-    title: 强降水潜势评分
-    variable: heavy_rain_score
+  risk_persistent_heavy_rain_score:
+    title: 持续性强降水风险评分
+    variable: risk_persistent_heavy_rain_score
     kind: raster
-    unit: score
-  convection_score:
-    title: 强对流潜势评分
-    variable: convection_score
+    unit: 0-1
+  risk_short_duration_heavy_rain_score:
+    title: 短时强降水风险评分
+    variable: risk_short_duration_heavy_rain_score
     kind: raster
-    unit: score
+    unit: 0-1
+  risk_thunderstorm_gale_score:
+    title: 雷暴大风/下击暴流风险评分
+    variable: risk_thunderstorm_gale_score
+    kind: raster
+    unit: 0-1
+  risk_hail_score:
+    title: 冰雹风险评分
+    variable: risk_hail_score
+    kind: raster
+    unit: 0-1
+  risk_rotating_storm_score:
+    title: 旋转风暴/超级单体潜势评分
+    variable: risk_rotating_storm_score
+    kind: raster
+    unit: 0-1
+  risk_severe_convection_composite_score:
+    title: 强对流综合风险评分
+    variable: risk_severe_convection_composite_score
+    kind: raster
+    unit: 0-1

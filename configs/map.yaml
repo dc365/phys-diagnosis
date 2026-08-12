@@ -1,0 +1,4 @@
+map:
+  basemap: local-xyz
+  local_tile_template: "http://192.168.18.101:20001/Files/MapFile/TIANDITU/QUANGUO/XINGZHENG/Mercator/{z}/{x}/{y}.png"
+  tianditu_token: "607ace490b937459cac5709cc3aef752"

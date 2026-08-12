@@ -1,0 +1,554 @@
+- generic [ref=e1]:
+  - link "跳转到主内容" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - complementary "主导航" [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: WD
+        - generic [ref=e7]:
+          - heading "天气诊断后台" [level=1] [ref=e8]
+          - paragraph [ref=e9]: NAFP EC 值班研判台
+      - navigation [ref=e10]:
+        - link "诊断工作台 运行与研判" [ref=e11] [cursor=pointer]:
+          - /url: "#diagnosis-workbench"
+          - strong [ref=e12]: 诊断工作台
+          - generic [ref=e13]: 运行与研判
+        - link "诊断回放 批量校验" [ref=e14] [cursor=pointer]:
+          - /url: "#diagnosis-replay"
+          - strong [ref=e15]: 诊断回放
+          - generic [ref=e16]: 批量校验
+        - link "算法治理 算法 / 阈值 / 规则" [ref=e17] [cursor=pointer]:
+          - /url: "#algorithm-governance"
+          - strong [ref=e18]: 算法治理
+          - generic [ref=e19]: 算法 / 阈值 / 规则
+        - link "数据字段 物理量与缺测" [ref=e20] [cursor=pointer]:
+          - /url: "#data-fields"
+          - strong [ref=e21]: 数据字段
+          - generic [ref=e22]: 物理量与缺测
+        - link "服务状态 运行记录" [ref=e23] [cursor=pointer]:
+          - /url: "#service-status"
+          - strong [ref=e24]: 服务状态
+          - generic [ref=e25]: 运行记录
+      - link "打开 GIS 地图" [ref=e26] [cursor=pointer]:
+        - /url: /map
+    - main [ref=e27]:
+      - region "算法资产、阈值和规则说明" [ref=e599]:
+        - generic [ref=e601]:
+          - generic [ref=e602]: 算法治理
+          - heading "算法资产、阈值和规则说明" [level=2] [ref=e603]
+          - paragraph [ref=e604]: 围绕一个默认阈值矩阵管理算法，不做多版本干扰。
+        - generic [ref=e605]:
+          - tablist "算法治理" [ref=e606]:
+            - tab "算法库" [ref=e607] [cursor=pointer]
+            - tab "阈值矩阵" [active] [selected] [ref=e608] [cursor=pointer]
+            - tab "规则说明" [ref=e609] [cursor=pointer]
+          - region "阈值与权重矩阵" [ref=e652]:
+            - generic [ref=e653]:
+              - generic [ref=e654]:
+                - generic [ref=e655]:
+                  - generic [ref=e656]: 默认规则
+                  - heading "阈值与权重矩阵" [level=3] [ref=e657]
+                - generic [ref=e658]: default
+              - generic "默认阈值矩阵工具条" [ref=e659]:
+                - generic [ref=e660]:
+                  - generic [ref=e661]: 保存人
+                  - textbox "保存人" [ref=e662]: duty-forecaster
+                - button "保存默认矩阵" [ref=e663] [cursor=pointer]
+              - generic [ref=e664]:
+                - complementary "阈值矩阵组别" [ref=e665]:
+                  - button "天气系统 天气系统 30/30" [ref=e666] [cursor=pointer]:
+                    - generic [ref=e667]:
+                      - strong [ref=e668]: 天气系统
+                      - emphasis [ref=e669]: 天气系统
+                    - generic [ref=e670]: 30/30
+                  - button "风险区域 风险区域 2/2" [ref=e671] [cursor=pointer]:
+                    - generic [ref=e672]:
+                      - strong [ref=e673]: 风险区域
+                      - emphasis [ref=e674]: 风险区域
+                    - generic [ref=e675]: 2/2
+                  - button "强降水潜势 强降水潜势 8/8" [ref=e676] [cursor=pointer]:
+                    - generic [ref=e677]:
+                      - strong [ref=e678]: 强降水潜势
+                      - emphasis [ref=e679]: 强降水潜势
+                    - generic [ref=e680]: 8/8
+                  - button "强对流潜势 强对流潜势 12/12" [ref=e681] [cursor=pointer]:
+                    - generic [ref=e682]:
+                      - strong [ref=e683]: 强对流潜势
+                      - emphasis [ref=e684]: 强对流潜势
+                    - generic [ref=e685]: 12/12
+                  - button "动力抬升潜势 动力抬升潜势 5/5" [ref=e686] [cursor=pointer]:
+                    - generic [ref=e687]:
+                      - strong [ref=e688]: 动力抬升潜势
+                      - emphasis [ref=e689]: 动力抬升潜势
+                    - generic [ref=e690]: 5/5
+                  - button "雨雪相态 雨雪相态 4/4" [ref=e691] [cursor=pointer]:
+                    - generic [ref=e692]:
+                      - strong [ref=e693]: 雨雪相态
+                      - emphasis [ref=e694]: 雨雪相态
+                    - generic [ref=e695]: 4/4
+                - generic [ref=e696]:
+                  - generic [ref=e697]:
+                    - generic [ref=e698]:
+                      - generic [ref=e699]: 当前组
+                      - strong [ref=e700]: 天气系统
+                    - generic [ref=e701]: 30 项
+                  - table [ref=e703]:
+                    - rowgroup [ref=e704]:
+                      - row "证据项 信号 阈值 尺度 权重 启用" [ref=e705]:
+                        - columnheader "证据项" [ref=e706]
+                        - columnheader "信号" [ref=e707]
+                        - columnheader "阈值" [ref=e708]
+                        - columnheader "尺度" [ref=e709]
+                        - columnheader "权重" [ref=e710]
+                        - columnheader "启用" [ref=e711]
+                    - rowgroup [ref=e712]:
+                      - row "gh500 diagnose_systems 500hPa 位势高度连续区 value · >= 588" [ref=e713]:
+                        - cell "gh500 diagnose_systems" [ref=e714]:
+                          - strong [ref=e715]: gh500
+                          - generic [ref=e716]: diagnose_systems
+                        - cell "500hPa 位势高度连续区 value · >=" [ref=e717]:
+                          - strong [ref=e718]: 500hPa 位势高度连续区
+                          - generic [ref=e719]: value · >=
+                        - cell "588" [ref=e720]:
+                          - spinbutton [ref=e721]: "588"
+                        - cell [ref=e722]:
+                          - spinbutton [ref=e723]
+                        - cell [ref=e724]:
+                          - spinbutton [ref=e725]
+                        - cell [ref=e726]:
+                          - checkbox [checked] [ref=e727]
+                      - row "gh500 diagnose_systems 500hPa 位势高度连续区 value · >= 5880" [ref=e728]:
+                        - cell "gh500 diagnose_systems" [ref=e729]:
+                          - strong [ref=e730]: gh500
+                          - generic [ref=e731]: diagnose_systems
+                        - cell "500hPa 位势高度连续区 value · >=" [ref=e732]:
+                          - strong [ref=e733]: 500hPa 位势高度连续区
+                          - generic [ref=e734]: value · >=
+                        - cell "5880" [ref=e735]:
+                          - spinbutton [ref=e736]: "5880"
+                        - cell [ref=e737]:
+                          - spinbutton [ref=e738]
+                        - cell [ref=e739]:
+                          - spinbutton [ref=e740]
+                        - cell [ref=e741]:
+                          - checkbox [checked] [ref=e742]
+                      - row "gh500 diagnose_systems 连续区最小格点数 count · >= 20" [ref=e743]:
+                        - cell "gh500 diagnose_systems" [ref=e744]:
+                          - strong [ref=e745]: gh500
+                          - generic [ref=e746]: diagnose_systems
+                        - cell "连续区最小格点数 count · >=" [ref=e747]:
+                          - strong [ref=e748]: 连续区最小格点数
+                          - generic [ref=e749]: count · >=
+                        - cell "20" [ref=e750]:
+                          - spinbutton [ref=e751]: "20"
+                        - cell [ref=e752]:
+                          - spinbutton [ref=e753]
+                        - cell [ref=e754]:
+                          - spinbutton [ref=e755]
+                        - cell [ref=e756]:
+                          - checkbox [checked] [ref=e757]
+                      - row "gh500_anomaly diagnose_systems 槽线候选距平低值分位数 percentile · <= 8" [ref=e758]:
+                        - cell "gh500_anomaly diagnose_systems" [ref=e759]:
+                          - strong [ref=e760]: gh500_anomaly
+                          - generic [ref=e761]: diagnose_systems
+                        - cell "槽线候选距平低值分位数 percentile · <=" [ref=e762]:
+                          - strong [ref=e763]: 槽线候选距平低值分位数
+                          - generic [ref=e764]: percentile · <=
+                        - cell "8" [ref=e765]:
+                          - spinbutton [ref=e766]: "8"
+                        - cell [ref=e767]:
+                          - spinbutton [ref=e768]
+                        - cell [ref=e769]:
+                          - spinbutton [ref=e770]
+                        - cell [ref=e771]:
+                          - checkbox [checked] [ref=e772]
+                      - row "gh500_anomaly diagnose_systems 脊线候选距平高值分位数 percentile · >= 92" [ref=e773]:
+                        - cell "gh500_anomaly diagnose_systems" [ref=e774]:
+                          - strong [ref=e775]: gh500_anomaly
+                          - generic [ref=e776]: diagnose_systems
+                        - cell "脊线候选距平高值分位数 percentile · >=" [ref=e777]:
+                          - strong [ref=e778]: 脊线候选距平高值分位数
+                          - generic [ref=e779]: percentile · >=
+                        - cell "92" [ref=e780]:
+                          - spinbutton [ref=e781]: "92"
+                        - cell [ref=e782]:
+                          - spinbutton [ref=e783]
+                        - cell [ref=e784]:
+                          - spinbutton [ref=e785]
+                        - cell [ref=e786]:
+                          - checkbox [checked] [ref=e787]
+                      - row "gh500_anomaly diagnose_systems 槽脊候选连续区最小格点数 count · >= 24" [ref=e788]:
+                        - cell "gh500_anomaly diagnose_systems" [ref=e789]:
+                          - strong [ref=e790]: gh500_anomaly
+                          - generic [ref=e791]: diagnose_systems
+                        - cell "槽脊候选连续区最小格点数 count · >=" [ref=e792]:
+                          - strong [ref=e793]: 槽脊候选连续区最小格点数
+                          - generic [ref=e794]: count · >=
+                        - cell "24" [ref=e795]:
+                          - spinbutton [ref=e796]: "24"
+                        - cell [ref=e797]:
+                          - spinbutton [ref=e798]
+                        - cell [ref=e799]:
+                          - spinbutton [ref=e800]
+                        - cell [ref=e801]:
+                          - checkbox [checked] [ref=e802]
+                      - row "gh500_anomaly _trough_ridge_axis_systems 槽脊轴线距平尾部分位 axis_percentile · tail_percentile 20" [ref=e803]:
+                        - cell "gh500_anomaly _trough_ridge_axis_systems" [ref=e804]:
+                          - strong [ref=e805]: gh500_anomaly
+                          - generic [ref=e806]: _trough_ridge_axis_systems
+                        - cell "槽脊轴线距平尾部分位 axis_percentile · tail_percentile" [ref=e807]:
+                          - strong [ref=e808]: 槽脊轴线距平尾部分位
+                          - generic [ref=e809]: axis_percentile · tail_percentile
+                        - cell "20" [ref=e810]:
+                          - spinbutton [ref=e811]: "20"
+                        - cell [ref=e812]:
+                          - spinbutton [ref=e813]
+                        - cell [ref=e814]:
+                          - spinbutton [ref=e815]
+                        - cell [ref=e816]:
+                          - checkbox [checked] [ref=e817]
+                      - row "gh500_anomaly _trough_ridge_axis_systems 槽脊轴线最小连续纬向点数 line_point_count · >= 4" [ref=e818]:
+                        - cell "gh500_anomaly _trough_ridge_axis_systems" [ref=e819]:
+                          - strong [ref=e820]: gh500_anomaly
+                          - generic [ref=e821]: _trough_ridge_axis_systems
+                        - cell "槽脊轴线最小连续纬向点数 line_point_count · >=" [ref=e822]:
+                          - strong [ref=e823]: 槽脊轴线最小连续纬向点数
+                          - generic [ref=e824]: line_point_count · >=
+                        - cell "4" [ref=e825]:
+                          - spinbutton [ref=e826]: "4"
+                        - cell [ref=e827]:
+                          - spinbutton [ref=e828]
+                        - cell [ref=e829]:
+                          - spinbutton [ref=e830]
+                        - cell [ref=e831]:
+                          - checkbox [checked] [ref=e832]
+                      - row "gh500_anomaly _trough_ridge_axis_systems 槽脊轴线最大输出条数 line_rank · <= 8" [ref=e833]:
+                        - cell "gh500_anomaly _trough_ridge_axis_systems" [ref=e834]:
+                          - strong [ref=e835]: gh500_anomaly
+                          - generic [ref=e836]: _trough_ridge_axis_systems
+                        - cell "槽脊轴线最大输出条数 line_rank · <=" [ref=e837]:
+                          - strong [ref=e838]: 槽脊轴线最大输出条数
+                          - generic [ref=e839]: line_rank · <=
+                        - cell "8" [ref=e840]:
+                          - spinbutton [ref=e841]: "8"
+                        - cell [ref=e842]:
+                          - spinbutton [ref=e843]
+                        - cell [ref=e844]:
+                          - spinbutton [ref=e845]
+                        - cell [ref=e846]:
+                          - checkbox [checked] [ref=e847]
+                      - row "gh500_anomaly _pressure_center_systems 低压候选高度负距平分位 p20 · <= 20" [ref=e848]:
+                        - cell "gh500_anomaly _pressure_center_systems" [ref=e849]:
+                          - strong [ref=e850]: gh500_anomaly
+                          - generic [ref=e851]: _pressure_center_systems
+                        - cell "低压候选高度负距平分位 p20 · <=" [ref=e852]:
+                          - strong [ref=e853]: 低压候选高度负距平分位
+                          - generic [ref=e854]: p20 · <=
+                        - cell "20" [ref=e855]:
+                          - spinbutton [ref=e856]: "20"
+                        - cell [ref=e857]:
+                          - spinbutton [ref=e858]
+                        - cell [ref=e859]:
+                          - spinbutton [ref=e860]
+                        - cell [ref=e861]:
+                          - checkbox [checked] [ref=e862]
+                      - row "div850 _pressure_center_systems 低压候选低层辐合分位 p10 · <= 10" [ref=e863]:
+                        - cell "div850 _pressure_center_systems" [ref=e864]:
+                          - strong [ref=e865]: div850
+                          - generic [ref=e866]: _pressure_center_systems
+                        - cell "低压候选低层辐合分位 p10 · <=" [ref=e867]:
+                          - strong [ref=e868]: 低压候选低层辐合分位
+                          - generic [ref=e869]: p10 · <=
+                        - cell "10" [ref=e870]:
+                          - spinbutton [ref=e871]: "10"
+                        - cell [ref=e872]:
+                          - spinbutton [ref=e873]
+                        - cell [ref=e874]:
+                          - spinbutton [ref=e875]
+                        - cell [ref=e876]:
+                          - checkbox [checked] [ref=e877]
+                      - row "gh500_anomaly _pressure_center_systems 高压候选高度正距平分位 p80 · >= 80" [ref=e878]:
+                        - cell "gh500_anomaly _pressure_center_systems" [ref=e879]:
+                          - strong [ref=e880]: gh500_anomaly
+                          - generic [ref=e881]: _pressure_center_systems
+                        - cell "高压候选高度正距平分位 p80 · >=" [ref=e882]:
+                          - strong [ref=e883]: 高压候选高度正距平分位
+                          - generic [ref=e884]: p80 · >=
+                        - cell "80" [ref=e885]:
+                          - spinbutton [ref=e886]: "80"
+                        - cell [ref=e887]:
+                          - spinbutton [ref=e888]
+                        - cell [ref=e889]:
+                          - spinbutton [ref=e890]
+                        - cell [ref=e891]:
+                          - checkbox [checked] [ref=e892]
+                      - row "div850 _pressure_center_systems 高压候选低层辐散分位 p90 · >= 90" [ref=e893]:
+                        - cell "div850 _pressure_center_systems" [ref=e894]:
+                          - strong [ref=e895]: div850
+                          - generic [ref=e896]: _pressure_center_systems
+                        - cell "高压候选低层辐散分位 p90 · >=" [ref=e897]:
+                          - strong [ref=e898]: 高压候选低层辐散分位
+                          - generic [ref=e899]: p90 · >=
+                        - cell "90" [ref=e900]:
+                          - spinbutton [ref=e901]: "90"
+                        - cell [ref=e902]:
+                          - spinbutton [ref=e903]
+                        - cell [ref=e904]:
+                          - spinbutton [ref=e905]
+                        - cell [ref=e906]:
+                          - checkbox [checked] [ref=e907]
+                      - row "pressure_center_mask _pressure_center_systems 低压/高压候选连续区最小格点数 count · >= 12" [ref=e908]:
+                        - cell "pressure_center_mask _pressure_center_systems" [ref=e909]:
+                          - strong [ref=e910]: pressure_center_mask
+                          - generic [ref=e911]: _pressure_center_systems
+                        - cell "低压/高压候选连续区最小格点数 count · >=" [ref=e912]:
+                          - strong [ref=e913]: 低压/高压候选连续区最小格点数
+                          - generic [ref=e914]: count · >=
+                        - cell "12" [ref=e915]:
+                          - spinbutton [ref=e916]: "12"
+                        - cell [ref=e917]:
+                          - spinbutton [ref=e918]
+                        - cell [ref=e919]:
+                          - spinbutton [ref=e920]
+                        - cell [ref=e921]:
+                          - checkbox [checked] [ref=e922]
+                      - row "pressure_center_mask _pressure_center_systems 低压/高压候选最大输出个数 rank · <= 6" [ref=e923]:
+                        - cell "pressure_center_mask _pressure_center_systems" [ref=e924]:
+                          - strong [ref=e925]: pressure_center_mask
+                          - generic [ref=e926]: _pressure_center_systems
+                        - cell "低压/高压候选最大输出个数 rank · <=" [ref=e927]:
+                          - strong [ref=e928]: 低压/高压候选最大输出个数
+                          - generic [ref=e929]: rank · <=
+                        - cell "6" [ref=e930]:
+                          - spinbutton [ref=e931]: "6"
+                        - cell [ref=e932]:
+                          - spinbutton [ref=e933]
+                        - cell [ref=e934]:
+                          - spinbutton [ref=e935]
+                        - cell [ref=e936]:
+                          - checkbox [checked] [ref=e937]
+                      - row "tt850 _front_candidate_systems 850hPa 温度梯度高值分位 gradient_p80 · >= 80" [ref=e938]:
+                        - cell "tt850 _front_candidate_systems" [ref=e939]:
+                          - strong [ref=e940]: tt850
+                          - generic [ref=e941]: _front_candidate_systems
+                        - cell "850hPa 温度梯度高值分位 gradient_p80 · >=" [ref=e942]:
+                          - strong [ref=e943]: 850hPa 温度梯度高值分位
+                          - generic [ref=e944]: gradient_p80 · >=
+                        - cell "80" [ref=e945]:
+                          - spinbutton [ref=e946]: "80"
+                        - cell [ref=e947]:
+                          - spinbutton [ref=e948]
+                        - cell [ref=e949]:
+                          - spinbutton [ref=e950]
+                        - cell [ref=e951]:
+                          - checkbox [checked] [ref=e952]
+                      - row "front_candidate_score _front_candidate_systems 锋面候选综合评分高值分位 p82 · >= 82" [ref=e953]:
+                        - cell "front_candidate_score _front_candidate_systems" [ref=e954]:
+                          - strong [ref=e955]: front_candidate_score
+                          - generic [ref=e956]: _front_candidate_systems
+                        - cell "锋面候选综合评分高值分位 p82 · >=" [ref=e957]:
+                          - strong [ref=e958]: 锋面候选综合评分高值分位
+                          - generic [ref=e959]: p82 · >=
+                        - cell "82" [ref=e960]:
+                          - spinbutton [ref=e961]: "82"
+                        - cell [ref=e962]:
+                          - spinbutton [ref=e963]
+                        - cell [ref=e964]:
+                          - spinbutton [ref=e965]
+                        - cell [ref=e966]:
+                          - checkbox [checked] [ref=e967]
+                      - row "front_candidate_score _front_candidate_systems 锋面候选连续区最小格点数 count · >= 10" [ref=e968]:
+                        - cell "front_candidate_score _front_candidate_systems" [ref=e969]:
+                          - strong [ref=e970]: front_candidate_score
+                          - generic [ref=e971]: _front_candidate_systems
+                        - cell "锋面候选连续区最小格点数 count · >=" [ref=e972]:
+                          - strong [ref=e973]: 锋面候选连续区最小格点数
+                          - generic [ref=e974]: count · >=
+                        - cell "10" [ref=e975]:
+                          - spinbutton [ref=e976]: "10"
+                        - cell [ref=e977]:
+                          - spinbutton [ref=e978]
+                        - cell [ref=e979]:
+                          - spinbutton [ref=e980]
+                        - cell [ref=e981]:
+                          - checkbox [checked] [ref=e982]
+                      - row "uv850_speed _low_level_jet_systems 850hPa 风速下限 max · >= 10" [ref=e983]:
+                        - cell "uv850_speed _low_level_jet_systems" [ref=e984]:
+                          - strong [ref=e985]: uv850_speed
+                          - generic [ref=e986]: _low_level_jet_systems
+                        - cell "850hPa 风速下限 max · >=" [ref=e987]:
+                          - strong [ref=e988]: 850hPa 风速下限
+                          - generic [ref=e989]: max · >=
+                        - cell "10" [ref=e990]:
+                          - spinbutton [ref=e991]: "10"
+                        - cell [ref=e992]:
+                          - spinbutton [ref=e993]
+                        - cell [ref=e994]:
+                          - spinbutton [ref=e995]
+                        - cell [ref=e996]:
+                          - checkbox [checked] [ref=e997]
+                      - row "moisture_flux850 _low_level_jet_systems 低空急流水汽通量高值分位 p70 · >= 70" [ref=e998]:
+                        - cell "moisture_flux850 _low_level_jet_systems" [ref=e999]:
+                          - strong [ref=e1000]: moisture_flux850
+                          - generic [ref=e1001]: _low_level_jet_systems
+                        - cell "低空急流水汽通量高值分位 p70 · >=" [ref=e1002]:
+                          - strong [ref=e1003]: 低空急流水汽通量高值分位
+                          - generic [ref=e1004]: p70 · >=
+                        - cell "70" [ref=e1005]:
+                          - spinbutton [ref=e1006]: "70"
+                        - cell [ref=e1007]:
+                          - spinbutton [ref=e1008]
+                        - cell [ref=e1009]:
+                          - spinbutton [ref=e1010]
+                        - cell [ref=e1011]:
+                          - checkbox [checked] [ref=e1012]
+                      - row "uv850_speed _low_level_jet_systems 低空急流候选连续区最小格点数 count · >= 8" [ref=e1013]:
+                        - cell "uv850_speed _low_level_jet_systems" [ref=e1014]:
+                          - strong [ref=e1015]: uv850_speed
+                          - generic [ref=e1016]: _low_level_jet_systems
+                        - cell "低空急流候选连续区最小格点数 count · >=" [ref=e1017]:
+                          - strong [ref=e1018]: 低空急流候选连续区最小格点数
+                          - generic [ref=e1019]: count · >=
+                        - cell "8" [ref=e1020]:
+                          - spinbutton [ref=e1021]: "8"
+                        - cell [ref=e1022]:
+                          - spinbutton [ref=e1023]
+                        - cell [ref=e1024]:
+                          - spinbutton [ref=e1025]
+                        - cell [ref=e1026]:
+                          - checkbox [checked] [ref=e1027]
+                      - row "moisture_flux850 _moisture_transport_systems 850hPa 水汽通量高值分位 p75 · >= 75" [ref=e1028]:
+                        - cell "moisture_flux850 _moisture_transport_systems" [ref=e1029]:
+                          - strong [ref=e1030]: moisture_flux850
+                          - generic [ref=e1031]: _moisture_transport_systems
+                        - cell "850hPa 水汽通量高值分位 p75 · >=" [ref=e1032]:
+                          - strong [ref=e1033]: 850hPa 水汽通量高值分位
+                          - generic [ref=e1034]: p75 · >=
+                        - cell "75" [ref=e1035]:
+                          - spinbutton [ref=e1036]: "75"
+                        - cell [ref=e1037]:
+                          - spinbutton [ref=e1038]
+                        - cell [ref=e1039]:
+                          - spinbutton [ref=e1040]
+                        - cell [ref=e1041]:
+                          - checkbox [checked] [ref=e1042]
+                      - row "moisture_flux850 _moisture_transport_systems 水汽输送带连续区最小格点数 count · >= 10" [ref=e1043]:
+                        - cell "moisture_flux850 _moisture_transport_systems" [ref=e1044]:
+                          - strong [ref=e1045]: moisture_flux850
+                          - generic [ref=e1046]: _moisture_transport_systems
+                        - cell "水汽输送带连续区最小格点数 count · >=" [ref=e1047]:
+                          - strong [ref=e1048]: 水汽输送带连续区最小格点数
+                          - generic [ref=e1049]: count · >=
+                        - cell "10" [ref=e1050]:
+                          - spinbutton [ref=e1051]: "10"
+                        - cell [ref=e1052]:
+                          - spinbutton [ref=e1053]
+                        - cell [ref=e1054]:
+                          - spinbutton [ref=e1055]
+                        - cell [ref=e1056]:
+                          - checkbox [checked] [ref=e1057]
+                      - row "moisture_flux_divergence850 _moisture_convergence_systems 水汽通量散度低值分位 p10 · <= 10" [ref=e1058]:
+                        - cell "moisture_flux_divergence850 _moisture_convergence_systems" [ref=e1059]:
+                          - strong [ref=e1060]: moisture_flux_divergence850
+                          - generic [ref=e1061]: _moisture_convergence_systems
+                        - cell "水汽通量散度低值分位 p10 · <=" [ref=e1062]:
+                          - strong [ref=e1063]: 水汽通量散度低值分位
+                          - generic [ref=e1064]: p10 · <=
+                        - cell "10" [ref=e1065]:
+                          - spinbutton [ref=e1066]: "10"
+                        - cell [ref=e1067]:
+                          - spinbutton [ref=e1068]
+                        - cell [ref=e1069]:
+                          - spinbutton [ref=e1070]
+                        - cell [ref=e1071]:
+                          - checkbox [checked] [ref=e1072]
+                      - row "moisture_flux850 _moisture_convergence_systems 水汽辐合区通量配合分位 p55 · >= 55" [ref=e1073]:
+                        - cell "moisture_flux850 _moisture_convergence_systems" [ref=e1074]:
+                          - strong [ref=e1075]: moisture_flux850
+                          - generic [ref=e1076]: _moisture_convergence_systems
+                        - cell "水汽辐合区通量配合分位 p55 · >=" [ref=e1077]:
+                          - strong [ref=e1078]: 水汽辐合区通量配合分位
+                          - generic [ref=e1079]: p55 · >=
+                        - cell "55" [ref=e1080]:
+                          - spinbutton [ref=e1081]: "55"
+                        - cell [ref=e1082]:
+                          - spinbutton [ref=e1083]
+                        - cell [ref=e1084]:
+                          - spinbutton [ref=e1085]
+                        - cell [ref=e1086]:
+                          - checkbox [checked] [ref=e1087]
+                      - row "moisture_flux_divergence850 _moisture_convergence_systems 水汽辐合候选连续区最小格点数 count · >= 10" [ref=e1088]:
+                        - cell "moisture_flux_divergence850 _moisture_convergence_systems" [ref=e1089]:
+                          - strong [ref=e1090]: moisture_flux_divergence850
+                          - generic [ref=e1091]: _moisture_convergence_systems
+                        - cell "水汽辐合候选连续区最小格点数 count · >=" [ref=e1092]:
+                          - strong [ref=e1093]: 水汽辐合候选连续区最小格点数
+                          - generic [ref=e1094]: count · >=
+                        - cell "10" [ref=e1095]:
+                          - spinbutton [ref=e1096]: "10"
+                        - cell [ref=e1097]:
+                          - spinbutton [ref=e1098]
+                        - cell [ref=e1099]:
+                          - spinbutton [ref=e1100]
+                        - cell [ref=e1101]:
+                          - checkbox [checked] [ref=e1102]
+                      - row "div850 _low_level_convergence_systems 850hPa 散度低值分位 p10 · <= 10" [ref=e1103]:
+                        - cell "div850 _low_level_convergence_systems" [ref=e1104]:
+                          - strong [ref=e1105]: div850
+                          - generic [ref=e1106]: _low_level_convergence_systems
+                        - cell "850hPa 散度低值分位 p10 · <=" [ref=e1107]:
+                          - strong [ref=e1108]: 850hPa 散度低值分位
+                          - generic [ref=e1109]: p10 · <=
+                        - cell "10" [ref=e1110]:
+                          - spinbutton [ref=e1111]: "10"
+                        - cell [ref=e1112]:
+                          - spinbutton [ref=e1113]
+                        - cell [ref=e1114]:
+                          - spinbutton [ref=e1115]
+                        - cell [ref=e1116]:
+                          - checkbox [checked] [ref=e1117]
+                      - row "div850 _low_level_convergence_systems 低层辐合区连续区最小格点数 count · >= 10" [ref=e1118]:
+                        - cell "div850 _low_level_convergence_systems" [ref=e1119]:
+                          - strong [ref=e1120]: div850
+                          - generic [ref=e1121]: _low_level_convergence_systems
+                        - cell "低层辐合区连续区最小格点数 count · >=" [ref=e1122]:
+                          - strong [ref=e1123]: 低层辐合区连续区最小格点数
+                          - generic [ref=e1124]: count · >=
+                        - cell "10" [ref=e1125]:
+                          - spinbutton [ref=e1126]: "10"
+                        - cell [ref=e1127]:
+                          - spinbutton [ref=e1128]
+                        - cell [ref=e1129]:
+                          - spinbutton [ref=e1130]
+                        - cell [ref=e1131]:
+                          - checkbox [checked] [ref=e1132]
+                      - row "div200/div300 _upper_divergence_systems 高空散度高值分位 p90 · >= 90" [ref=e1133]:
+                        - cell "div200/div300 _upper_divergence_systems" [ref=e1134]:
+                          - strong [ref=e1135]: div200/div300
+                          - generic [ref=e1136]: _upper_divergence_systems
+                        - cell "高空散度高值分位 p90 · >=" [ref=e1137]:
+                          - strong [ref=e1138]: 高空散度高值分位
+                          - generic [ref=e1139]: p90 · >=
+                        - cell "90" [ref=e1140]:
+                          - spinbutton [ref=e1141]: "90"
+                        - cell [ref=e1142]:
+                          - spinbutton [ref=e1143]
+                        - cell [ref=e1144]:
+                          - spinbutton [ref=e1145]
+                        - cell [ref=e1146]:
+                          - checkbox [checked] [ref=e1147]
+                      - row "div200/div300 _upper_divergence_systems 高空辐散区连续区最小格点数 count · >= 10" [ref=e1148]:
+                        - cell "div200/div300 _upper_divergence_systems" [ref=e1149]:
+                          - strong [ref=e1150]: div200/div300
+                          - generic [ref=e1151]: _upper_divergence_systems
+                        - cell "高空辐散区连续区最小格点数 count · >=" [ref=e1152]:
+                          - strong [ref=e1153]: 高空辐散区连续区最小格点数
+                          - generic [ref=e1154]: count · >=
+                        - cell "10" [ref=e1155]:
+                          - spinbutton [ref=e1156]: "10"
+                        - cell [ref=e1157]:
+                          - spinbutton [ref=e1158]
+                        - cell [ref=e1159]:
+                          - spinbutton [ref=e1160]
+                        - cell [ref=e1161]:
+                          - checkbox [checked] [ref=e1162]

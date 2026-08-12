@@ -1,0 +1,229 @@
+- generic [active] [ref=e1]:
+  - link "跳到地图" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - heading "天气形势智能诊断" [level=1] [ref=e6]
+        - generic [ref=e7]: EC NetCDF → 物理量诊断 → 天气系统识别
+      - generic "模式与运行控制" [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: 模式
+          - combobox "模式" [disabled] [ref=e11]:
+            - option "ECMWF" [selected]
+        - generic [ref=e12]:
+          - generic [ref=e13]: 起报
+          - combobox "点位诊断起报时次" [ref=e14]
+        - button "点位诊断" [ref=e15] [cursor=pointer]
+        - button "示例数据" [ref=e16] [cursor=pointer]
+        - button "运行诊断" [ref=e17] [cursor=pointer]
+    - main [ref=e18]:
+      - generic "天气诊断 GIS 地图" [ref=e19]:
+        - generic [ref=e20]: 准备就绪
+        - complementary "要素、风险与天气系统" [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]:
+              - heading "要素" [level=2] [ref=e24]
+              - generic [ref=e25]:
+                - button "清空" [ref=e26] [cursor=pointer]
+                - button "刷新" [ref=e27] [cursor=pointer]
+            - combobox "诊断要素" [ref=e28]:
+              - option "500hPa 位势高度"
+              - option "海平面气压"
+              - option "850hPa 温度"
+              - option "850hPa 风速"
+              - option "850hPa 散度"
+              - option "500hPa 相对涡度"
+              - option "850hPa 水汽通量"
+              - option "850hPa 水汽辐合"
+              - option "700hPa 垂直速度 omega"
+              - option "850hPa 温度平流"
+              - option "K 指数"
+              - option "0-6km 风切变近似"
+              - option "强降水潜势评分" [selected]
+              - option "强对流潜势评分"
+              - option "持续性强降水风险评分"
+              - option "短时强降水风险评分"
+              - option "雷暴大风/下击暴流风险评分"
+              - option "冰雹风险评分"
+              - option "旋转风暴/超级单体潜势评分"
+              - option "强对流综合风险评分"
+            - generic [ref=e29]:
+              - button "500hPa 位势高度" [ref=e30] [cursor=pointer]:
+                - generic [ref=e31]: 500hPa 位势高度
+              - button "海平面气压" [ref=e32] [cursor=pointer]:
+                - generic [ref=e33]: 海平面气压
+              - button "850hPa 温度" [ref=e34] [cursor=pointer]:
+                - generic [ref=e35]: 850hPa 温度
+              - button "850hPa 风速" [ref=e36] [cursor=pointer]:
+                - generic [ref=e37]: 850hPa 风速
+              - button "850hPa 散度" [ref=e38] [cursor=pointer]:
+                - generic [ref=e39]: 850hPa 散度
+              - button "500hPa 相对涡度" [ref=e40] [cursor=pointer]:
+                - generic [ref=e41]: 500hPa 相对涡度
+              - button "850hPa 水汽通量" [ref=e42] [cursor=pointer]:
+                - generic [ref=e43]: 850hPa 水汽通量
+              - button "850hPa 水汽辐合" [ref=e44] [cursor=pointer]:
+                - generic [ref=e45]: 850hPa 水汽辐合
+              - button "700hPa 垂直速度 omega" [ref=e46] [cursor=pointer]:
+                - generic [ref=e47]: 700hPa 垂直速度 omega
+              - button "850hPa 温度平流" [ref=e48] [cursor=pointer]:
+                - generic [ref=e49]: 850hPa 温度平流
+              - button "K 指数" [ref=e50] [cursor=pointer]:
+                - generic [ref=e51]: K 指数
+              - button "0-6km 风切变近似" [ref=e52] [cursor=pointer]:
+                - generic [ref=e53]: 0-6km 风切变近似
+            - generic [ref=e54]:
+              - checkbox "等值线" [checked] [ref=e55]
+              - generic [ref=e56]: 等值线
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - heading "风险" [level=2] [ref=e59]
+              - generic [ref=e60]:
+                - button "清空" [ref=e61] [cursor=pointer]
+                - button "刷新" [ref=e62] [cursor=pointer]
+            - generic [ref=e63]:
+              - strong [ref=e64]: 风险图层
+              - generic [ref=e65]:
+                - button "强降水潜势评分" [ref=e66] [cursor=pointer]:
+                  - generic [ref=e67]: 强降水潜势评分
+                - button "强对流潜势评分" [ref=e68] [cursor=pointer]:
+                  - generic [ref=e69]: 强对流潜势评分
+                - button "持续性强降水风险评分" [ref=e70] [cursor=pointer]:
+                  - generic [ref=e71]: 持续性强降水风险评分
+                - button "短时强降水风险评分" [ref=e72] [cursor=pointer]:
+                  - generic [ref=e73]: 短时强降水风险评分
+                - button "雷暴大风/下击暴流风险评分" [ref=e74] [cursor=pointer]:
+                  - generic [ref=e75]: 雷暴大风/下击暴流风险评分
+                - button "冰雹风险评分" [ref=e76] [cursor=pointer]:
+                  - generic [ref=e77]: 冰雹风险评分
+                - button "旋转风暴/超级单体潜势评分" [ref=e78] [cursor=pointer]:
+                  - generic [ref=e79]: 旋转风暴/超级单体潜势评分
+                - button "强对流综合风险评分" [ref=e80] [cursor=pointer]:
+                  - generic [ref=e81]: 强对流综合风险评分
+            - generic [ref=e82]:
+              - strong [ref=e83]: 风险对象
+              - generic [ref=e84]:
+                - generic [ref=e85]:
+                  - checkbox "强降水潜势" [ref=e86]
+                  - generic [ref=e88]: 强降水潜势
+                - generic [ref=e89]:
+                  - checkbox "强对流潜势" [ref=e90]
+                  - generic [ref=e92]: 强对流潜势
+                - generic [ref=e93]:
+                  - checkbox "持续性强降水" [ref=e94]
+                  - generic [ref=e96]: 持续性强降水
+                - generic [ref=e97]:
+                  - checkbox "短时强降水" [ref=e98]
+                  - generic [ref=e100]: 短时强降水
+                - generic [ref=e101]:
+                  - checkbox "雷暴大风/下击暴流" [ref=e102]
+                  - generic [ref=e104]: 雷暴大风/下击暴流
+                - generic [ref=e105]:
+                  - checkbox "冰雹" [ref=e106]
+                  - generic [ref=e108]: 冰雹
+                - generic [ref=e109]:
+                  - checkbox "旋转风暴/超级单体潜势" [ref=e110]
+                  - generic [ref=e112]: 旋转风暴/超级单体潜势
+                - generic [ref=e113]:
+                  - checkbox "强对流综合风险" [ref=e114]
+                  - generic [ref=e116]: 强对流综合风险
+          - generic [ref=e117]:
+            - heading "天气系统" [level=2] [ref=e119]
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - checkbox "高压中心" [ref=e122]
+                - generic [ref=e124]: 高压中心
+              - generic [ref=e125]:
+                - checkbox "低压中心" [ref=e126]
+                - generic [ref=e128]: 低压中心
+              - generic [ref=e129]:
+                - checkbox "副高588区" [ref=e130]
+                - generic [ref=e132]: 副高588区
+              - generic [ref=e133]:
+                - checkbox "低压辐合区" [ref=e134]
+                - generic [ref=e136]: 低压辐合区
+              - generic [ref=e137]:
+                - checkbox "高压辐散区" [ref=e138]
+                - generic [ref=e140]: 高压辐散区
+              - generic [ref=e141]:
+                - checkbox "槽线候选" [ref=e142]
+                - generic [ref=e144]: 槽线候选
+              - generic [ref=e145]:
+                - checkbox "脊线候选" [ref=e146]
+                - generic [ref=e148]: 脊线候选
+              - generic [ref=e149]:
+                - checkbox "低层辐合区" [ref=e150]
+                - generic [ref=e152]: 低层辐合区
+              - generic [ref=e153]:
+                - checkbox "高空辐散区" [ref=e154]
+                - generic [ref=e156]: 高空辐散区
+              - generic [ref=e157]:
+                - checkbox "低空急流" [ref=e158]
+                - generic [ref=e160]: 低空急流
+              - generic [ref=e161]:
+                - checkbox "水汽输送带" [ref=e162]
+                - generic [ref=e164]: 水汽输送带
+              - generic [ref=e165]:
+                - checkbox "锋面候选" [ref=e166]
+                - generic [ref=e168]: 锋面候选
+          - generic [ref=e169]:
+            - generic [ref=e170]:
+              - heading "对象索引" [level=2] [ref=e171]
+              - generic [ref=e172]: 尚未加载对象
+            - generic [ref=e173]:
+              - generic [ref=e174]:
+                - generic [ref=e175]: 类型
+                - combobox "对象类型筛选" [ref=e176]:
+                  - option "全部类型" [selected]
+                  - option "强降水潜势"
+                  - option "强对流潜势"
+                  - option "持续性强降水"
+                  - option "短时强降水"
+                  - option "雷暴大风/下击暴流"
+                  - option "冰雹"
+                  - option "旋转风暴/超级单体潜势"
+                  - option "强对流综合风险"
+                  - option "高压中心"
+                  - option "低压中心"
+                  - option "副高588区"
+                  - option "低压辐合区"
+                  - option "高压辐散区"
+                  - option "槽线候选"
+                  - option "脊线候选"
+                  - option "低层辐合区"
+                  - option "高空辐散区"
+                  - option "低空急流"
+                  - option "水汽输送带"
+                  - option "锋面候选"
+              - generic [ref=e177]:
+                - generic [ref=e178]: 可信度
+                - combobox "可信度筛选" [ref=e179]:
+                  - option "全部" [selected]
+                  - option "待核验"
+                  - option "低可信"
+                  - option "中可信"
+                  - option "高可信"
+            - generic [ref=e181]: 加载天气系统后生成索引
+        - complementary "诊断信息" [ref=e182]:
+          - heading "自动形势分析" [level=2] [ref=e183]
+          - generic [ref=e184]: 暂无分析。点击“示例数据”并“运行诊断”。
+          - heading "对象详情" [level=2] [ref=e186]
+          - generic [ref=e187]: 点击地图对象查看证据。
+        - region "Map" [ref=e188]
+        - generic:
+          - generic [ref=e189]:
+            - button "放大" [ref=e190] [cursor=pointer]
+            - button "缩小" [ref=e192] [cursor=pointer]
+            - button "重置方位" [ref=e194]
+          - generic [ref=e196]: 500 km
+          - group [ref=e197]:
+            - generic "显示版权信息" [ref=e198] [cursor=pointer]
+            - generic [ref=e199]: © OpenStreetMap contributors
+    - contentinfo "预报时效时间轴" [ref=e200]:
+      - button "上一时效" [ref=e201] [cursor=pointer]
+      - generic [ref=e202]:
+        - generic [ref=e203]: 预报时效
+        - strong [ref=e204]: +24小时
+      - button "下一时效" [ref=e206] [cursor=pointer]
+      - combobox "预报时效" [ref=e207]

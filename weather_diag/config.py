@@ -13,12 +13,15 @@ DATA_DIR = Path(os.getenv("WEATHER_DIAG_DATA_DIR", PROJECT_ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"
 PRODUCTS_DIR = DATA_DIR / "products"
 JOBS_DIR = DATA_DIR / "jobs"
+ADMIN_DIR = DATA_DIR / "admin"
+THRESHOLD_MATRIX_PATH = ADMIN_DIR / "threshold_matrix.json"
 
 
 def ensure_dirs() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     PRODUCTS_DIR.mkdir(parents=True, exist_ok=True)
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    ADMIN_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_yaml(path: str | Path) -> Dict[str, Any]:
@@ -39,7 +42,19 @@ def load_model_config(model: str) -> Dict[str, Any]:
 
 
 def load_thresholds() -> Dict[str, Any]:
-    return load_yaml("thresholds.yaml")
+    thresholds = load_yaml("thresholds.yaml")
+    try:
+        # Local import avoids a module-import cycle: the governance extension
+        # uses ADMIN_DIR from this module, while runtime feature algorithms call
+        # load_thresholds() only after config.py has been initialized.
+        from weather_diag.diagnosis.weather_system_governance import apply_governance_thresholds
+
+        return apply_governance_thresholds(thresholds)
+    except Exception:
+        # A malformed optional governance extension must not prevent the core
+        # diagnostic service from starting; the admin API reports the detailed
+        # matrix error while runtime falls back to repository YAML defaults.
+        return thresholds
 
 
 def load_layers() -> Dict[str, Any]:

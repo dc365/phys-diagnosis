@@ -1,0 +1,66 @@
+- generic [ref=e1]:
+  - link "跳转到主内容" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - complementary "主导航" [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: WD
+        - generic [ref=e7]:
+          - heading "天气诊断后台" [level=1] [ref=e8]
+          - paragraph [ref=e9]: NAFP EC 值班研判台
+      - navigation [ref=e10]:
+        - link "诊断工作台 运行与研判" [ref=e11] [cursor=pointer]:
+          - /url: "#diagnosis-workbench"
+          - strong [ref=e12]: 诊断工作台
+          - generic [ref=e13]: 运行与研判
+        - link "诊断回放 批量校验" [active] [ref=e14] [cursor=pointer]:
+          - /url: "#diagnosis-replay"
+          - strong [ref=e15]: 诊断回放
+          - generic [ref=e16]: 批量校验
+        - link "算法治理 算法 / 阈值 / 规则" [ref=e17] [cursor=pointer]:
+          - /url: "#algorithm-governance"
+          - strong [ref=e18]: 算法治理
+          - generic [ref=e19]: 算法 / 阈值 / 规则
+        - link "数据字段 物理量与缺测" [ref=e20] [cursor=pointer]:
+          - /url: "#data-fields"
+          - strong [ref=e21]: 数据字段
+          - generic [ref=e22]: 物理量与缺测
+        - link "服务状态 运行记录" [ref=e23] [cursor=pointer]:
+          - /url: "#service-status"
+          - strong [ref=e24]: 服务状态
+          - generic [ref=e25]: 运行记录
+      - link "打开 GIS 地图" [ref=e26] [cursor=pointer]:
+        - /url: /map
+    - main [ref=e27]:
+      - region "用历史时效校验算法稳定性" [ref=e564]:
+        - generic [ref=e566]:
+          - generic [ref=e567]: 诊断回放
+          - heading "用历史时效校验算法稳定性" [level=2] [ref=e568]
+          - paragraph [ref=e569]: 批量检查样本状态、证据链贡献、缺测字段和天气系统样例。
+        - region "回放样本" [ref=e570]:
+          - generic [ref=e571]:
+            - generic [ref=e572]:
+              - generic [ref=e573]: 算法校验
+              - heading "回放样本" [level=3] [ref=e574]
+            - generic [ref=e575]: "0"
+          - generic "诊断回放参数" [ref=e576]:
+            - generic [ref=e577]:
+              - generic [ref=e578]: 时效列表
+              - textbox "时效列表" [ref=e579]: 0,24,48
+            - generic [ref=e580]:
+              - generic [ref=e581]: 样本上限
+              - spinbutton "样本上限" [ref=e582]: "6"
+            - button "运行回放" [ref=e583] [cursor=pointer]
+          - generic [ref=e585]: 等待回放
+          - table [ref=e587]:
+            - rowgroup [ref=e588]:
+              - row "有效时间 状态 天气系统 证据链 缺测 提示" [ref=e589]:
+                - columnheader "有效时间" [ref=e590]
+                - columnheader "状态" [ref=e591]
+                - columnheader "天气系统" [ref=e592]
+                - columnheader "证据链" [ref=e593]
+                - columnheader "缺测" [ref=e594]
+                - columnheader "提示" [ref=e595]
+            - rowgroup [ref=e596]:
+              - row "暂无回放结果" [ref=e597]:
+                - cell "暂无回放结果" [ref=e598]

@@ -1,0 +1,85 @@
+- generic [ref=e1]:
+  - link "跳转到主内容" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - complementary "主导航" [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: WD
+        - generic [ref=e7]:
+          - heading "天气诊断后台" [level=1] [ref=e8]
+          - paragraph [ref=e9]: NAFP EC 值班研判台
+      - navigation [ref=e10]:
+        - link "诊断工作台 运行与研判" [ref=e11] [cursor=pointer]:
+          - /url: "#diagnosis-workbench"
+          - strong [ref=e12]: 诊断工作台
+          - generic [ref=e13]: 运行与研判
+        - link "诊断回放 批量校验" [ref=e14] [cursor=pointer]:
+          - /url: "#diagnosis-replay"
+          - strong [ref=e15]: 诊断回放
+          - generic [ref=e16]: 批量校验
+        - link "算法治理 算法 / 阈值 / 规则" [active] [ref=e17] [cursor=pointer]:
+          - /url: "#algorithm-governance"
+          - strong [ref=e18]: 算法治理
+          - generic [ref=e19]: 算法 / 阈值 / 规则
+        - link "数据字段 物理量与缺测" [ref=e20] [cursor=pointer]:
+          - /url: "#data-fields"
+          - strong [ref=e21]: 数据字段
+          - generic [ref=e22]: 物理量与缺测
+        - link "服务状态 运行记录" [ref=e23] [cursor=pointer]:
+          - /url: "#service-status"
+          - strong [ref=e24]: 服务状态
+          - generic [ref=e25]: 运行记录
+      - link "打开 GIS 地图" [ref=e26] [cursor=pointer]:
+        - /url: /map
+    - main [ref=e27]:
+      - region "算法资产、阈值和规则说明" [ref=e599]:
+        - generic [ref=e601]:
+          - generic [ref=e602]: 算法治理
+          - heading "算法资产、阈值和规则说明" [level=2] [ref=e603]
+          - paragraph [ref=e604]: 围绕一个默认阈值矩阵管理算法，不做多版本干扰。
+        - generic [ref=e605]:
+          - tablist "算法治理" [ref=e606]:
+            - tab "算法库" [selected] [ref=e607] [cursor=pointer]
+            - tab "阈值矩阵" [ref=e608] [cursor=pointer]
+            - tab "规则说明" [ref=e609] [cursor=pointer]
+          - region "诊断算法资产" [ref=e610]:
+            - generic [ref=e611]:
+              - generic [ref=e612]:
+                - generic [ref=e613]:
+                  - generic [ref=e614]: 算法库
+                  - heading "诊断算法资产" [level=3] [ref=e615]
+                - generic [ref=e616]: "1"
+              - article [ref=e618]:
+                - generic [ref=e619]:
+                  - generic [ref=e620]:
+                    - generic [ref=e621]: ECMWF / EC
+                    - heading "NAFP EC 天气形势诊断" [level=4] [ref=e622]
+                  - generic [ref=e623]: enabled
+                - generic [ref=e624]:
+                  - generic [ref=e625]: 7 类天气系统
+                  - generic [ref=e626]: 4 条证据链
+                  - generic [ref=e627]: 1 个必需场
+                - generic [ref=e628]:
+                  - generic [ref=e629]: 500hPa 副热带高压
+                  - generic [ref=e630]: 500hPa 槽脊候选
+                  - generic [ref=e631]: 低压辐合候选
+                  - generic [ref=e632]: 高压辐散候选
+                  - generic [ref=e633]: 850hPa 低空急流候选
+                  - generic [ref=e634]: 850hPa 水汽输送带候选
+                  - generic [ref=e635]: 850hPa 水汽辐合区候选
+                  - generic [ref=e636]: 强降水潜势
+                  - generic [ref=e637]: 强对流潜势
+                  - generic [ref=e638]: 动力抬升潜势
+                  - generic [ref=e639]: 雨雪相态初判
+                - generic [ref=e640]:
+                  - generic [ref=e641]: gh500
+                  - generic [ref=e642]: uv500
+                  - generic [ref=e643]: uv850
+                  - generic [ref=e644]: q850
+                  - generic [ref=e645]: div850
+                  - generic [ref=e646]: tt850
+                  - generic [ref=e647]: w700
+                  - generic [ref=e648]: kindex
+                  - generic [ref=e649]: cape
+                  - generic [ref=e650]: rain6
+                  - generic [ref=e651]: pv300

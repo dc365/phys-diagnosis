@@ -1,0 +1,22 @@
+[Unit]
+Description=BDP physical diagnosis API (11011)
+Wants=network-online.target remote-fs.target
+After=network-online.target remote-fs.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/hwapp/ruiyun-bdp/bdp-dm/bdp-dm-physical
+Environment=PYTHONPATH=/home/hwapp/ruiyun-bdp/bdp-dm/bdp-dm-physical
+Environment=PYTHONFAULTHANDLER=1
+ExecStart=/home/miniconda3/envs/phys/bin/python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 11011
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=90
+TimeoutStopSec=30
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

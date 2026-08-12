@@ -1,0 +1,25 @@
+[Unit]
+Description=BDP physical diagnosis area-risk MCP (11012)
+Wants=network-online.target remote-fs.target
+After=network-online.target remote-fs.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/hwapp/ruiyun-bdp/bdp-dm/bdp-dm-physical
+Environment=PYTHONPATH=/home/hwapp/ruiyun-bdp/bdp-dm/bdp-dm-physical
+Environment=AREA_RISK_DSL_MCP_TRANSPORT=http
+Environment=AREA_RISK_DSL_MCP_HOST=0.0.0.0
+Environment=AREA_RISK_DSL_MCP_PORT=11012
+Environment=AREA_RISK_DSL_MCP_PATH=/mcp
+ExecStart=/home/miniconda3/envs/phys/bin/python -m weather_diag.mcp.area_risk_dsl_mcp
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=90
+TimeoutStopSec=30
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

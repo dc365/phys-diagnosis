@@ -8,9 +8,34 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+PRIVATE_RESPONSE_KEYS = {
+    "data_dir",
+    "file_path",
+    "path",
+    "root",
+    "source_file",
+    "source_path",
+    "source_paths",
+    "stored_path",
+}
+
 
 def new_trace_id() -> str:
     return uuid4().hex
+
+
+def strip_private_paths(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: strip_private_paths(item)
+            for key, item in value.items()
+            if key not in PRIVATE_RESPONSE_KEYS
+        }
+    if isinstance(value, list):
+        return [strip_private_paths(item) for item in value]
+    if isinstance(value, tuple):
+        return [strip_private_paths(item) for item in value]
+    return value
 
 
 def envelope(
@@ -23,7 +48,7 @@ def envelope(
     return {
         "code": code,
         "msg": msg,
-        "data": data,
+        "data": strip_private_paths(data),
         "trace_id": trace_id or new_trace_id(),
     }
 

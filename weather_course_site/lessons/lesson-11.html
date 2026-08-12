@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第 11 课：常用指数与动力诊断量｜气象物理量课程</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body data-current-href="lessons/lesson-11.html" data-lesson-id="lesson-11">
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-icon">☁</span><span>气象物理量课程</span></a>
+    <button class="nav-toggle" type="button" aria-label="打开目录">☰</button>
+    <div class="top-search">
+      <input id="globalSearch" placeholder="搜索：CAPE、雷达、探空、涡度…" autocomplete="off" />
+      <div id="searchResults" class="search-results" hidden></div>
+    </div>
+    <div class="progress-pill"><span id="progressText">0/15</span></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <a class="side-home" href="../index.html">课程首页</a>
+        <a class="side-home" href="../glossary.html">物理量速查</a>
+        <a class="side-home" href="../cases.html">个例复盘</a>
+        <a class="side-home" href="../learning-path.html">学习路线</a>
+      </div>
+      <div class="sidebar-title">课程目录</div>
+      <nav class="lesson-nav">
+        <a class="lesson-link" href="../lessons/lesson-01.html" data-lesson-id="lesson-01"><span>01</span>天气学核心逻辑</a>
+<a class="lesson-link" href="../lessons/lesson-02.html" data-lesson-id="lesson-02"><span>02</span>气压、高压、低压和等压线</a>
+<a class="lesson-link" href="../lessons/lesson-03.html" data-lesson-id="lesson-03"><span>03</span>风、气流来源和 850hPa 低空急流</a>
+<a class="lesson-link" href="../lessons/lesson-04.html" data-lesson-id="lesson-04"><span>04</span>温度、冷暖空气和冷暖平流</a>
+<a class="lesson-link" href="../lessons/lesson-05.html" data-lesson-id="lesson-05"><span>05</span>湿度、露点和比湿</a>
+<a class="lesson-link" href="../lessons/lesson-06.html" data-lesson-id="lesson-06"><span>06</span>水汽输送和水汽辐合</a>
+<a class="lesson-link" href="../lessons/lesson-07.html" data-lesson-id="lesson-07"><span>07</span>垂直运动</a>
+<a class="lesson-link" href="../lessons/lesson-08.html" data-lesson-id="lesson-08"><span>08</span>500hPa 位势高度、槽、脊和副高</a>
+<a class="lesson-link" href="../lessons/lesson-09.html" data-lesson-id="lesson-09"><span>09</span>CAPE 和 CIN</a>
+<a class="lesson-link" href="../lessons/lesson-10.html" data-lesson-id="lesson-10"><span>10</span>垂直风切变</a>
+<a class="lesson-link" href="../lessons/lesson-11.html" data-lesson-id="lesson-11"><span>11</span>常用指数与动力诊断量</a>
+<a class="lesson-link" href="../lessons/lesson-12.html" data-lesson-id="lesson-12"><span>12</span>探空图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-13.html" data-lesson-id="lesson-13"><span>13</span>雷达图怎么看</a>
+<a class="lesson-link" href="../lessons/lesson-14.html" data-lesson-id="lesson-14"><span>14</span>数值模式释用入门</a>
+<a class="lesson-link" href="../lessons/lesson-15.html" data-lesson-id="lesson-15"><span>15</span>个例复盘与业务分析模板</a>
+      </nav>
+    </aside>
+    <main class="content ">
+      <section class="hero mini">
+        <div>
+          <p class="eyebrow">气象知识 · 从物理量到业务分析</p>
+          <h1>第 11 课：常用指数与动力诊断量</h1>
+          <p class="subtitle">K、LI、SI、DCAPE、湿球温度、涡度和散度如何用。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn mark-done" type="button">标记完成</button>
+          <a class="btn ghost" href="../glossary.html">查物理量</a>
+        </div>
+      </section>
+      <div class="article-wrap">
+        <article class="article">
+          <h2>本课目标</h2>
+<p>把常见物理量分成两类：经验指数用于快速筛查，动力诊断量用于解释机制。</p>
+<h2>1. K 指数</h2>
+<p>K 指数主要看低层暖湿、中层湿度和上下温差，适合判断湿对流、雷阵雨和短时强降水潜势。</p>
+<blockquote>
+<p><strong>K 看湿对流，但不能单独决定是否雷暴。</strong></p>
+</blockquote>
+<h2>2. SI 沙氏指数</h2>
+<p>SI 把 850hPa 气块抬升到 500hPa，看它比环境暖还是冷。</p>
+<table>
+<thead>
+<tr>
+  <th>SI</th>
+  <th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>&gt; 0</td>
+  <td>较稳定</td>
+</tr>
+<tr>
+  <td>接近 0</td>
+  <td>临界</td>
+</tr>
+<tr>
+  <td>&lt; 0</td>
+  <td>不稳定</td>
+</tr>
+<tr>
+  <td>越负</td>
+  <td>不稳定越强</td>
+</tr>
+</tbody>
+</table>
+<h2>3. LI 抬升指数与 BLI 最优抬升指数</h2>
+<p>LI 通常看近地层气块抬升到 500hPa 后的稳定度；BLI 在低层寻找最不稳定气块，对夜间高架对流或地面冷垫上的暖湿层有帮助。</p>
+<blockquote>
+<p><strong>LI/SI 越负越不稳定，BLI 用来找最危险气块。</strong></p>
+</blockquote>
+<h2>4. DCAPE</h2>
+<p>DCAPE 是下沉对流有效位能，表示雷暴下沉气流潜力。它与下击暴流、雷暴大风、强冷池有关。</p>
+<div class="sketch">
+<pre>
+CAPE：暖湿空气 ↑ 上升潜力
+DCAPE：冷空气 ↓ 下沉潜力
+
+<p>中层干空气 + 蒸发冷却 + DCAPE 大 → 雷暴大风风险增加
+</pre></p>
+</div>
+
+<h2>5. 湿球温度 Tw</h2>
+<p>湿球温度可理解为空气通过蒸发冷却理论上能降到的温度。它对雨雪相态、蒸发降温、湿球 0℃ 层非常关键。</p>
+<table>
+<thead>
+<tr>
+  <th>用途</th>
+  <th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>雨雪相态</td>
+  <td>比单看 2m 气温更可靠</td>
+</tr>
+<tr>
+  <td>蒸发降温</td>
+  <td>干空气中降水开始时可能快速降温</td>
+</tr>
+<tr>
+  <td>冰雹融化</td>
+  <td>湿球 0℃ 层高度影响冰雹落地概率</td>
+</tr>
+</tbody>
+</table>
+<h2>6. SWEAT 强天气威胁指数</h2>
+<p>SWEAT 把低层水汽、不稳定、850/500hPa 风等组合起来，用于强天气潜势筛查。但它是传统经验指数，不能替代 CAPE、风切变、触发和实况分析。</p>
+<h2>7. 查理森数 Ri</h2>
+<p>Ri 比较稳定度和风切变谁更占优势。Ri 小，说明风切变更容易破坏稳定层结，常用于湍流、边界层、低空风切变和航空气象。</p>
+<h2>8. 相对涡度与垂直涡度</h2>
+<p>涡度表示空气旋转强弱。北半球正涡度通常表示气旋性旋转。业务图上常见的相对涡度，多数就是水平风场产生的垂直涡度分量。</p>
+<p>正涡度常见于：高空槽、低涡、切变线、台风、冷涡、气旋。</p>
+<h2>9. 涡度平流</h2>
+<p>平流是风把某种东西带来。涡度平流就是风把涡度带来。500hPa 槽前常有正涡度平流，有利于上升运动和天气系统发展。</p>
+<blockquote>
+<p><strong>槽前正涡度平流 + 低层水汽 + 上升运动 = 降水发展更可信。</strong></p>
+</blockquote>
+<h2>10. 散度与高空散度</h2>
+<p>散度表示空气散开或汇聚。低层辐合有利于上升，高空辐散像“抽气”，也有利于下方上升。</p>
+<div class="sketch">
+<pre>
+高空辐散： ←   ↑   →
+              ↑
+低层辐合： →   ↑   ←
+
+<p>低层辐合 + 高空辐散 = 有利强上升
+</pre></p>
+</div>
+
+<h2>11. 实战分工</h2>
+<table>
+<thead>
+<tr>
+  <th>目标</th>
+  <th>重点看</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>雷暴潜势</td>
+  <td>CAPE、K、LI、SI、BLI、低层露点</td>
+</tr>
+<tr>
+  <td>是否被压制</td>
+  <td>CIN、逆温、副高下沉</td>
+</tr>
+<tr>
+  <td>短时强降水</td>
+  <td>PW、水汽通量、水汽辐合、湿层、K 指数</td>
+</tr>
+<tr>
+  <td>雷暴大风</td>
+  <td>DCAPE、中层干空气、风切变、弓形回波</td>
+</tr>
+<tr>
+  <td>冰雹</td>
+  <td>CAPE、0–6km 切变、中层冷、0℃ 层</td>
+</tr>
+<tr>
+  <td>动力抬升</td>
+  <td>500hPa 槽、正涡度平流、高空散度、700hPa 上升</td>
+</tr>
+</tbody>
+</table>
+<h2>本课一句话</h2>
+<blockquote>
+<p>物理量不是答案，是证据；多个证据指向同一个结论，预报判断才更可靠。</p>
+</blockquote>
+
+        </article>
+        <aside class="toc" id="toc"><strong>本页目录</strong></aside>
+      </div>
+      <div class="prev-next"><a class="btn ghost" href="../lessons/lesson-10.html">← 上一课</a><a class="btn primary" href="../lessons/lesson-12.html">下一课 →</a></div>
+    </main>
+  </div>
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部">↑</button>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>
