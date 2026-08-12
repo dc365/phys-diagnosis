@@ -9,10 +9,10 @@ from backend.app.responses import ApiError, ok
 from backend.app.services.data_sources import DataSourceError, resolve_data_root
 from weather_diag.diagnosis.nafp_features import nafp_situation_to_feature_collection, parse_feature_types
 from weather_diag.diagnosis.nafp_precompute import (
-    load_precomputed_result,
     precompute_status,
     precomputed_result_exists,
     submit_precompute_job,
+    wait_for_precomputed_result,
 )
 
 
@@ -56,25 +56,32 @@ def get_precompute_status():
 
 def _load_or_compute_result(resolved_root, run_time: str, forecast_hour: int, data_code: str | None):
     try:
-        return load_precomputed_result(resolved_root, run_time, forecast_hour, data_code)
-    except FileNotFoundError:
-        job = submit_precompute_job(
-            root=resolved_root,
-            run_time=run_time,
-            forecast_hours=[int(forecast_hour)],
-            data_code=data_code,
-            force=False,
-            background=False,
+        return wait_for_precomputed_result(
+            resolved_root,
+            run_time,
+            forecast_hour,
+            data_code,
         )
-        if job.get("status") == "failed":
-            raise ApiError(50001, "precomputed NAFP result failed", status_code=500, data={"job": job})
-        return load_precomputed_result(resolved_root, run_time, forecast_hour, data_code)
+    except TimeoutError as exc:
+        raise ApiError(
+            50301,
+            "NAFP precompute is still running",
+            status_code=503,
+            data={"error": str(exc)},
+        ) from exc
+    except RuntimeError as exc:
+        raise ApiError(
+            50001,
+            "precomputed NAFP result failed",
+            status_code=500,
+            data={"error": str(exc)},
+        ) from exc
 
 
 @router.post("")
 def schedule_precompute_compat(request: NafpPrecomputeRequest):
     # Compatibility with the existing map page: background warmup stays cheap.
-    # Cold feature reads below do the synchronous fallback when warmup is late.
+    # Cold feature reads wait on the same queued job when warmup is late.
     return schedule_precompute(request)
 
 

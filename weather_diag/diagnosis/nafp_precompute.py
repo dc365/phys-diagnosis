@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import queue
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -10,10 +11,13 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Callable
 
+from backend.app.services.nafp_process import (
+    diagnose_nafp_situation_isolated,
+    nafp_process_status,
+)
 from weather_diag.config import ADMIN_DIR, ensure_dirs
 from weather_diag.data.nafp import parse_run_time
 from weather_diag.diagnosis.nafp_cache import get_or_compute_nafp_situation
-from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
 
 
 PRECOMPUTE_DIR = ADMIN_DIR / "nafp_precompute"
@@ -25,6 +29,10 @@ _lock = threading.RLock()
 _jobs: dict[str, dict[str, Any]] = {}
 _current_job_id: str | None = None
 _last_loaded = False
+_active_flights: dict[tuple[str, str, str, int], tuple[str, threading.Event]] = {}
+_active_job_ids: set[str] = set()
+_job_queue: queue.Queue[str] = queue.Queue()
+_worker_thread: threading.Thread | None = None
 
 
 def _now() -> str:
@@ -80,6 +88,20 @@ def result_path(root: str | Path, run_time: str | datetime, forecast_hour: int, 
     return RESULT_DIR / code / rt / f"fh{int(forecast_hour):03d}-{_result_id(root, run_time, forecast_hour, data_code)}.json"
 
 
+def _work_key(
+    root: str | Path,
+    run_time: str | datetime,
+    forecast_hour: int,
+    data_code: str | None = None,
+) -> tuple[str, str, str, int]:
+    return (
+        str(data_code or ""),
+        str(Path(root).resolve()),
+        parse_run_time(run_time).isoformat(),
+        int(forecast_hour),
+    )
+
+
 def precomputed_result_exists(root: str | Path, run_time: str | datetime, forecast_hour: int, data_code: str | None = None) -> bool:
     return result_path(root, run_time, forecast_hour, data_code).exists()
 
@@ -122,15 +144,30 @@ def _load_state_locked() -> None:
     ensure_dirs()
     PRECOMPUTE_DIR.mkdir(parents=True, exist_ok=True)
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    state_changed = False
     if STATE_PATH.exists():
         try:
             state = _safe_read_json(STATE_PATH)
             _jobs = {str(item["job_id"]): item for item in state.get("jobs", []) if item.get("job_id")}
-            _current_job_id = state.get("current_job_id")
+            interrupted_at = _now()
+            for job in _jobs.values():
+                if job.get("status") not in {"queued", "running"}:
+                    continue
+                job.update(
+                    {
+                        "status": "interrupted",
+                        "completed_at": interrupted_at,
+                        "updated_at": interrupted_at,
+                    }
+                )
+                state_changed = True
+            _current_job_id = None
         except Exception:
             _jobs = {}
             _current_job_id = None
     _last_loaded = True
+    if state_changed:
+        _persist_state_locked()
 
 
 def _persist_state_locked() -> None:
@@ -163,11 +200,14 @@ def precompute_status() -> dict[str, Any]:
         latest = jobs[0] if jobs else None
         return {
             "version": STATE_VERSION,
-            "status": latest.get("status") if latest else "idle",
+            "status": "running" if _active_job_ids else (latest.get("status") if latest else "idle"),
             "current_job_id": _current_job_id,
+            "active_job_ids": sorted(_active_job_ids),
+            "queued_job_count": _job_queue.qsize(),
             "latest_job": latest,
-            "jobs": jobs[:20],
+            "jobs": jobs[1:6],
             "result_file_count": len(list(RESULT_DIR.glob("**/*.json"))) if RESULT_DIR.exists() else 0,
+            "worker": nafp_process_status(),
         }
 
 
@@ -193,7 +233,7 @@ def _append_job_entry(job_id: str, entry: dict[str, Any] | None = None, failed: 
             job["completed_count"] = int(job.get("completed_count") or 0) + 1
             if entry.get("cache_status") in {"computed", "refreshed"}:
                 job["computed_count"] = int(job.get("computed_count") or 0) + 1
-            if entry.get("cache_status") in {"hit", "precomputed"}:
+            if entry.get("cache_status") in {"hit", "precomputed", "waited"}:
                 job["hit_count"] = int(job.get("hit_count") or 0) + 1
         if failed is not None:
             job.setdefault("failed", []).append(failed)
@@ -202,8 +242,18 @@ def _append_job_entry(job_id: str, entry: dict[str, Any] | None = None, failed: 
         _persist_state_locked()
 
 
-def _run_job(job_id: str, compute: Callable[..., dict[str, Any]] = diagnose_nafp_situation) -> None:
+def _finish_flight(job_id: str, key: tuple[str, str, str, int]) -> None:
+    with _lock:
+        flight = _active_flights.get(key)
+        if flight is None or flight[0] != job_id:
+            return
+        _active_flights.pop(key, None)
+        flight[1].set()
+
+
+def _run_job(job_id: str, compute: Callable[..., dict[str, Any]] | None = None) -> None:
     global _current_job_id
+    compute = compute or diagnose_nafp_situation_isolated
     with _lock:
         _load_state_locked()
         job = _jobs.get(job_id)
@@ -219,6 +269,7 @@ def _run_job(job_id: str, compute: Callable[..., dict[str, Any]] = diagnose_nafp
     force = bool(job.get("force"))
     for hour in list(job.get("forecast_hours") or []):
         hour = int(hour)
+        key = _work_key(root, run_time, hour, data_code)
         try:
             path = result_path(root, run_time, hour, data_code)
             start = perf_counter()
@@ -253,6 +304,8 @@ def _run_job(job_id: str, compute: Callable[..., dict[str, Any]] = diagnose_nafp
                 job_id,
                 failed={"forecast_hour": hour, "error": str(exc), "error_type": type(exc).__name__},
             )
+        finally:
+            _finish_flight(job_id, key)
 
     with _lock:
         _load_state_locked()
@@ -267,7 +320,62 @@ def _run_job(job_id: str, compute: Callable[..., dict[str, Any]] = diagnose_nafp
             })
         if _current_job_id == job_id:
             _current_job_id = None
+        _active_job_ids.discard(job_id)
         _persist_state_locked()
+
+
+def _worker_loop() -> None:
+    while True:
+        job_id = _job_queue.get()
+        try:
+            _run_job(job_id)
+        finally:
+            _job_queue.task_done()
+
+
+def _ensure_worker_locked() -> None:
+    global _worker_thread
+    if _worker_thread is not None and _worker_thread.is_alive():
+        return
+    _worker_thread = threading.Thread(
+        target=_worker_loop,
+        name="nafp-precompute-worker",
+        daemon=True,
+    )
+    _worker_thread.start()
+
+
+def _completed_precompute_summary(
+    *,
+    root: Path,
+    run_time: str,
+    forecast_hours: list[int],
+    data_code: str | None,
+) -> dict[str, Any]:
+    return {
+        "job_id": None,
+        "data_code": data_code,
+        "root": str(root),
+        "run_time": run_time,
+        "forecast_hours": forecast_hours,
+        "force": False,
+        "status": "completed",
+        "created_at": _now(),
+        "updated_at": _now(),
+        "started_at": None,
+        "completed_at": _now(),
+        "total_count": len(forecast_hours),
+        "completed_count": len(forecast_hours),
+        "failed_count": 0,
+        "computed_count": 0,
+        "hit_count": len(forecast_hours),
+        "entries": [],
+        "failed": [],
+        "progress": 1.0,
+        "deduplicated": True,
+        "ready_forecast_hours": forecast_hours,
+        "execution_mode": "isolated_process",
+    }
 
 
 def submit_precompute_job(
@@ -280,37 +388,127 @@ def submit_precompute_job(
     background: bool = True,
 ) -> dict[str, Any]:
     hours = sorted({int(hour) for hour in forecast_hours})
-    job_id = uuid.uuid4().hex[:16]
-    job = {
-        "job_id": job_id,
-        "data_code": data_code,
-        "root": str(Path(root).resolve()),
-        "run_time": parse_run_time(run_time).isoformat(),
-        "forecast_hours": hours,
-        "force": bool(force),
-        "status": "queued",
-        "created_at": _now(),
-        "updated_at": _now(),
-        "started_at": None,
-        "completed_at": None,
-        "total_count": len(hours),
-        "completed_count": 0,
-        "failed_count": 0,
-        "computed_count": 0,
-        "hit_count": 0,
-        "entries": [],
-        "failed": [],
-    }
+    root_path = Path(root).resolve()
+    normalized_run_time = parse_run_time(run_time).isoformat()
+    if not hours:
+        raise ValueError("forecast_hours is required")
+
     with _lock:
         _load_state_locked()
+        ready_hours: list[int] = []
+        active_hours: list[int] = []
+        missing_hours: list[int] = []
+        active_job_ids: list[str] = []
+        for hour in hours:
+            key = _work_key(root_path, normalized_run_time, hour, data_code)
+            active = _active_flights.get(key)
+            if active is not None:
+                active_hours.append(hour)
+                active_job_ids.append(active[0])
+            elif not force and precomputed_result_exists(root_path, normalized_run_time, hour, data_code):
+                ready_hours.append(hour)
+            else:
+                missing_hours.append(hour)
+
+        if not missing_hours:
+            if active_job_ids:
+                existing_job = _jobs[active_job_ids[0]]
+                return {
+                    **_job_summary(existing_job),
+                    "deduplicated": True,
+                    "active_forecast_hours": active_hours,
+                    "ready_forecast_hours": ready_hours,
+                }
+            return _completed_precompute_summary(
+                root=root_path,
+                run_time=normalized_run_time,
+                forecast_hours=hours,
+                data_code=data_code,
+            )
+        job_id = uuid.uuid4().hex[:16]
+        job = {
+            "job_id": job_id,
+            "data_code": data_code,
+            "root": str(root_path),
+            "run_time": normalized_run_time,
+            "forecast_hours": missing_hours,
+            "requested_forecast_hours": hours,
+            "deduplicated_forecast_hours": active_hours,
+            "ready_forecast_hours": ready_hours,
+            "force": bool(force),
+            "status": "queued",
+            "created_at": _now(),
+            "updated_at": _now(),
+            "started_at": None,
+            "completed_at": None,
+            "total_count": len(missing_hours),
+            "completed_count": 0,
+            "failed_count": 0,
+            "computed_count": 0,
+            "hit_count": 0,
+            "entries": [],
+            "failed": [],
+            "execution_mode": "isolated_process",
+        }
         _jobs[job_id] = job
+        _active_job_ids.add(job_id)
+        for hour in missing_hours:
+            _active_flights[_work_key(root_path, normalized_run_time, hour, data_code)] = (
+                job_id,
+                threading.Event(),
+            )
         _persist_state_locked()
     if background:
-        thread = threading.Thread(target=_run_job, args=(job_id,), name=f"nafp-precompute-{job_id}", daemon=True)
-        thread.start()
+        with _lock:
+            _ensure_worker_locked()
+        _job_queue.put(job_id)
     else:
         _run_job(job_id)
-    return _job_summary(job)
+    return _job_summary(_jobs[job_id])
+
+
+def wait_for_precomputed_result(
+    root: str | Path,
+    run_time: str | datetime,
+    forecast_hour: int,
+    data_code: str | None = None,
+    *,
+    timeout_seconds: float | None = None,
+) -> dict[str, Any]:
+    try:
+        return load_precomputed_result(root, run_time, forecast_hour, data_code)
+    except FileNotFoundError:
+        pass
+
+    submit_precompute_job(
+        root=root,
+        run_time=run_time,
+        forecast_hours=[int(forecast_hour)],
+        data_code=data_code,
+        force=False,
+        background=True,
+    )
+    key = _work_key(root, run_time, forecast_hour, data_code)
+    with _lock:
+        flight = _active_flights.get(key)
+
+    if flight is not None:
+        wait_timeout = (
+            float(timeout_seconds)
+            if timeout_seconds is not None
+            else float(os.getenv("WEATHER_DIAG_PRECOMPUTE_WAIT_SECONDS", "300"))
+        )
+        if not flight[1].wait(max(0.1, wait_timeout)):
+            raise TimeoutError(
+                f"timed out waiting for NAFP precompute: run_time={key[2]} forecast_hour={key[3]}"
+            )
+
+    try:
+        return load_precomputed_result(root, run_time, forecast_hour, data_code)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"NAFP precompute completed without a result: run_time={key[2]} forecast_hour={key[3]}"
+        ) from exc
 
 
 def schedule_single_if_missing(*, root: str | Path, run_time: str | datetime, forecast_hour: int, data_code: str | None = None) -> dict[str, Any] | None:
@@ -336,8 +534,11 @@ def autostart_precompute_for_latest(data_sources: dict[str, Any]) -> dict[str, A
         hours = [int(hour) for hour in latest.get("forecast_hours") or source.get("forecast_hours") or []]
         if not hours:
             return None
-        max_hours = int(os.getenv("WEATHER_DIAG_PRECOMPUTE_MAX_HOURS", "999"))
-        hours = hours[:max(1, max_hours)]
+        max_hours = max(1, int(os.getenv("WEATHER_DIAG_PRECOMPUTE_MAX_HOURS", "1")))
+        preferred_hour = int(os.getenv("WEATHER_DIAG_PRECOMPUTE_DEFAULT_HOUR", "24"))
+        if preferred_hour in hours:
+            hours = [preferred_hour, *[hour for hour in hours if hour != preferred_hour]]
+        hours = hours[:max_hours]
         return submit_precompute_job(
             root=resolve_data_root(code),
             run_time=latest["run_time"],

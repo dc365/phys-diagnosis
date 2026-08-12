@@ -7,6 +7,8 @@ LOG_DIR="$RUNTIME_DIR/logs"
 
 if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
   DEFAULT_PYTHON="$ROOT_DIR/.venv/bin/python"
+elif [[ -x "/home/miniconda3/envs/phys/bin/python" ]]; then
+  DEFAULT_PYTHON="/home/miniconda3/envs/phys/bin/python"
 else
   DEFAULT_PYTHON="python3"
 fi
@@ -16,6 +18,8 @@ API_HOST="${WEATHER_DIAG_API_HOST:-0.0.0.0}"
 API_PORT="${WEATHER_DIAG_API_PORT:-11011}"
 API_APP="${WEATHER_DIAG_API_APP:-backend.app.main:app}"
 API_RELOAD="${WEATHER_DIAG_API_RELOAD:-0}"
+START_TIMEOUT_SECONDS="${WEATHER_DIAG_START_TIMEOUT_SECONDS:-60}"
+STOP_TIMEOUT_SECONDS="${WEATHER_DIAG_STOP_TIMEOUT_SECONDS:-20}"
 
 MCP_TRANSPORT="${AREA_RISK_DSL_MCP_TRANSPORT:-http}"
 MCP_HOST="${AREA_RISK_DSL_MCP_HOST:-0.0.0.0}"
@@ -23,6 +27,8 @@ MCP_PORT="${AREA_RISK_DSL_MCP_PORT:-11012}"
 MCP_PATH="${AREA_RISK_DSL_MCP_PATH:-/mcp}"
 
 SERVICES=("api" "area-risk-mcp")
+API_SYSTEMD_UNIT="${WEATHER_DIAG_API_SYSTEMD_UNIT:-bdp-dm-physical-api.service}"
+MCP_SYSTEMD_UNIT="${WEATHER_DIAG_MCP_SYSTEMD_UNIT:-bdp-dm-physical-mcp.service}"
 
 usage() {
   cat <<EOF
@@ -36,11 +42,13 @@ Services:
 Environment:
   PYTHON                         Python executable. Default: .venv/bin/python, then python3
   WEATHER_DIAG_API_HOST          API host. Default: 0.0.0.0
-  WEATHER_DIAG_API_PORT          API port. Default: 8000
+  WEATHER_DIAG_API_PORT          API port. Default: 11011
   WEATHER_DIAG_API_RELOAD        Set 1 to pass --reload to uvicorn. Default: 0
+  WEATHER_DIAG_START_TIMEOUT_SECONDS  Startup timeout. Default: 60
+  WEATHER_DIAG_STOP_TIMEOUT_SECONDS   Shutdown timeout. Default: 20
   AREA_RISK_DSL_MCP_TRANSPORT    MCP transport. Default: http
   AREA_RISK_DSL_MCP_HOST         MCP host. Default: 0.0.0.0
-  AREA_RISK_DSL_MCP_PORT         MCP port. Default: 11011
+  AREA_RISK_DSL_MCP_PORT         MCP port. Default: 11012
   AREA_RISK_DSL_MCP_PATH         MCP path. Default: /mcp
   WEATHER_DIAG_RUNTIME_DIR       PID/log directory. Default: .runtime
 
@@ -60,6 +68,103 @@ pid_file() {
   printf '%s/%s.pid' "$PID_DIR" "$1"
 }
 
+service_port() {
+  case "$1" in
+    api) printf '%s' "$API_PORT" ;;
+    area-risk-mcp) printf '%s' "$MCP_PORT" ;;
+  esac
+}
+
+systemd_unit() {
+  case "$1" in
+    api) printf '%s' "$API_SYSTEMD_UNIT" ;;
+    area-risk-mcp) printf '%s' "$MCP_SYSTEMD_UNIT" ;;
+  esac
+}
+
+uses_systemd() {
+  local unit
+  [[ "${WEATHER_DIAG_USE_SYSTEMD:-1}" != "0" ]] || return 1
+  command -v systemctl >/dev/null 2>&1 || return 1
+  unit="$(systemd_unit "$1")"
+  systemctl cat "$unit" >/dev/null 2>&1
+}
+
+systemd_main_pid() {
+  systemctl show -p MainPID "$(systemd_unit "$1")" 2>/dev/null | sed -n 's/^MainPID=//p'
+}
+
+start_systemd_service() {
+  local service="$1" unit pid
+  ensure_runtime_dirs
+  unit="$(systemd_unit "$service")"
+  if ! systemctl start "$unit"; then
+    echo "$service failed to start through $unit" >&2
+    return 1
+  fi
+  pid="$(systemd_main_pid "$service" || true)"
+  if [[ -n "$pid" && "$pid" != "0" ]]; then
+    write_pid_file "$service" "$pid"
+  fi
+  confirm_service_started "$service" "$(service_port "$service")"
+}
+
+listener_pids() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
+  fi
+}
+
+process_command() {
+  ps -p "$1" -o command= 2>/dev/null || true
+}
+
+process_parent() {
+  ps -p "$1" -o ppid= 2>/dev/null | tr -d ' ' || true
+}
+
+write_pid_file() {
+  local service="$1" pid="$2" file tmp
+  file="$(pid_file "$service")"
+  tmp="${file}.tmp.$$"
+  printf '%s\n' "$pid" >"$tmp"
+  mv -f "$tmp" "$file"
+}
+
+reconcile_service_pid() {
+  local service="$1" file pid port listener parent command parent_command
+  file="$(pid_file "$service")"
+  if [[ -s "$file" ]]; then
+    pid="$(cat "$file")"
+    if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+      return 0
+    fi
+    rm -f "$file"
+  fi
+
+  port="$(service_port "$service")"
+  while IFS= read -r listener; do
+    [[ -n "$listener" ]] || continue
+    command="$(process_command "$listener")"
+    parent="$(process_parent "$listener")"
+    parent_command="$(process_command "$parent")"
+    if [[ "$parent_command" == *"$ROOT_DIR/scripts/api_supervisor.py"* ]]; then
+      write_pid_file "$service" "$parent"
+      return 0
+    fi
+    if [[ "$service" == "api" && "$command" == *"-m uvicorn $API_APP"* ]]; then
+      write_pid_file "$service" "$listener"
+      return 0
+    fi
+    if [[ "$service" == "area-risk-mcp" && "$command" == *"-m weather_diag.mcp.area_risk_dsl_mcp"* ]]; then
+      write_pid_file "$service" "$listener"
+      return 0
+    fi
+  done < <(listener_pids "$port")
+  return 1
+}
+
 log_file() {
   printf '%s/%s.log' "$LOG_DIR" "$1"
 }
@@ -68,7 +173,7 @@ is_running() {
   local service="$1"
   local file
   file="$(pid_file "$service")"
-  [[ -s "$file" ]] || return 1
+  reconcile_service_pid "$service" || return 1
   local pid
   pid="$(cat "$file")"
   [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1
@@ -118,7 +223,7 @@ start_api() {
   fi
   if command -v lsof >/dev/null 2>&1; then
     local listeners
-    listeners="$(lsof -tiTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null || true)"
+    listeners="$(listener_pids "$API_PORT")"
     if [[ -n "$listeners" ]]; then
       echo "$service cannot start: port $API_PORT is already used by unmanaged pid(s): ${listeners//$'\n'/,}" >&2
       return 1
@@ -133,10 +238,11 @@ start_api() {
   (
     cd "$ROOT_DIR"
     export PYTHONPATH="$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}"
-    nohup "${command[@]}" >>"$logfile" 2>&1 &
-    echo $! >"$pidfile"
+    export PYTHONFAULTHANDLER="${PYTHONFAULTHANDLER:-1}"
+    nohup "$PYTHON_BIN" "$ROOT_DIR/scripts/api_supervisor.py" --label api -- "${command[@]}" >>"$logfile" 2>&1 &
+    write_pid_file "$service" "$!"
   )
-  confirm_api_started "$service"
+  confirm_service_started "$service" "$API_PORT"
 }
 
 start_area_risk_mcp() {
@@ -149,6 +255,16 @@ start_area_risk_mcp() {
     echo "$service already running (pid $(service_pid "$service"))"
     return 0
   fi
+  if command -v lsof >/dev/null 2>&1; then
+    local listeners
+    listeners="$(listener_pids "$MCP_PORT")"
+    if [[ -n "$listeners" ]]; then
+      echo "$service cannot start: port $MCP_PORT is already used by unmanaged pid(s): ${listeners//$'\n'/,}" >&2
+      return 1
+    fi
+  fi
+
+  local command=("$PYTHON_BIN" -m weather_diag.mcp.area_risk_dsl_mcp)
 
   (
     cd "$ROOT_DIR"
@@ -157,45 +273,48 @@ start_area_risk_mcp() {
     export AREA_RISK_DSL_MCP_HOST="$MCP_HOST"
     export AREA_RISK_DSL_MCP_PORT="$MCP_PORT"
     export AREA_RISK_DSL_MCP_PATH="$MCP_PATH"
-    nohup "$PYTHON_BIN" -m weather_diag.mcp.area_risk_dsl_mcp >>"$logfile" 2>&1 &
-    echo $! >"$pidfile"
+    nohup "$PYTHON_BIN" "$ROOT_DIR/scripts/api_supervisor.py" --label area-risk-mcp -- "${command[@]}" >>"$logfile" 2>&1 &
+    write_pid_file "$service" "$!"
   )
-  confirm_started "$service"
+  confirm_service_started "$service" "$MCP_PORT"
 }
 
-confirm_started() {
-  local service="$1"
-  sleep 1
-  if is_running "$service"; then
-    echo "$service started (pid $(service_pid "$service"), log $(log_file "$service"))"
-    return 0
-  fi
-  echo "$service failed to start. Last log lines:" >&2
-  tail -n 40 "$(log_file "$service")" >&2 || true
-  return 1
-}
-
-confirm_api_started() {
-  local service="$1"
-  local pid
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    pid="$(service_pid "$service")"
-    if ! is_running "$service"; then
-      break
+confirm_service_started() {
+  local service="$1" port="$2" pid deadline
+  deadline=$((SECONDS + START_TIMEOUT_SECONDS))
+  while (( SECONDS < deadline )); do
+    if uses_systemd "$service"; then
+      if [[ "$(systemctl is-active "$(systemd_unit "$service")" 2>/dev/null || true)" != "active" ]]; then
+        break
+      fi
+      pid="$(systemd_main_pid "$service" || true)"
+    else
+      pid="$(service_pid "$service")"
+      if ! is_running "$service"; then
+        break
+      fi
     fi
-    if ! command -v lsof >/dev/null 2>&1 || lsof -tiTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null | grep -qx "$pid"; then
+    if ! command -v lsof >/dev/null 2>&1 || [[ -n "$(listener_pids "$port")" ]]; then
       echo "$service started (pid $pid, log $(log_file "$service"))"
       return 0
     fi
     sleep 1
   done
-  rm -f "$(pid_file "$service")"
-  echo "$service failed to start or bind port $API_PORT. Last log lines:" >&2
-  tail -n 40 "$(log_file "$service")" >&2 || true
+  echo "$service failed to start or bind port $port within ${START_TIMEOUT_SECONDS}s. Last log lines:" >&2
+  if uses_systemd "$service"; then
+    journalctl -u "$(systemd_unit "$service")" -n 40 --no-pager >&2 || true
+  else
+    tail -n 40 "$(log_file "$service")" >&2 || true
+  fi
+  stop_service "$service" >/dev/null || true
   return 1
 }
 
 start_service() {
+  if uses_systemd "$1"; then
+    start_systemd_service "$1"
+    return
+  fi
   case "$1" in
     api) start_api ;;
     area-risk-mcp) start_area_risk_mcp ;;
@@ -207,6 +326,23 @@ stop_service() {
   local service="$1"
   local pidfile pid
   pidfile="$(pid_file "$service")"
+  if uses_systemd "$service"; then
+    local unit port deadline
+    unit="$(systemd_unit "$service")"
+    port="$(service_port "$service")"
+    systemctl stop "$unit" || true
+    deadline=$((SECONDS + STOP_TIMEOUT_SECONDS))
+    while (( SECONDS < deadline )); do
+      if [[ -z "$(listener_pids "$port")" ]]; then
+        rm -f "$pidfile"
+        echo "$service stopped"
+        return 0
+      fi
+      sleep 1
+    done
+    echo "$service failed to stop through $unit or release port $port" >&2
+    return 1
+  fi
   if ! is_running "$service"; then
     rm -f "$pidfile"
     echo "$service stopped"
@@ -214,24 +350,52 @@ stop_service() {
   fi
 
   pid="$(service_pid "$service")"
+  local port deadline listener managed_listeners
+  port="$(service_port "$service")"
+  managed_listeners="$(listener_pids "$port")"
   kill "$pid" >/dev/null 2>&1 || true
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
+  deadline=$((SECONDS + STOP_TIMEOUT_SECONDS))
+  while (( SECONDS < deadline )); do
     if ! kill -0 "$pid" >/dev/null 2>&1; then
-      rm -f "$pidfile"
-      echo "$service stopped"
-      return 0
+      break
     fi
     sleep 1
   done
 
-  kill -9 "$pid" >/dev/null 2>&1 || true
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  fi
+  while IFS= read -r listener; do
+    [[ -n "$listener" ]] || continue
+    if kill -0 "$listener" >/dev/null 2>&1; then
+      kill "$listener" >/dev/null 2>&1 || true
+    fi
+  done <<<"$managed_listeners"
   rm -f "$pidfile"
-  echo "$service force stopped"
+  if [[ -z "$(listener_pids "$port")" ]]; then
+    echo "$service stopped"
+    return 0
+  fi
+  echo "$service failed to release port $port" >&2
+  return 1
 }
 
 status_service() {
   ensure_runtime_dirs
   local service="$1"
+  if uses_systemd "$service"; then
+    local unit state pid
+    unit="$(systemd_unit "$service")"
+    state="$(systemctl is-active "$unit" 2>/dev/null || true)"
+    pid="$(systemd_main_pid "$service" || true)"
+    if [[ "$state" == "active" ]]; then
+      [[ -n "$pid" && "$pid" != "0" ]] && write_pid_file "$service" "$pid"
+      printf '%-14s running pid=%s manager=systemd unit=%s log=%s\n' "$service" "$pid" "$unit" "$(log_file "$service")"
+      return 0
+    fi
+    printf '%-14s stopped manager=systemd unit=%s log=%s\n' "$service" "$unit" "$(log_file "$service")"
+    return 0
+  fi
   if is_running "$service"; then
     printf '%-14s running pid=%s log=%s\n' "$service" "$(service_pid "$service")" "$(log_file "$service")"
   else
@@ -245,9 +409,18 @@ show_logs() {
   target="$(normalize_target "${1:-all}")"
   if [[ "$target" == "all" ]]; then
     for service in "${SERVICES[@]}"; do
-      echo "==> $service ($(log_file "$service"))"
-      tail -n 80 "$(log_file "$service")" 2>/dev/null || true
+      if uses_systemd "$service"; then
+        echo "==> $service (journalctl -u $(systemd_unit "$service"))"
+        journalctl -u "$(systemd_unit "$service")" -n 80 --no-pager
+      else
+        echo "==> $service ($(log_file "$service"))"
+        tail -n 80 "$(log_file "$service")" 2>/dev/null || true
+      fi
     done
+    return 0
+  fi
+  if uses_systemd "$target"; then
+    journalctl -u "$(systemd_unit "$target")" -n 120 -f
     return 0
   fi
   tail -n 120 -f "$(log_file "$target")"
@@ -259,14 +432,24 @@ run_action() {
   local service
   case "$action" in
     start)
-      while IFS= read -r service; do start_service "$service"; done < <(targets_for "$target")
+      local failed=0
+      while IFS= read -r service; do
+        if ! start_service "$service"; then failed=1; fi
+      done < <(targets_for "$target")
+      return "$failed"
       ;;
     stop)
-      while IFS= read -r service; do stop_service "$service"; done < <(targets_for "$target" | sort -r)
+      local failed=0
+      while IFS= read -r service; do
+        if ! stop_service "$service"; then failed=1; fi
+      done < <(targets_for "$target" | sort -r)
+      return "$failed"
       ;;
     restart)
-      run_action stop "$target"
-      run_action start "$target"
+      local failed=0
+      run_action stop "$target" || failed=1
+      run_action start "$target" || failed=1
+      return "$failed"
       ;;
     status)
       while IFS= read -r service; do status_service "$service"; done < <(targets_for "$target")

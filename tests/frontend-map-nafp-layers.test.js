@@ -21,9 +21,21 @@ test('map layer loading can use NAFP grid, metadata and contour endpoints', () =
   assert.match(mapJs, /buildNafpLayerContourUrl\(layer, selectedPointDataCode\(\), selectedPointRunTime\(\), fh, Date\.now\(\)\)/);
 });
 
+test('map cancels stale NAFP layer requests before starting a new layer load', () => {
+  assert.match(mapJs, /nafpLayerAbortController/);
+  assert.match(mapJs, /state\.nafpLayerAbortController\?\.abort\(\)/);
+  assert.match(mapJs, /new AbortController\(\)/);
+  assert.match(mapJs, /\{\s*signal:\s*controller\.signal\s*\}/);
+});
+
+test('map loads NAFP metadata, grid and contours concurrently behind one backend singleflight', () => {
+  assert.match(mapJs, /const \[md, grid\] = await Promise\.all\(\[/);
+  assert.match(mapJs, /loadContours\(\{ signal: controller\.signal \}\)/);
+});
+
 test('map layer loading uses sounding analysis grids when category is observed', () => {
   assert.match(mapJs, /async function loadSoundingLayerData\(layer\)/);
-  assert.match(mapJs, /if \(selectedDataCategory\(\) === 'sounding'\) \{\s*await loadSoundingLayerData\(layer, options\);\s*return;\s*\}/);
+  assert.match(mapJs, /if \(selectedDataCategory\(\) === 'sounding'\) \{[\s\S]*?await loadSoundingLayerData\(layer, options\);\s*return;\s*\}/);
   assert.match(mapJs, /buildSoundingLayerMetadataUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);
   assert.match(mapJs, /buildSoundingLayerGridUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);
   assert.match(mapJs, /buildSoundingLayerContourUrl\(layer, selectedSoundingCsvPath\(\), 500, Date\.now\(\)\)/);

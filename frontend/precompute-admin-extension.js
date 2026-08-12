@@ -2,6 +2,8 @@
   const API_BASE = '/api/v1/diagnosis/nafp/precompute';
   const AUTO_SCHEDULE_API = '/api/v1/admin/auto-diagnostics/schedule';
   const DEFAULT_DATA_CODE = 'NAFP_ECTHIN_NC';
+  let statusRefreshPromise = null;
+  let statusPollTimer = null;
 
   function $(id) { return document.getElementById(id); }
   function esc(value) {
@@ -248,17 +250,42 @@
   }
 
   async function refreshStatus() {
-    const payload = await getJson(`${API_BASE}/status?_=${Date.now()}`);
-    const statusBadge = $('precomputeStatusBadge');
-    if (statusBadge) statusBadge.textContent = `${payload.status || 'idle'} · ${payload.result_file_count || 0}文件`;
-    const latest = $('precomputeLatestJob');
-    if (latest) latest.innerHTML = renderJob(payload.latest_job);
-    const list = $('precomputeJobList');
-    if (list) {
-      list.innerHTML = (payload.jobs || []).length
-        ? (payload.jobs || []).map((job) => renderJob(job)).join('')
-        : '<div class="empty-state">暂无历史任务</div>';
+    if (statusRefreshPromise) return statusRefreshPromise;
+    statusRefreshPromise = (async () => {
+      const payload = await getJson(`${API_BASE}/status?_=${Date.now()}`);
+      const statusBadge = $('precomputeStatusBadge');
+      if (statusBadge) statusBadge.textContent = `${payload.status || 'idle'} · ${payload.result_file_count || 0}文件`;
+      const latest = $('precomputeLatestJob');
+      if (latest) latest.innerHTML = renderJob(payload.latest_job);
+      const list = $('precomputeJobList');
+      if (list) {
+        list.innerHTML = (payload.jobs || []).length
+          ? (payload.jobs || []).map((job) => renderJob(job)).join('')
+          : '<div class="empty-state">暂无历史任务</div>';
+      }
+      return payload;
+    })();
+    try {
+      return await statusRefreshPromise;
+    } finally {
+      statusRefreshPromise = null;
     }
+  }
+
+  function scheduleStatusPoll(payload) {
+    if (statusPollTimer) clearTimeout(statusPollTimer);
+    const delay = document.hidden ? 30000 : (payload?.status === 'running' ? 5000 : 15000);
+    statusPollTimer = setTimeout(async () => {
+      let nextPayload = payload;
+      if (!document.hidden) {
+        try {
+          nextPayload = await refreshStatus();
+        } catch (_error) {
+          nextPayload = null;
+        }
+      }
+      scheduleStatusPoll(nextPayload);
+    }, delay);
   }
 
   async function submitPrecompute(event) {
@@ -321,8 +348,12 @@
     bindEvents();
     await loadSchedule();
     await loadDataSources();
-    await refreshStatus();
-    setInterval(() => refreshStatus().catch(() => {}), 3000);
+    const initialStatus = await refreshStatus();
+    scheduleStatusPoll(initialStatus);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshStatus().then(scheduleStatusPoll).catch(() => scheduleStatusPoll(null));
+      else scheduleStatusPoll(initialStatus);
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init().catch((error) => console.warn(error)));

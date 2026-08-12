@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import os
 import re
+import threading
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from weather_diag.config import PROJECT_ROOT, load_yaml
@@ -29,6 +32,8 @@ class DataSourceError(ValueError):
 
 
 NAFP_FORECAST_FILE_RE = re.compile(r"^(?P<stamp>\d{8})\.(?P<forecast_hour>\d{3})$")
+_inventory_cache: dict[tuple[str, str, str, str, int], tuple[float, dict[str, Any]]] = {}
+_inventory_cache_lock = threading.RLock()
 
 
 def _expand_root(value: str) -> str:
@@ -131,6 +136,99 @@ def _iter_nafp_forecast_files(root: Path, element: str, level: str) -> list[Path
     return [path for path in root.glob("*/*/*/*/*/*/*") if path.is_file()]
 
 
+def _numeric_child_dirs(parent: Path) -> list[Path]:
+    try:
+        return sorted(
+            (path for path in parent.iterdir() if path.is_dir() and path.name.isdigit()),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+    except OSError:
+        return []
+
+
+def _recent_nafp_run_dirs(probe_root: Path, max_run_times: int) -> list[tuple[datetime, Path]]:
+    runs: list[tuple[datetime, Path]] = []
+    for year_dir in _numeric_child_dirs(probe_root):
+        for month_dir in _numeric_child_dirs(year_dir):
+            for day_dir in _numeric_child_dirs(month_dir):
+                for hour_dir in _numeric_child_dirs(day_dir):
+                    try:
+                        run_time = datetime(
+                            int(year_dir.name),
+                            int(month_dir.name),
+                            int(day_dir.name),
+                            int(hour_dir.name),
+                        )
+                    except ValueError:
+                        continue
+                    runs.append((run_time, hour_dir))
+                    if len(runs) >= max_run_times:
+                        return runs
+    return runs
+
+
+def _discover_nafp_run_inventory_uncached(
+    *,
+    data_root: Path,
+    data_code: str,
+    element: str,
+    level: str,
+    max_run_times: int,
+) -> dict[str, Any]:
+    run_hours: dict[str, set[int]] = {}
+    probe_root = data_root / element / str(level)
+
+    if data_root.exists():
+        run_dirs = _recent_nafp_run_dirs(probe_root, max_run_times) if probe_root.exists() else []
+        if run_dirs:
+            for run_time, run_dir in run_dirs:
+                try:
+                    files = list(run_dir.iterdir())
+                except OSError:
+                    continue
+                for path in files:
+                    if not path.is_file():
+                        continue
+                    match = NAFP_FORECAST_FILE_RE.match(path.name)
+                    if match:
+                        run_hours.setdefault(run_time.isoformat(), set()).add(
+                            int(match.group("forecast_hour"))
+                        )
+        else:
+            for path in _iter_nafp_forecast_files(data_root, element, level):
+                match = NAFP_FORECAST_FILE_RE.match(path.name)
+                if not match:
+                    continue
+                try:
+                    relative_parent = path.parent.relative_to(data_root)
+                except ValueError:
+                    continue
+                run_time = _run_time_from_path_parts(relative_parent.parts)
+                if run_time:
+                    run_hours.setdefault(run_time.isoformat(), set()).add(
+                        int(match.group("forecast_hour"))
+                    )
+
+    run_times = [
+        {"run_time": run_time, "forecast_hours": sorted(hours)}
+        for run_time, hours in sorted(run_hours.items(), reverse=True)
+        if hours
+    ][:max_run_times]
+    return {
+        "data_code": data_code,
+        "root": str(data_root),
+        "probe": {"element": element, "level": str(level)},
+        "default_run_time": run_times[0]["run_time"] if run_times else None,
+        "run_times": run_times,
+    }
+
+
+def clear_nafp_run_inventory_cache() -> None:
+    with _inventory_cache_lock:
+        _inventory_cache.clear()
+
+
 def discover_nafp_run_inventory(
     *,
     data_code: str | None = None,
@@ -139,33 +237,24 @@ def discover_nafp_run_inventory(
     level: str = "500",
     max_run_times: int = 20,
 ) -> dict[str, Any]:
-    data_root = Path(root) if root is not None else resolve_data_root(data_code)
+    data_root = (Path(root) if root is not None else resolve_data_root(data_code)).resolve()
     safe_max = max(1, min(int(max_run_times or 20), 200))
-    run_hours: dict[str, set[int]] = {}
+    code = str(data_code or "")
+    key = (str(data_root), code, str(element), str(level), safe_max)
+    now = monotonic()
+    ttl_seconds = max(1.0, float(os.getenv("WEATHER_DIAG_RUN_INVENTORY_TTL_SECONDS", "30")))
+    with _inventory_cache_lock:
+        cached = _inventory_cache.get(key)
+        if cached is not None and cached[0] > now:
+            return deepcopy(cached[1])
 
-    if data_root.exists():
-        for path in _iter_nafp_forecast_files(data_root, element, level):
-            match = NAFP_FORECAST_FILE_RE.match(path.name)
-            if not match:
-                continue
-            try:
-                relative_parent = path.parent.relative_to(data_root)
-            except ValueError:
-                continue
-            run_time = _run_time_from_path_parts(relative_parent.parts)
-            if not run_time:
-                continue
-            hour = int(match.group("forecast_hour"))
-            run_hours.setdefault(run_time.isoformat(), set()).add(hour)
-
-    run_times = [
-        {"run_time": run_time, "forecast_hours": sorted(hours)}
-        for run_time, hours in sorted(run_hours.items(), reverse=True)
-    ][:safe_max]
-    return {
-        "data_code": str(data_code or ""),
-        "root": str(data_root),
-        "probe": {"element": element, "level": str(level)},
-        "default_run_time": run_times[0]["run_time"] if run_times else None,
-        "run_times": run_times,
-    }
+    payload = _discover_nafp_run_inventory_uncached(
+        data_root=data_root,
+        data_code=code,
+        element=str(element),
+        level=str(level),
+        max_run_times=safe_max,
+    )
+    with _inventory_cache_lock:
+        _inventory_cache[key] = (now + ttl_seconds, payload)
+    return deepcopy(payload)

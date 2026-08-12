@@ -45,3 +45,10 @@ test('diagnosis workbench exposes editable automatic preprocessing schedule', ()
   assert.match(adminExtension, /默认每 1 小时/);
   assert.match(adminExtension, /\/api\/v1\/admin\/auto-diagnostics\/schedule/);
 });
+
+test('precompute status polling is non-overlapping and backs off while idle or hidden', () => {
+  assert.match(adminExtension, /statusRefreshPromise/);
+  assert.match(adminExtension, /document\.hidden/);
+  assert.match(adminExtension, /payload\?\.status === 'running'/);
+  assert.doesNotMatch(adminExtension, /setInterval\(\(\) => refreshStatus/);
+});

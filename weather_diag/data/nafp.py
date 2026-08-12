@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import gzip
+import os
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +14,7 @@ import xarray as xr
 
 
 NAFP_SAMPLE_ROOT = Path("/Users/dc/Downloads/workspace/data/Weather/NAFP/NAFP_ECTHIN_NC")
+_NETCDF_IO_LOCK = threading.RLock()
 
 
 @dataclass
@@ -79,16 +82,31 @@ def _normalize_coords(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
+def _open_loaded_dataset(path: Path) -> xr.Dataset:
+    kwargs: dict[str, Any] = {}
+    engine = os.getenv("WEATHER_DIAG_NAFP_NETCDF_ENGINE", "netcdf4").strip().lower()
+    if engine and engine != "auto":
+        # netcdf4 is substantially faster for the deployed NAFP volume. All
+        # calls now happen in a disposable worker process; scipy remains an
+        # operator-selectable fallback if a particular host has a broken C lib.
+        kwargs["engine"] = engine
+    with xr.open_dataset(path, **kwargs) as source:
+        return _normalize_coords(source).load()
+
+
 def open_nafp_dataset(path: str | Path) -> xr.Dataset:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(str(path))
-    if _is_gzip(path):
-        with gzip.open(path, "rb") as src, tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
-            tmp.write(src.read())
-            tmp.flush()
-            return _normalize_coords(xr.open_dataset(tmp.name).load())
-    return _normalize_coords(xr.open_dataset(path).load())
+    # Keep open/load/close in one critical section. The returned dataset is
+    # already memory-backed and its file manager has been closed explicitly.
+    with _NETCDF_IO_LOCK:
+        if _is_gzip(path):
+            with gzip.open(path, "rb") as src, tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
+                tmp.write(src.read())
+                tmp.flush()
+                return _open_loaded_dataset(Path(tmp.name))
+        return _open_loaded_dataset(path)
 
 
 def _numeric_attr(attrs: dict[str, Any], *keys: str) -> float | None:

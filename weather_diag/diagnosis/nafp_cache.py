@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from threading import RLock
+from threading import Event, RLock
 from time import perf_counter, time
 from typing import Any, Callable
 
@@ -30,7 +30,14 @@ class NafpSituationCacheEntry:
     hit_count: int = 0
 
 
+@dataclass
+class NafpSituationFlight:
+    event: Event
+    error: BaseException | None = None
+
+
 _cache: OrderedDict[NafpSituationCacheKey, NafpSituationCacheEntry] = OrderedDict()
+_flights: dict[NafpSituationCacheKey, NafpSituationFlight] = {}
 _lock = RLock()
 
 
@@ -108,6 +115,7 @@ def nafp_situation_cache_info() -> dict[str, Any]:
         return {
             "size": len(_cache),
             "max_size": MAX_NAFP_SITUATION_CACHE_SIZE,
+            "inflight_count": len(_flights),
             "keys": [
                 {
                     "root": key.root,
@@ -168,25 +176,56 @@ def get_or_compute_nafp_situation(
         entry = _cache.get(key)
         if entry is not None and not force:
             entry.hit_count += 1
-            entry.result = _extend_result_safely(entry.result, key)
             _cache.move_to_end(key)
             return entry.result, {
                 "cache_status": "hit",
                 "compute_ms": round(entry.compute_ms, 1),
                 "hit_count": entry.hit_count,
             }
+        flight = _flights.get(key)
+        if flight is None:
+            flight = NafpSituationFlight(event=Event())
+            _flights[key] = flight
+            owns_flight = True
+        else:
+            owns_flight = False
+
+    if not owns_flight:
+        flight.event.wait()
+        with _lock:
+            if flight.error is not None:
+                raise flight.error
+            entry = _cache.get(key)
+            if entry is None:
+                raise RuntimeError(f"NAFP situation flight completed without a cache entry: {key}")
+            entry.hit_count += 1
+            _cache.move_to_end(key)
+            return entry.result, {
+                "cache_status": "waited",
+                "compute_ms": round(entry.compute_ms, 1),
+                "hit_count": entry.hit_count,
+            }
 
     start = perf_counter()
-    result = compute(
-        root=Path(key.root),
-        run_time=key.run_time,
-        forecast_hour=key.forecast_hour,
-    )
-    result = _extend_result_safely(result, key)
-    compute_ms = (perf_counter() - start) * 1000
+    try:
+        result = compute(
+            root=Path(key.root),
+            run_time=key.run_time,
+            forecast_hour=key.forecast_hour,
+        )
+        result = _extend_result_safely(result, key)
+        compute_ms = (perf_counter() - start) * 1000
+    except BaseException as exc:
+        with _lock:
+            flight.error = exc
+            _flights.pop(key, None)
+            flight.event.set()
+        raise
 
     with _lock:
         entry = _store_cache_entry(key, result, compute_ms)
+        _flights.pop(key, None)
+        flight.event.set()
         return entry.result, {
             "cache_status": "refreshed" if force else "computed",
             "compute_ms": round(compute_ms, 1),

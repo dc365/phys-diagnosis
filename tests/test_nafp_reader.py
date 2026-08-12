@@ -5,7 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import xarray as xr
 
+from weather_diag.data import nafp as nafp_module
 from weather_diag.data.nafp import (
     NAFP_SAMPLE_ROOT,
     load_nafp_field,
@@ -42,6 +44,31 @@ def test_open_nafp_dataset_reads_gzip_netcdf_without_gz_suffix():
     assert ds.sizes["lat"] == 241
     assert ds.sizes["lon"] == 361
     assert "gh" in ds.data_vars
+
+
+def test_open_nafp_dataset_closes_backend_and_uses_configured_engine(monkeypatch, tmp_path):
+    path = tmp_path / "26061720.024"
+    path.write_bytes(b"CDF\x01test")
+    closed = []
+    opened_with = []
+    source = xr.Dataset(
+        {"gh": (("lat", "lon"), np.asarray([[588.0]]))},
+        coords={"lat": [30.0], "lon": [110.0]},
+    )
+    source.set_close(lambda: closed.append(True))
+
+    def fake_open_dataset(opened_path, **kwargs):
+        opened_with.append((str(opened_path), kwargs))
+        return source
+
+    monkeypatch.setattr(nafp_module.xr, "open_dataset", fake_open_dataset)
+    monkeypatch.delenv("WEATHER_DIAG_NAFP_NETCDF_ENGINE", raising=False)
+
+    loaded = nafp_module.open_nafp_dataset(path)
+
+    assert float(loaded["gh"].values[0, 0]) == 588.0
+    assert closed == [True]
+    assert opened_with[0][1]["engine"] == "netcdf4"
 
 
 def test_load_nafp_field_reads_multivariable_uv850():

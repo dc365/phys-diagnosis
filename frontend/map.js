@@ -83,6 +83,7 @@ const state = {
   selectedAreaRiskId: '',
   areaRiskLoaded: false,
   featureLoadToken: 0,
+  nafpLayerAbortController: null,
   basemap: 'offline',
 };
 
@@ -343,8 +344,8 @@ async function postEnvelope(url, payload) {
   return body.data;
 }
 
-async function getEnvelope(url) {
-  const body = await api(url);
+async function getEnvelope(url, opts) {
+  const body = await api(url, opts);
   if (body?.code !== 0) throw new Error(body?.msg || '接口返回异常');
   return body.data;
 }
@@ -2090,6 +2091,8 @@ async function loadLayer(options = {}) {
   if (!layer || Number.isNaN(fh)) return;
   state.forecastHour = fh;
   if (selectedDataCategory() === 'sounding') {
+    state.nafpLayerAbortController?.abort();
+    state.nafpLayerAbortController = null;
     await loadSoundingLayerData(layer, options);
     return;
   }
@@ -2097,6 +2100,8 @@ async function loadLayer(options = {}) {
     await loadNafpLayerData(layer, fh, options);
     return;
   }
+  state.nafpLayerAbortController?.abort();
+  state.nafpLayerAbortController = null;
 
   const runId = $('runSelect').value;
   if (!runId) return;
@@ -2135,21 +2140,38 @@ async function loadNafpLayerData(layer, fh) {
   }
   const title = state.layers[layer]?.title || layer;
   status(`正在加载 NAFP 原始格点：${title} ${formatPointRunTimeLabel(selectedPointRunTime())} +${fh}h`);
-
-  const md = await getEnvelope(buildNafpLayerMetadataUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
-  state.currentBounds = metadataToBounds(md);
-  const grid = await getEnvelope(buildNafpLayerGridUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
-  const source = map.getSource(GRID_SOURCE_ID);
-  source.setData(grid);
-  const palette = paletteForLayer(layer);
-  const domain = colorRampDomainForLayer(layer, md);
-  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
-  map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-opacity', GRID_FILL_OPACITY);
-  await loadContours();
-  updateLegend(md, palette, domain);
-  renderLayerChips();
-  if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
-  status(`已加载 NAFP 原始格点：${md.title || layer} +${fh}h`);
+  state.nafpLayerAbortController?.abort();
+  const controller = new AbortController();
+  state.nafpLayerAbortController = controller;
+  try {
+    const [md, grid] = await Promise.all([
+      getEnvelope(
+        buildNafpLayerMetadataUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()),
+        { signal: controller.signal },
+      ),
+      getEnvelope(
+        buildNafpLayerGridUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()),
+        { signal: controller.signal },
+      ),
+      loadContours({ signal: controller.signal }),
+    ]);
+    if (controller.signal.aborted) return;
+    state.currentBounds = metadataToBounds(md);
+    const source = map.getSource(GRID_SOURCE_ID);
+    source.setData(grid);
+    const palette = paletteForLayer(layer);
+    const domain = colorRampDomainForLayer(layer, md);
+    map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-color', buildColorRampExpression(domain.min, domain.max, palette));
+    map.setPaintProperty(GRID_FILL_LAYER_ID, 'fill-opacity', GRID_FILL_OPACITY);
+    updateLegend(md, palette, domain);
+    renderLayerChips();
+    if (options.fitBounds !== false) fitCurrentBounds({ duration: 450 });
+    status(`已加载 NAFP 原始格点：${md.title || layer} +${fh}h`);
+  } catch (error) {
+    if (error?.name !== 'AbortError') throw error;
+  } finally {
+    if (state.nafpLayerAbortController === controller) state.nafpLayerAbortController = null;
+  }
 }
 
 async function loadSoundingLayerData(layer) {
@@ -2186,6 +2208,7 @@ function clearContours() {
 }
 
 async function loadContours() {
+  const options = arguments[0] || {};
   if (!map || !state.mapReady) return;
   if (!$('contourToggle')?.checked) {
     clearContours();
@@ -2215,16 +2238,17 @@ async function loadContours() {
   try {
     let contours;
     if (useSounding) {
-      contours = await getEnvelope(buildSoundingLayerContourUrl(layer, selectedSoundingCsvPath(), 500, Date.now()));
+      contours = await getEnvelope(buildSoundingLayerContourUrl(layer, selectedSoundingCsvPath(), 500, Date.now()), options);
     } else if (useNafp) {
-      contours = await getEnvelope(buildNafpLayerContourUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()));
+      contours = await getEnvelope(buildNafpLayerContourUrl(layer, selectedPointDataCode(), selectedPointRunTime(), fh, Date.now()), options);
     } else {
-      contours = await api(buildLayerContourUrl(layer, runId, fh, Date.now()));
+      contours = await api(buildLayerContourUrl(layer, runId, fh, Date.now()), options);
     }
     state.contours = contours;
     map.getSource(CONTOUR_SOURCE_ID).setData(contours);
     map.getSource(CONTOUR_LABEL_SOURCE_ID).setData(contourLabelFeatureCollection(contours));
   } catch (error) {
+    if (error?.name === 'AbortError') return;
     console.warn(`contour load failed: ${layer}`, error);
     clearContours();
   }

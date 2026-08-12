@@ -9,19 +9,19 @@ from pydantic import BaseModel
 
 from backend.app.responses import ApiError, ok
 from backend.app.services.data_sources import DataSourceError, list_data_sources, resolve_data_root
+from backend.app.services.nafp_process import (
+    diagnose_nafp_point_isolated,
+    diagnose_nafp_situation_isolated,
+    evaluate_nafp_area_risks_isolated,
+    load_nafp_layer_isolated,
+)
 from weather_diag.areas.registry import load_area_registry
 from weather_diag.config import load_layers
 from weather_diag.data.nafp import parse_run_time
-from weather_diag.diagnosis.area_risk import (
-    area_risk_metadata,
-    evaluate_area_risks,
-    supported_area_risk_types,
-)
+from weather_diag.diagnosis.area_risk import area_risk_metadata, supported_area_risk_types
 from weather_diag.diagnosis.nafp_cache import get_or_compute_nafp_situation, nafp_situation_cache_info
 from weather_diag.diagnosis.nafp_features import nafp_situation_to_feature_collection, parse_feature_types
-from weather_diag.diagnosis.nafp_layers import layer_metadata, load_nafp_layer
-from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
-from weather_diag.diagnosis.point import diagnose_nafp_point
+from weather_diag.diagnosis.nafp_layers import layer_metadata
 from weather_diag.io.contours import contours_to_geojson
 from weather_diag.io.grid_geojson import grid_to_geojson
 
@@ -50,6 +50,13 @@ class NafpPointRequest(NafpSituationRequest):
 
 
 router = APIRouter(prefix="/diagnosis/nafp", tags=["public-diagnosis"])
+
+# Keep these aliases for the existing cache/test seam while changing the
+# execution boundary from the API process to a fresh worker process.
+diagnose_nafp_situation = diagnose_nafp_situation_isolated
+diagnose_nafp_point = diagnose_nafp_point_isolated
+load_nafp_layer = load_nafp_layer_isolated
+evaluate_area_risks = evaluate_nafp_area_risks_isolated
 
 
 def parse_contour_levels(value: Optional[str]) -> list[float] | None:

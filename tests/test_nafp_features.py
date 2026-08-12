@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import queue
+import threading
+import time
+
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.api.v1 import diagnosis as diagnosis_api
 from backend.app.api.v1 import precompute as precompute_api
+from backend.app.services import data_sources as data_sources_service
 from weather_diag.data.nafp import NAFP_SAMPLE_ROOT
+from weather_diag.diagnosis import nafp_cache
+from weather_diag.diagnosis import nafp_precompute
 from weather_diag.diagnosis.nafp_features import nafp_situation_to_feature_collection
 from weather_diag.diagnosis.nafp_situation import diagnose_nafp_situation
 from weather_diag.diagnosis.nafp_situation_integrated import _feature_to_system
@@ -144,22 +151,14 @@ def test_nafp_precompute_schedules_async_job_for_feature_loading(monkeypatch, tm
     ]
 
 
-def test_precomputed_features_endpoint_computes_when_result_is_missing(monkeypatch, tmp_path):
-    loads = []
-    jobs = []
+def test_precomputed_features_endpoint_waits_for_shared_precompute_when_result_is_missing(monkeypatch, tmp_path):
+    waits = []
 
-    def fake_load_precomputed_result(root, run_time, forecast_hour, data_code=None):
-        loads.append((str(root), run_time, forecast_hour, data_code))
-        if len(loads) == 1:
-            raise FileNotFoundError("missing")
+    def fake_wait_for_precomputed_result(root, run_time, forecast_hour, data_code=None):
+        waits.append((str(root), run_time, forecast_hour, data_code))
         return fake_situation_result(run_time, forecast_hour)
 
-    def fake_submit_precompute_job(**kwargs):
-        jobs.append(kwargs)
-        return {"status": "completed", "failed_count": 0}
-
-    monkeypatch.setattr(precompute_api, "load_precomputed_result", fake_load_precomputed_result)
-    monkeypatch.setattr(precompute_api, "submit_precompute_job", fake_submit_precompute_job)
+    monkeypatch.setattr(precompute_api, "wait_for_precomputed_result", fake_wait_for_precomputed_result)
 
     response = client.get(
         "/api/v1/diagnosis/nafp/precompute/features",
@@ -173,17 +172,214 @@ def test_precomputed_features_endpoint_computes_when_result_is_missing(monkeypat
 
     assert response.status_code == 200
     assert envelope(response.json())["properties"]["count"] == 1
-    assert len(loads) == 2
-    assert jobs == [
-        {
-            "root": tmp_path,
-            "run_time": "2026-06-17T20:00:00",
-            "forecast_hours": [24],
-            "data_code": None,
-            "force": False,
-            "background": False,
-        }
+    assert waits == [
+        (str(tmp_path), "2026-06-17T20:00:00", 24, None),
     ]
+
+
+def test_nafp_situation_cache_coalesces_concurrent_cold_requests(monkeypatch, tmp_path):
+    nafp_cache.clear_nafp_situation_cache()
+    monkeypatch.setattr(nafp_cache, "_extend_result_safely", lambda result, _key: result)
+    started = threading.Event()
+    release = threading.Event()
+    contender_entered = threading.Event()
+    calls = []
+    results = []
+
+    def slow_compute(*, root, run_time, forecast_hour):
+        calls.append((str(root), run_time, forecast_hour))
+        started.set()
+        assert release.wait(2)
+        return fake_situation_result(run_time, forecast_hour)
+
+    def invoke(mark_contender=False):
+        if mark_contender:
+            contender_entered.set()
+        results.append(
+            nafp_cache.get_or_compute_nafp_situation(
+                root=tmp_path,
+                run_time="2026-06-17T20:00:00",
+                forecast_hour=24,
+                compute=slow_compute,
+            )
+        )
+
+    owner = threading.Thread(target=invoke)
+    contender = threading.Thread(target=invoke, kwargs={"mark_contender": True})
+    owner.start()
+    assert started.wait(1)
+    contender.start()
+    assert contender_entered.wait(1)
+    time.sleep(0.05)
+
+    assert len(calls) == 1
+
+    release.set()
+    owner.join(2)
+    contender.join(2)
+
+    assert not owner.is_alive()
+    assert not contender.is_alive()
+    assert len(calls) == 1
+    assert {meta["cache_status"] for _, meta in results} == {"computed", "waited"}
+
+
+def _prepare_precompute_runtime(monkeypatch, tmp_path, *, start_worker: bool):
+    precompute_dir = tmp_path / "nafp_precompute"
+    monkeypatch.setattr(nafp_precompute, "PRECOMPUTE_DIR", precompute_dir)
+    monkeypatch.setattr(nafp_precompute, "RESULT_DIR", precompute_dir / "results")
+    monkeypatch.setattr(nafp_precompute, "STATE_PATH", precompute_dir / "state.json")
+    monkeypatch.setattr(nafp_precompute, "_jobs", {})
+    monkeypatch.setattr(nafp_precompute, "_current_job_id", None)
+    monkeypatch.setattr(nafp_precompute, "_last_loaded", True)
+    monkeypatch.setattr(nafp_precompute, "_active_flights", {})
+    monkeypatch.setattr(nafp_precompute, "_active_job_ids", set())
+    monkeypatch.setattr(nafp_precompute, "_job_queue", queue.Queue())
+    monkeypatch.setattr(nafp_precompute, "_worker_thread", None)
+    if not start_worker:
+        monkeypatch.setattr(nafp_precompute, "_ensure_worker_locked", lambda: None)
+
+
+def test_precompute_uses_isolated_process_compute_by_default(monkeypatch, tmp_path):
+    _prepare_precompute_runtime(monkeypatch, tmp_path, start_worker=False)
+    calls = []
+
+    def fake_isolated_compute(*, root, run_time, forecast_hour):
+        calls.append((str(root), run_time, forecast_hour))
+        return fake_situation_result(run_time, forecast_hour)
+
+    monkeypatch.setattr(nafp_precompute, "diagnose_nafp_situation_isolated", fake_isolated_compute)
+    monkeypatch.setattr(nafp_cache, "_extend_result_safely", lambda result, _key: result)
+
+    job = nafp_precompute.submit_precompute_job(
+        root=tmp_path,
+        run_time="2026-06-17T20:00:00",
+        forecast_hours=[24],
+        data_code="TEST",
+        background=False,
+    )
+
+    assert job["status"] == "completed"
+    assert calls == [(str(tmp_path.resolve()), "2026-06-17T20:00:00", 24)]
+    assert job["execution_mode"] == "isolated_process"
+
+
+def test_precompute_reuses_active_job_for_the_same_forecast_hour(monkeypatch, tmp_path):
+    _prepare_precompute_runtime(monkeypatch, tmp_path, start_worker=False)
+
+    first = nafp_precompute.submit_precompute_job(
+        root=tmp_path,
+        run_time="2026-06-17T20:00:00",
+        forecast_hours=[24],
+        data_code="TEST",
+        background=True,
+    )
+    second = nafp_precompute.submit_precompute_job(
+        root=tmp_path,
+        run_time="2026-06-17T20:00:00",
+        forecast_hours=[24],
+        data_code="TEST",
+        background=True,
+    )
+
+    assert second["job_id"] == first["job_id"]
+    assert second["deduplicated"] is True
+    assert len(nafp_precompute._jobs) == 1
+
+
+def test_precompute_background_jobs_run_with_one_worker(monkeypatch, tmp_path):
+    _prepare_precompute_runtime(monkeypatch, tmp_path, start_worker=True)
+    monkeypatch.setattr(nafp_cache, "_extend_result_safely", lambda result, _key: result)
+    active = 0
+    max_active = 0
+    guard = threading.Lock()
+
+    def slow_compute(*, root, run_time, forecast_hour):
+        nonlocal active, max_active
+        with guard:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.05)
+        with guard:
+            active -= 1
+        return fake_situation_result(run_time, forecast_hour)
+
+    monkeypatch.setattr(nafp_precompute, "diagnose_nafp_situation_isolated", slow_compute)
+    jobs = [
+        nafp_precompute.submit_precompute_job(
+            root=tmp_path,
+            run_time="2026-06-17T20:00:00",
+            forecast_hours=[hour],
+            data_code="TEST",
+            background=True,
+        )
+        for hour in (3, 6)
+    ]
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        if all(nafp_precompute._jobs[job["job_id"]]["status"] == "completed" for job in jobs):
+            break
+        time.sleep(0.01)
+
+    assert all(nafp_precompute._jobs[job["job_id"]]["status"] == "completed" for job in jobs)
+    assert max_active == 1
+
+
+def test_auto_precompute_defaults_to_the_map_initial_forecast_hour(monkeypatch, tmp_path):
+    submitted = []
+    monkeypatch.delenv("WEATHER_DIAG_PRECOMPUTE_MAX_HOURS", raising=False)
+    monkeypatch.delenv("WEATHER_DIAG_PRECOMPUTE_DEFAULT_HOUR", raising=False)
+    monkeypatch.setattr(
+        data_sources_service,
+        "discover_nafp_run_inventory",
+        lambda **_kwargs: {
+            "run_times": [
+                {
+                    "run_time": "2026-06-17T20:00:00",
+                    "forecast_hours": [0, 3, 6, 24, 48],
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr(data_sources_service, "resolve_data_root", lambda _code: tmp_path)
+    monkeypatch.setattr(
+        nafp_precompute,
+        "submit_precompute_job",
+        lambda **kwargs: submitted.append(kwargs) or {"status": "queued"},
+    )
+
+    result = nafp_precompute.autostart_precompute_for_latest(
+        {
+            "default_code": "TEST",
+            "items": [{"code": "TEST", "forecast_hours": [0, 3, 6, 24, 48]}],
+        }
+    )
+
+    assert result["status"] == "queued"
+    assert submitted[0]["forecast_hours"] == [24]
+
+
+def test_nafp_run_inventory_reuses_short_ttl_cache(monkeypatch, tmp_path):
+    data_sources_service.clear_nafp_run_inventory_cache()
+    calls = []
+
+    def fake_discover(*, data_root, data_code, element, level, max_run_times):
+        calls.append((data_root, data_code, element, level, max_run_times))
+        return {
+            "data_code": data_code,
+            "root": str(data_root),
+            "probe": {"element": element, "level": level},
+            "default_run_time": "2026-06-17T20:00:00",
+            "run_times": [{"run_time": "2026-06-17T20:00:00", "forecast_hours": [0, 24]}],
+        }
+
+    monkeypatch.setattr(data_sources_service, "_discover_nafp_run_inventory_uncached", fake_discover)
+
+    first = data_sources_service.discover_nafp_run_inventory(root=tmp_path, data_code="TEST")
+    second = data_sources_service.discover_nafp_run_inventory(root=tmp_path, data_code="TEST")
+
+    assert first == second
+    assert len(calls) == 1
 
 
 def test_nafp_features_endpoint_returns_all_selected_map_system_types():
